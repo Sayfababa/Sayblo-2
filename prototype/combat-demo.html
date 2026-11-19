@@ -1,0 +1,753 @@
+<title>Grimlight Combat Demo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Alegreya+Sans:wght@400;500;700&display=swap">
+<style>
+/* Layout: one-screen game UI. Phone = one pane + bottom tabs; desktop = fight pane left, menus right. Single dark theme by choice (gothic dungeon UI). */
+:root{
+  --bg:#130f10; --panel:#1c1718; --panel2:#251f1f; --line:#3b3231; --line2:#55473f;
+  --bone:#e4d8c3; --muted:#9b8e7f; --gold:#c9a557;
+  --life:#a8232a; --life2:#5c1216; --mana:#3352c2; --mana2:#18245a; --barrier:#a6dcf0; --xp:#c9a557;
+  --fire:#ef6c3c; --cold:#74cbee; --light:#e9d65e;
+  --r0:#d8d0c2; --r1:#7f98ff; --r2:#e8cc5c; --r3:#d08a40;
+  --good:#86c46f; --bad:#e3625b;
+  --f-display:'Cinzel', Georgia, 'Times New Roman', serif;
+  --f-body:'Alegreya Sans', 'Segoe UI', system-ui, sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--bone)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.4;
+  padding-left:max(16px, env(safe-area-inset-left,0px));padding-right:max(16px, env(safe-area-inset-right,0px));
+  padding-block:0 calc(72px + env(safe-area-inset-bottom,0px));
+  background:radial-gradient(120% 60% at 50% 0%, #1f1617 0%, var(--bg) 60%) fixed, var(--bg)}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+h2,h3{font-family:var(--f-display);font-weight:700;letter-spacing:.04em;margin:0;text-wrap:balance}
+h2{font-size:1.05rem;color:var(--gold)}
+h3{font-size:.85rem;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
+.fire{color:var(--fire)} .cold{color:var(--cold)} .light{color:var(--light)}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding-block:12px 10px;border-bottom:1px solid var(--line);max-width:1200px;margin:0 auto}
+.brand{font-family:var(--f-display);font-weight:700;font-size:1.25rem;letter-spacing:.08em;color:var(--gold);line-height:1}
+.brand small{display:block;font-family:var(--f-body);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-top:3px}
+.top .spacer{flex:1}
+.zonesel{background:var(--panel);border:1px solid var(--line2);border-radius:4px;padding:6px 8px;max-width:100%}
+.seg{display:inline-flex;border:1px solid var(--line2);border-radius:4px;overflow:hidden}
+.seg button{background:var(--panel);border:0;padding:6px 10px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--panel2);color:var(--gold)}
+.gold{color:var(--gold);font-weight:700}
+
+/* grid */
+.grid{max-width:1200px;margin:0 auto;display:grid;gap:18px;padding-top:14px}
+@media (min-width:920px){
+  .grid{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);align-items:start}
+  .tab-fight{display:none!important}
+  .side{position:sticky;top:12px}
+}
+@media (max-width:919px){
+  .app[data-tab="fight"] .side{display:none}
+  .app:not([data-tab="fight"]) .fight{display:none}
+}
+.pane{min-width:0}
+
+/* fight pane */
+.zonehead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.zonehead .meta{color:var(--muted);font-size:.85rem}
+.prog{height:4px;background:var(--panel2);border-radius:2px;margin:8px 0 12px;overflow:hidden}
+.prog i{display:block;height:100%;background:var(--gold);width:0;transition:width .3s}
+
+.enemies{display:grid;gap:8px;min-height:236px;align-content:start}
+.enemy{position:relative;display:grid;grid-template-columns:44px minmax(0,1fr);gap:10px;align-items:center;
+  background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 10px;transition:opacity .4s}
+.enemy.r1{border-color:#4d5a8f}
+.enemy.r2{border-color:#8a7430;background:linear-gradient(90deg, #2a2316, var(--panel) 60%)}
+.enemy.r3{border-color:var(--r3);background:linear-gradient(90deg, #2e1d12, var(--panel) 70%);padding:12px}
+.enemy.dead{opacity:.28}
+.sigil{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-family:var(--f-display);font-weight:700;font-size:.9rem;
+  background:var(--panel2);border:2px solid currentColor}
+.ename{font-weight:700;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.tag{font-size:.66rem;text-transform:uppercase;letter-spacing:.12em;padding:1px 6px;border-radius:3px;border:1px solid currentColor}
+.tag.r1{color:var(--r1)} .tag.r2{color:var(--r2)} .tag.r3{color:var(--r3)}
+.esub{color:var(--muted);font-size:.8rem}
+.esub b{font-weight:500}
+.hp{position:relative;height:8px;background:#2b1214;border-radius:2px;margin-top:6px;overflow:hidden}
+.hp i{position:absolute;inset:0 auto 0 0;background:var(--life);width:100%}
+.hp b{position:absolute;inset:0 auto 0 0;background:var(--barrier);opacity:.75;width:0}
+.status{display:flex;gap:6px;margin-top:4px;min-height:16px;font-size:.72rem}
+.status span{padding:0 5px;border-radius:3px;background:var(--panel2)}
+.fl{position:absolute;right:10px;top:4px;pointer-events:none;width:120px;height:100%}
+.f{position:absolute;right:0;top:20px;font-weight:700;font-variant-numeric:tabular-nums;text-shadow:0 1px 2px #000;animation:up .9s ease-out forwards;white-space:nowrap}
+.f.crit{font-size:1.25rem}
+.f.dodge,.f.heal{color:var(--good)} .f.barrier{color:var(--barrier)}
+@keyframes up{from{transform:translateY(0);opacity:1}to{transform:translateY(-26px);opacity:0}}
+@media (prefers-reduced-motion:reduce){.f{animation:fade .9s forwards}@keyframes fade{to{opacity:0}}.prog i{transition:none}}
+
+.notice{background:var(--panel);border:1px dashed var(--line2);border-radius:6px;padding:16px;text-align:center;display:grid;gap:10px;justify-items:center}
+.notice p{margin:0;color:var(--muted)}
+
+/* hero box */
+.hero{margin-top:14px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px;display:grid;gap:8px;position:relative}
+.herohead{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline}
+.herohead .who{font-family:var(--f-display);font-weight:700}
+.bar{position:relative;height:18px;border-radius:3px;overflow:hidden;background:var(--life2)}
+.bar.mana{background:var(--mana2)}
+.bar i{position:absolute;inset:0 auto 0 0;background:var(--life)}
+.bar.mana i{background:var(--mana)}
+.bar span{position:relative;display:block;text-align:center;font-size:.75rem;line-height:18px;font-weight:700;text-shadow:0 1px 2px #000}
+.thin{height:5px;border-radius:2px;background:var(--panel2);overflow:hidden;position:relative}
+.thin i{position:absolute;inset:0 auto 0 0;background:var(--barrier)}
+.thin.xp i{background:var(--xp)}
+.lbl{display:flex;justify-content:space-between;font-size:.72rem;color:var(--muted);margin-bottom:2px}
+.cast{display:flex;gap:8px;align-items:center;font-size:.8rem;color:var(--muted)}
+.cast .thin{flex:1}
+.cast .thin i{background:var(--bone)}
+.skillbar{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.sk{position:relative;border:1px solid var(--line2);border-radius:6px;background:var(--panel2);padding:6px 4px;text-align:center;overflow:hidden;min-height:52px}
+.sk .ab{font-family:var(--f-display);font-weight:700;font-size:1rem}
+.sk .nm{font-size:.66rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sk .cdv{position:absolute;inset:auto 0 0 0;background:rgba(0,0,0,.6);height:0}
+.sk.flash{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset}
+.sk.empty{opacity:.4}
+.belt{display:flex;gap:10px;flex-wrap:wrap;font-size:.8rem;color:var(--muted)}
+.belt b{color:var(--bone)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;font-size:.75rem}
+.chips span{border:1px solid var(--line2);border-radius:3px;padding:1px 6px}
+
+.log{margin:14px 0 0;padding:10px 12px;list-style:none;background:#0e0b0c;border:1px solid var(--line);border-radius:6px;height:170px;overflow:auto;font-size:.8rem;display:flex;flex-direction:column;gap:2px}
+.log li{color:var(--muted)}
+.log .hit{color:#b9ad9b}
+.log .bad{color:var(--bad)} .log .good{color:var(--good)} .log .lvl{color:var(--gold);font-weight:700}
+.log .r1{color:var(--r1)} .log .r2{color:var(--r2)} .log .r3{color:var(--r3);font-weight:700}
+
+/* side panels */
+.panel{display:none;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;gap:14px}
+.panel.active{display:grid}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.btn{background:var(--panel2);border:1px solid var(--line2);border-radius:4px;padding:5px 10px}
+.btn:hover:not(:disabled){border-color:var(--gold)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.primary{border-color:var(--gold);color:var(--gold)}
+.btn.sm{padding:2px 8px;font-size:.8rem}
+.kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px 16px;font-size:.85rem}
+.kv div{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid var(--line);padding:2px 0}
+.kv span{color:var(--muted)}
+.attr{display:grid;grid-template-columns:90px 40px minmax(0,1fr) auto;gap:8px;align-items:center;font-size:.85rem;padding:4px 0;border-bottom:1px solid var(--line)}
+.attr .v{font-weight:700;text-align:right}
+.attr .d{color:var(--muted);font-size:.78rem}
+.eq{display:grid;gap:6px}
+.eqs{display:grid;grid-template-columns:70px minmax(0,1fr) auto;gap:8px;align-items:center;font-size:.85rem}
+.eqs .s{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.1em}
+.rn0{color:var(--r0)} .rn1{color:var(--r1)} .rn2{color:var(--r2)} .rn3{color:var(--r3)}
+.trees{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+.tree{border:1px solid var(--line);border-radius:6px;padding:10px;display:grid;gap:8px;align-content:start}
+.tree h3{display:flex;justify-content:space-between}
+.skill{display:grid;gap:2px;font-size:.82rem;padding-top:6px;border-top:1px solid var(--line)}
+.skill .t{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.skill .t b{font-size:.9rem}
+.skill .d{color:var(--muted)}
+.skill.locked{opacity:.55}
+.prio{display:grid;gap:6px}
+.prow{display:grid;grid-template-columns:22px minmax(0,1fr) minmax(0,1fr) auto;gap:6px;align-items:center}
+.prow select{background:var(--panel2);border:1px solid var(--line2);border-radius:4px;padding:5px;min-width:0;width:100%}
+.prow .ix{font-family:var(--f-display);color:var(--gold);text-align:center}
+.updn{display:flex;gap:2px}
+.hint{font-size:.8rem;color:var(--muted);margin:0}
+.items{display:grid;gap:8px}
+.item{border:1px solid var(--line);border-radius:6px;padding:8px 10px;display:grid;gap:4px;font-size:.82rem;background:var(--panel2)}
+.item .n{font-weight:700;font-size:.92rem}
+.item .b{color:var(--muted);font-size:.75rem}
+.item ul{margin:0;padding:0;list-style:none}
+.item li.imp{color:var(--bone);border-bottom:1px solid var(--line);padding-bottom:2px;margin-bottom:2px}
+.item li{color:#9fb0ff}
+.item.r0 li:not(.imp){color:var(--muted)}
+.cmp{font-size:.75rem;font-weight:700}
+.cmp.up{color:var(--good)} .cmp.down{color:var(--bad)}
+select.plain{background:var(--panel2);border:1px solid var(--line2);border-radius:4px;padding:5px}
+.range{display:grid;grid-template-columns:minmax(0,1fr) 48px;gap:8px;align-items:center;font-size:.85rem}
+.range input{width:100%;accent-color:var(--gold)}
+.check{display:flex;gap:8px;align-items:center;font-size:.88rem}
+.check input{accent-color:var(--gold);width:18px;height:18px}
+.scope{font-size:.82rem;color:var(--muted);display:grid;gap:6px}
+.scope ul{margin:0;padding-left:18px}
+.empty-state{color:var(--muted);font-size:.85rem;text-align:center;padding:20px 0}
+
+/* tabs */
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:5;display:flex;justify-content:center;gap:4px;background:#0d0a0b;border-top:1px solid var(--line);
+  padding:6px max(8px, env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px, env(safe-area-inset-left,0px))}
+.tabs button{flex:1;max-width:140px;background:none;border:0;border-radius:4px;padding:8px 4px;color:var(--muted);font-family:var(--f-display);font-weight:700;font-size:.82rem;letter-spacing:.06em;position:relative}
+.tabs button[aria-selected="true"]{color:var(--gold);background:var(--panel)}
+.tabs .dot{position:absolute;top:4px;right:calc(50% - 30px);width:7px;height:7px;border-radius:50%;background:var(--gold)}
+</style>
+
+<div class="app" id="app" data-tab="fight">
+  <header class="top">
+    <div class="brand">Grimlight<small>working title · combat demo</small></div>
+    <div class="spacer"></div>
+    <select class="zonesel" id="zonesel" aria-label="Area"></select>
+    <div class="seg" role="group" aria-label="Game speed" id="speedseg">
+      <button data-act="speed:1">1×</button><button data-act="speed:2">2×</button><button data-act="speed:4">4×</button>
+    </div>
+  </header>
+
+  <main class="grid">
+    <section class="pane fight" aria-label="Combat">
+      <div class="zonehead">
+        <h2 id="zname">Gallows Field</h2>
+        <div class="meta num" id="zmeta"></div>
+      </div>
+      <div class="prog"><i id="zprog"></i></div>
+      <div class="enemies" id="enemies"></div>
+
+      <div class="hero" id="hero">
+        <div class="fl" id="herofl" style="top:30px"></div>
+        <div class="herohead">
+          <span class="who">Sorceress · <span class="num" id="hlvl">Lv 1</span></span>
+          <span class="gold num" id="hgold">0 gold</span>
+        </div>
+        <div><div class="lbl"><span>Experience</span><span class="num" id="xptxt"></span></div><div class="thin xp"><i id="xpbar"></i></div></div>
+        <div><div class="lbl"><span>Barrier</span><span class="num" id="bartxt"></span></div><div class="thin"><i id="barbar"></i></div></div>
+        <div class="bar"><i id="lifebar"></i><span class="num" id="lifetxt"></span></div>
+        <div class="bar mana"><i id="manabar"></i><span class="num" id="manatxt"></span></div>
+        <div class="cast"><span id="castname">Ready</span><div class="thin"><i id="castbar"></i></div></div>
+        <div class="skillbar" id="skillbar"></div>
+        <div class="row">
+          <div class="belt num" id="belt"></div>
+          <div class="chips num" id="reschips"></div>
+        </div>
+      </div>
+
+      <ul class="log" id="log" aria-live="off"></ul>
+    </section>
+
+    <section class="pane side" aria-label="Menus">
+      <div class="panel" id="p-hero"></div>
+      <div class="panel" id="p-skills"></div>
+      <div class="panel" id="p-bag"></div>
+      <div class="panel" id="p-town"></div>
+    </section>
+  </main>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab-fight" role="tab" data-act="tab:fight">Fight</button>
+    <button role="tab" data-act="tab:hero">Hero<i class="dot" id="dot-hero" hidden></i></button>
+    <button role="tab" data-act="tab:skills">Skills<i class="dot" id="dot-skills" hidden></i></button>
+    <button role="tab" data-act="tab:bag">Bag</button>
+    <button role="tab" data-act="tab:town">Town</button>
+  </nav>
+</div>
+
+<script>
+(()=>{
+'use strict';
+const $=s=>document.querySelector(s);
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const ri=(a,b)=>Math.floor(rnd(a,b+1));
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt=n=>n>=100000?Math.round(n/1000)+'k':n>=10000?(n/1000).toFixed(1)+'k':String(Math.round(n));
+let UID=1; const uid=()=>UID++;
+
+/* ---------- data ---------- */
+const EL={fire:'Fire',cold:'Cold',light:'Lightning'};
+const TREES={ember:{n:'Ember',el:'fire',d:'Raw fire: big hits and burning.'},frost:{n:'Frost',el:'cold',d:'Control and protection.'},storm:{n:'Storm',el:'light',d:'Wild damage that jumps between foes.'}};
+const SK={
+  fireball:{n:'Fireball',ab:'FB',tree:'ember',el:'fire',type:'single',mana:5,cd:0,min:6,max:11,req:1,d:'Hurls a ball of fire at one enemy.'},
+  meteor:{n:'Meteor',ab:'ME',tree:'ember',el:'fire',type:'aoe',mana:16,cd:6,min:14,max:24,req:6,burn:.5,d:'Hits every enemy, then burns them for 50% more over 3s. 6s cooldown.'},
+  frostbolt:{n:'Frost Bolt',ab:'FR',tree:'frost',el:'cold',type:'single',mana:3,cd:0,min:4,max:7,req:1,chill:3,d:'Cheap bolt. Chilled enemies attack 40% slower for 3s.'},
+  frostarmor:{n:'Frost Armor',ab:'FA',tree:'frost',el:'cold',type:'buff',mana:10,cd:1,req:3,dur:30,d:'Adds 6 + 6 per level barrier for 30s.'},
+  chain:{n:'Chain Lightning',ab:'CL',tree:'storm',el:'light',type:'chain',mana:8,cd:0,min:1,max:20,req:1,jumps:3,d:'Arcs through up to 3 enemies, 15% weaker per jump.'},
+  nova:{n:'Static Nova',ab:'SN',tree:'storm',el:'light',type:'aoe',mana:12,cd:3,min:3,max:15,req:4,d:'Shocks every enemy. 3s cooldown.'}
+};
+const SPARK={n:'Staff Spark',el:'light',type:'single',min:1,max:4};
+const COND={always:'Always',notActive:'When not active',enemies3:'3+ enemies',elite:'Elite or boss present',manaHigh:'Mana above 50%',notChilled:'Target not chilled'};
+const MON={
+  imp:{n:'Ember Imp',el:'fire',hp:1,dmg:1,spd:1.4},
+  wraith:{n:'Bog Wraith',el:'cold',hp:1.2,dmg:.85,spd:1.8},
+  beetle:{n:'Spark Beetle',el:'light',hp:.8,dmg:1.1,spd:1.2},
+  hound:{n:'Cinder Hound',el:'fire',hp:1,dmg:1.15,spd:1.1},
+  cultist:{n:'Ashen Cultist',el:'fire',hp:1.3,dmg:1.3,spd:1.7},
+  crow:{n:'Storm Crow',el:'light',hp:.7,dmg:1,spd:1},
+  husk:{n:'Thunder Husk',el:'light',hp:1.6,dmg:1.2,spd:2},
+  shade:{n:'Frost Shade',el:'cold',hp:1,dmg:1.2,spd:1.5},
+  ghoul:{n:'Rime Ghoul',el:'cold',hp:1.5,dmg:1.1,spd:1.8},
+  vesper:{n:'Mother Vesper',el:'fire',hp:1,dmg:1,spd:1.6}
+};
+const ZONES=[
+  {n:'Gallows Field',L:1,waves:5,pool:['imp','wraith']},
+  {n:'Weeping Mire',L:3,waves:6,pool:['wraith','beetle']},
+  {n:'Cinder Hollow',L:5,waves:6,pool:['hound','imp','cultist']},
+  {n:'Stormwatch Ruins',L:7,waves:7,pool:['crow','beetle','husk']},
+  {n:'Rimefrost Crypt',L:9,waves:7,pool:['shade','ghoul']},
+  {n:'The Pale Chapel',L:11,waves:4,pool:['cultist','shade'],boss:'vesper'}
+];
+const RANK=[{n:'',hp:1,dmg:1,xp:1,g:1},{n:'Champion',hp:3,dmg:1.4,xp:3,g:2},{n:'Elite',hp:5,dmg:1.7,xp:6,g:4},{n:'Boss',hp:24,dmg:2,xp:30,g:15}];
+const MODS=['Fast','Warded','Vampiric','Enchanted','Mighty'];
+const EA=['Gorefang','Ashmaw','Grimwick','Hollowcall','Sorrowkin','Vellum','Moldtongue','Rotbell','Cinderjaw','Hesk'];
+const EB=['the Cruel','the Unwept','the Hungry','the Lantern-Eater','the Gnawing','Twice-Buried','of the Mire','the Ashen'];
+
+const SLOTS=['weapon','helm','armor','amulet','ring'];
+const SLOTN={weapon:'Staff',helm:'Helm',armor:'Armor',amulet:'Amulet',ring:'Ring'};
+const BASES={weapon:['Gnarled Staff','Bone Wand','Ritual Staff'],helm:['Hood','Circlet','Cowl'],armor:['Robe','Vestments','Shroud'],amulet:['Amulet','Talisman','Locket'],ring:['Ring','Band','Loop']};
+const IMPL={weapon:['spellDmg',l=>8+l*2],helm:['barrier',l=>4+l*1.5],armor:['life',l=>6+l*3],amulet:['mana',l=>5+l*2]};
+const A=(t,p,v,w,s,dec)=>({t,p,v,w,s,dec});
+const AFF={
+  life:A('to Life',0,l=>3+l*2.2,1,'Vigor'),
+  mana:A('to Mana',0,l=>3+l*1.6,.6,'the Well'),
+  spellDmg:A('Spell Damage',1,l=>3+l*1.2,2,'Sorcery'),
+  fireDmg:A('Fire Damage',1,l=>4+l*1.6,1.4,'Embers'),
+  coldDmg:A('Cold Damage',1,l=>4+l*1.6,1.4,'Rime'),
+  lightDmg:A('Lightning Damage',1,l=>4+l*1.6,1.4,'Storms'),
+  fireRes:A('Fire Resist',1,l=>5+l*1.2,1,'Ash Warding'),
+  coldRes:A('Cold Resist',1,l=>5+l*1.2,1,'Thaw'),
+  lightRes:A('Lightning Resist',1,l=>5+l*1.2,1,'Grounding'),
+  allRes:A('All Resists',1,l=>2+l*.6,3,'the Ward'),
+  barrier:A('to Barrier',0,l=>3+l*1.3,1.2,'Shielding'),
+  castSpeed:A('Cast Speed',1,l=>3+l*.6,2.5,'Haste'),
+  crit:A('Crit Chance',1,l=>1+l*.3,3,'Ruin'),
+  dodge:A('Dodge',1,l=>1+l*.3,3,'the Shade'),
+  manaRegen:A('Mana per second',0,l=>.3+l*.12,6,'Flow',1),
+  power:A('to Power',0,l=>1+l*.4,2.5,'Might'),
+  focus:A('to Focus',0,l=>1+l*.4,2.5,'Focus'),
+  spirit:A('to Spirit',0,l=>1+l*.4,2,'Spirit'),
+  vit:A('to Vitality',0,l=>1+l*.4,2,'Life')
+};
+const UNIQ={
+  weapon:{n:"Vesper's Lantern",m:['spellDmg','fireDmg','castSpeed','manaRegen','mana']},
+  helm:{n:'Crown of Cinders',m:['barrier','fireRes','fireDmg','power','life']},
+  armor:{n:'Shroud of the Drowned Saint',m:['life','coldRes','allRes','coldDmg','barrier']},
+  amulet:{n:'The Tolling Bell',m:['lightDmg','crit','spirit','mana','castSpeed']},
+  ring:{n:'Gravewhisper',m:['manaRegen','focus','allRes','dodge','spellDmg']}
+};
+const RA=['Grim','Pale','Hollow','Blight','Dusk','Woe','Carrion','Bone','Storm','Ash','Gloam','Rot'];
+const RB=['Veil','Crown','Shroud','Spire','Coil','Mark','Whisper','Ward','Eye','Song','Knell','Bough'];
+const RN=['Normal','Magic','Rare','Unique'];
+const ATTR={power:['Power','+1% spell damage'],focus:['Focus','+1% cast speed, +0.4% crit'],spirit:['Spirit','+2 mana, +0.1 mana/s'],vit:['Vitality','+3 life, +0.04 life/s']};
+
+/* ---------- state ---------- */
+const KEY='grimlight-demo-v1';
+function newState(){return {v:1,lvl:1,xp:0,gold:30,attrs:{power:5,focus:5,spirit:10,vit:10},attrPts:0,skillPts:1,skills:{fireball:1},
+  slots:[{id:'fireball',cond:'always'},{id:null,cond:'always'},{id:null,cond:'always'},{id:null,cond:'always'}],
+  equip:{weapon:null,helm:null,armor:null,amulet:null,ring:null},bag:[],filter:0,hpPot:8,mpPot:8,hpTh:40,mpTh:25,
+  zone:0,unlocked:1,autoAdvance:true,autoReturn:true,speed:1,life:null,mana:null,barrier:0,kills:0,deaths:0};}
+let S;
+const R={phase:'pause',pauseT:.5,wave:0,monsters:[],refs:{},cd:{},buffs:{},faAmt:0,castT:0,castDur:1,last:null,flash:0,potH:0,potM:0,noHit:9,
+  townT:0,returnZone:0,bossSpawned:false,log:[],logDirty:true,dirty:{hero:1,skills:1,bag:1,town:1,slots:1,zones:1},tab:'fight',st:null,resetArm:false};
+
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.v===1)return s;}catch(e){}return null;}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+
+/* ---------- stats ---------- */
+function calc(){
+  const m={};for(const it of Object.values(S.equip))if(it)for(const [k,v] of it.mods)m[k]=(m[k]||0)+v;
+  const g=k=>m[k]||0;
+  const a={power:S.attrs.power+g('power'),focus:S.attrs.focus+g('focus'),spirit:S.attrs.spirit+g('spirit'),vit:S.attrs.vit+g('vit')};
+  const res=k=>clamp(g(k+'Res')+g('allRes'),-100,75);
+  return {a,maxLife:Math.round(40+a.vit*3+(S.lvl-1)*5+g('life')),maxMana:Math.round(20+a.spirit*2+(S.lvl-1)*2+g('mana')),
+    manaRegen:1.5+a.spirit*.1+g('manaRegen'),lifeRegen:.3+a.vit*.04,castSpeed:a.focus+g('castSpeed'),
+    crit:Math.min(60,5+a.focus*.4+g('crit')),spellDmg:a.power+g('spellDmg'),
+    el:{fire:g('fireDmg'),cold:g('coldDmg'),light:g('lightDmg')},res:{fire:res('fire'),cold:res('cold'),light:res('light')},
+    barrier:g('barrier'),dodge:Math.min(40,g('dodge'))};
+}
+function recalc(){R.st=calc();S.life=Math.min(S.life,R.st.maxLife);S.mana=Math.min(S.mana,R.st.maxMana);S.barrier=Math.min(S.barrier,maxBarrier());}
+const maxBarrier=()=>R.st.barrier+(R.buffs.frostarmor>0?R.faAmt:0);
+const castTime=()=>1/(1+R.st.castSpeed/100);
+const need=l=>Math.round(30*Math.pow(1.36,l-1)+20*l);
+function skMult(id){const s=SK[id];const lv=S.skills[id]||0;let syn=0;for(const k in SK)if(k!==id&&SK[k].tree===s.tree)syn+=S.skills[k]||0;return (1+.22*(lv-1))*(1+.08*syn);}
+const manaCost=id=>Math.round(SK[id].mana*(1+.06*((S.skills[id]||1)-1)));
+function dmgRange(id){const s=SK[id];const f=skMult(id)*(1+(R.st.spellDmg+R.st.el[s.el])/100);return [Math.round(s.min*f),Math.round(s.max*f)];}
+
+/* ---------- log & floaters ---------- */
+function log(html,cls=''){R.log.unshift({html,cls});if(R.log.length>60)R.log.length=60;R.logDirty=true;}
+function floatAt(box,text,cls){if(!box||box.childElementCount>5)return;const s=document.createElement('span');s.className='f '+cls;s.textContent=text;s.style.right=ri(0,40)+'px';box.appendChild(s);setTimeout(()=>s.remove(),900);}
+const heroFloat=(t,c)=>floatAt($('#herofl'),t,c);
+
+/* ---------- monsters ---------- */
+function mkMon(def,L,rank){
+  const d=MON[def],rm=RANK[rank];
+  const hp=Math.round(18*Math.pow(1.17,L-1)*d.hp*rm.hp);
+  const m={id:uid(),def,L,rank,el:d.el,hp,maxHp:hp,dmg:2.4*Math.pow(1.15,L-1)*d.dmg*rm.dmg,spd:d.spd,atkT:rnd(.6,d.spd+.4),
+    chill:0,burn:0,burnDps:0,mods:[],ward:0,maxWard:0,vamp:false,res:{fire:0,cold:0,light:0},name:d.n,sub:d.n};
+  m.res[d.el]=.25;
+  if(rank===1){m.name=d.n;}
+  if(rank===2){
+    m.name=pick(EA)+' '+pick(EB);
+    m.mods=shuffle(MODS).slice(0,ri(1,3));
+    for(const x of m.mods){
+      if(x==='Fast')m.spd*=.6;
+      if(x==='Warded'){m.ward=m.maxWard=Math.round(hp*.3);}
+      if(x==='Vampiric')m.vamp=true;
+      if(x==='Enchanted'){m.res[d.el]+=.4;m.dmg*=1.3;}
+      if(x==='Mighty')m.dmg*=1.6;
+    }
+  }
+  if(rank===3){m.name='Mother Vesper';m.sub='The Pale Abbess';m.res={fire:.4,cold:.2,light:.2};m.boss=true;m.specT=6;m.phase2=false;}
+  return m;
+}
+function spawnWave(){
+  const z=ZONES[S.zone];const n=1+ri(0,2+Math.min(2,Math.floor(S.zone/2)));
+  R.monsters=[];
+  for(let i=0;i<n;i++){const r=Math.random();const rank=r<.03?2:r<.15?1:0;R.monsters.push(mkMon(pick(z.pool),z.L+(rank?1:0),rank));}
+  R.monsters.sort((a,b)=>b.rank-a.rank);
+  for(const m of R.monsters)if(m.rank===2)log(`An elite appears: <b>${esc(m.name)}</b> (${m.sub}) · ${m.mods.join(', ')}`,'r2');
+}
+function spawnBoss(){
+  const z=ZONES[S.zone];R.bossSpawned=true;
+  R.monsters=[mkMon(z.boss,z.L+2,3),mkMon(pick(z.pool),z.L,0)];
+  log('<b>Mother Vesper</b> rises from the altar. Her flames shift to frost when she is wounded.','r3');
+  R.phase='fight';renderWave();
+}
+
+/* ---------- zone flow ---------- */
+function enterZone(i){S.zone=i;R.phase='pause';R.pauseT=.8;R.wave=0;R.bossSpawned=false;R.monsters=[];renderWave();R.dirty.zones=1;
+  if(S.life<=0||S.life==null){S.life=R.st.maxLife;S.mana=R.st.maxMana;}
+  log(`Entering <b>${ZONES[i].n}</b> (monster level ${ZONES[i].L}).`);}
+function nextWave(){
+  const z=ZONES[S.zone];R.wave++;
+  if(R.wave>z.waves){if(z.boss&&!R.bossSpawned){spawnBoss();return;}zoneCleared();return;}
+  spawnWave();R.phase='fight';renderWave();
+}
+function zoneCleared(){
+  const z=ZONES[S.zone];log(`<b>${z.n}</b> cleared.`,'good');
+  if(S.zone+1>=S.unlocked&&S.zone+1<ZONES.length){S.unlocked=S.zone+2;log(`New area unlocked: <b>${ZONES[S.zone+1].n}</b>.`,'lvl');R.dirty.zones=1;}
+  if(z.boss)log('Act I is complete. This is the end of the demo. Keep farming for loot.','lvl');
+  enterZone(S.autoAdvance&&S.zone+1<S.unlocked?S.zone+1:S.zone);
+}
+
+/* ---------- combat ---------- */
+function regen(dt){
+  const st=R.st;S.mana=Math.min(st.maxMana,S.mana+st.manaRegen*dt);S.life=Math.min(st.maxLife,S.life+st.lifeRegen*dt);
+  R.noHit+=dt;const mb=maxBarrier();if(R.noHit>2.5&&S.barrier<mb)S.barrier=Math.min(mb,S.barrier+mb*.25*dt);
+}
+function condOk(c,id,alive){
+  switch(c){case 'notActive':return !(R.buffs[id]>0);case 'enemies3':return alive.length>=3;case 'elite':return alive.some(m=>m.rank>=2);
+  case 'manaHigh':return S.mana/R.st.maxMana>.5;case 'notChilled':return alive.some(m=>m.chill<=0);default:return true;}
+}
+function target(c,alive){if(c==='elite')return alive.find(m=>m.rank>=2)||alive[0];if(c==='notChilled')return alive.find(m=>m.chill<=0)||alive[0];return alive[0];}
+function heroAct(){
+  const alive=R.monsters.filter(m=>m.hp>0);if(!alive.length)return;
+  for(const sl of S.slots){
+    if(!sl.id)continue;const id=sl.id,sk=SK[id];if(!(S.skills[id]>0))continue;
+    if((R.cd[id]||0)>0)continue;const cost=manaCost(id);if(S.mana<cost)continue;
+    if(sk.type==='buff'&&R.buffs[id]>3)continue;
+    if(!condOk(sl.cond,id,alive))continue;
+    S.mana-=cost;R.cd[id]=sk.cd;cast(id,sl.cond,alive);R.castT=R.castDur=castTime();R.last=id;R.flash=.35;return;
+  }
+  cast('spark','always',alive);R.castT=R.castDur=castTime()*1.3;R.last='spark';
+}
+function cast(id,cond,alive){
+  const sk=id==='spark'?SPARK:SK[id];
+  if(sk.type==='buff'){const lv=S.skills[id];R.faAmt=6+6*lv;R.buffs[id]=sk.dur;S.barrier=Math.min(maxBarrier(),S.barrier+R.faAmt);heroFloat('+'+R.faAmt+' Barrier','barrier');log(`${sk.n}: +${R.faAmt} barrier for ${sk.dur}s.`,'hit');return;}
+  if(sk.type==='single'){const t=target(cond,alive);const d=hit(t,id,1);log(`${sk.n} hits ${esc(t.name)} for <span class="${sk.el}">${d.n}</span>${d.c?' (crit)':''}`,'hit');return;}
+  if(sk.type==='aoe'){let tot=0;for(const m of alive)tot+=hit(m,id,1).n;log(`${sk.n} hits ${alive.length} ${alive.length>1?'enemies':'enemy'} for <span class="${sk.el}">${tot}</span>`,'hit');return;}
+  if(sk.type==='chain'){const t=target(cond,alive);const ts=[t,...shuffle(alive.filter(x=>x!==t)).slice(0,sk.jumps-1)];let mult=1,tot=0;for(const m of ts){tot+=hit(m,id,mult).n;mult*=.85;}log(`${sk.n} arcs through ${ts.length} for <span class="light">${tot}</span>`,'hit');}
+}
+function hit(m,id,mult){
+  const sk=id==='spark'?SPARK:SK[id];const st=R.st;
+  const sm=id==='spark'?(1+.12*(S.lvl-1)):skMult(id);
+  let dmg=rnd(sk.min,sk.max)*sm*(1+(st.spellDmg+st.el[sk.el])/100)*mult;
+  const c=Math.random()*100<st.crit;if(c)dmg*=1.5;
+  dmg*=1-m.res[sk.el];
+  const n=Math.max(1,Math.round(dmg));
+  floatAt(R.refs[m.id]&&R.refs[m.id].fl,n+(c?'!':''),sk.el+(c?' crit':''));
+  if(sk.chill)m.chill=sk.chill;
+  if(sk.burn){m.burn=3;m.burnDps=n*sk.burn/3;}
+  dmgMon(m,n);
+  return {n,c};
+}
+function dmgMon(m,amt){
+  if(m.hp<=0)return;
+  if(m.ward>0){const a=Math.min(m.ward,amt);m.ward-=a;amt-=a;}
+  m.hp-=amt;
+  if(m.boss&&!m.phase2&&m.hp<m.maxHp/2){m.phase2=true;m.el='cold';m.res={fire:.2,cold:.4,light:.2};log('Mother Vesper\'s flame gutters out. Frost pours from her robes.','r3');}
+  if(m.hp<=0)kill(m);
+}
+function monAttack(m,mult=1,label){
+  const st=R.st;
+  if(!label&&Math.random()*100<st.dodge){heroFloat('Dodge','dodge');return;}
+  let d=m.dmg*rnd(.85,1.15)*mult*(1-st.res[m.el]/100);const total=d;
+  R.noHit=0;
+  if(S.barrier>0){const a=Math.min(S.barrier,d);S.barrier-=a;d-=a;}
+  S.life-=d;
+  heroFloat('-'+Math.max(1,Math.round(total)),m.el);
+  if(m.vamp)m.hp=Math.min(m.maxHp,m.hp+total*.3);
+  if(label)log(`<b>${esc(m.name)}</b> casts ${label} for <span class="${m.el}">${Math.round(total)}</span> ${EL[m.el]} damage!`,'bad');
+}
+function potions(){
+  const st=R.st;
+  if(S.hpPot>0&&R.potH<=0&&S.life/st.maxLife*100<S.hpTh){S.hpPot--;const h=Math.round(st.maxLife*.4);S.life=Math.min(st.maxLife,S.life+h);R.potH=4;heroFloat('+'+h,'heal');log(`Drank a health potion (+${h}). ${S.hpPot} left.`,'good');}
+  if(S.mpPot>0&&R.potM<=0&&S.mana/st.maxMana*100<S.mpTh){S.mpPot--;const h=Math.round(st.maxMana*.5);S.mana=Math.min(st.maxMana,S.mana+h);R.potM=4;log(`Drank a mana potion (+${h}). ${S.mpPot} left.`,'good');}
+}
+function kill(m){
+  m.hp=0;S.kills++;const rk=RANK[m.rank];
+  gainXp(Math.round(5*Math.pow(1.22,m.L-1)*rk.xp));
+  const g=Math.round(m.L*rnd(1,3)*rk.g);S.gold+=g;
+  if(m.rank>=1)log(`${rk.n} <b>${esc(m.name)}</b> slain.`,m.rank>=2?'r2':'');
+  let n=0,minR=0;
+  if(m.rank===0)n=Math.random()<.16?1:0;else if(m.rank===1)n=ri(1,2);else if(m.rank===2){n=ri(2,3);minR=1;}else{n=4;minR=2;}
+  for(let i=0;i<n;i++)takeItem(genItem(m.L,minR,m.rank===3));
+}
+function gainXp(x){
+  S.xp+=x;
+  while(S.xp>=need(S.lvl)){S.xp-=need(S.lvl);S.lvl++;S.attrPts+=5;S.skillPts+=1;recalc();S.life=R.st.maxLife;S.mana=R.st.maxMana;
+    log(`Level ${S.lvl}! +5 attribute points, +1 skill point.`,'lvl');R.dirty.hero=R.dirty.skills=1;}
+}
+function die(){
+  S.deaths++;const xl=Math.floor(S.xp*.1),gl=Math.floor(S.gold*.2);S.xp-=xl;S.gold-=gl;
+  log(`You died. Lost ${xl} XP and ${gl} gold.`,'bad');
+  R.phase='town';R.townT=5;R.returnZone=Math.max(0,S.zone-1);R.monsters=[];R.buffs={};R.faAmt=0;R.cd={};
+  S.life=R.st.maxLife;S.mana=R.st.maxMana;S.barrier=0;renderWave();
+}
+function tick(dt){
+  if(R.phase==='town'){if(S.autoReturn){R.townT-=dt;if(R.townT<=0)enterZone(R.returnZone);}return;}
+  regen(dt);
+  if(R.phase==='pause'){R.pauseT-=dt;if(R.pauseT<=0)nextWave();return;}
+  for(const k in R.cd)if(R.cd[k]>0)R.cd[k]-=dt;
+  if(R.buffs.frostarmor>0){R.buffs.frostarmor-=dt;if(R.buffs.frostarmor<=0){R.faAmt=0;S.barrier=Math.min(S.barrier,maxBarrier());}}
+  R.potH-=dt;R.potM-=dt;R.flash-=dt;R.castT-=dt;
+  if(R.castT<=0)heroAct();
+  for(const m of R.monsters){
+    if(m.hp<=0)continue;
+    if(m.chill>0)m.chill-=dt;
+    if(m.burn>0){m.burn-=dt;dmgMon(m,m.burnDps*dt);if(m.hp<=0)continue;}
+    m.atkT-=dt*(m.chill>0?.6:1);
+    if(m.atkT<=0){m.atkT=m.spd;monAttack(m);}
+    if(m.boss){m.specT-=dt;if(m.specT<=0){m.specT=8;monAttack(m,2.5,'Pale Toll');}}
+    if(S.life<=0)break;
+  }
+  potions();
+  if(S.life<=0){die();return;}
+  if(!R.monsters.some(m=>m.hp>0)){R.phase='pause';R.pauseT=1;}
+}
+
+/* ---------- items ---------- */
+function rv(k,L,a,b){const v=AFF[k].v(L)*rnd(a,b);return AFF[k].dec?Math.round(v*10)/10:Math.max(1,Math.round(v));}
+function genItem(L,minR,boss){
+  const w=boss?[0,0,90,10]:[62,30,7,1.2];let t=Math.random()*w.reduce((a,b)=>a+b),r=0;for(;r<3;r++){if(t<w[r])break;t-=w[r];}
+  r=Math.max(r,minR);
+  const slot=pick(SLOTS),base=pick(BASES[slot]),mods=[];let imp=0;
+  if(IMPL[slot]){mods.push([IMPL[slot][0],Math.round(IMPL[slot][1](L)*rnd(.85,1))]);imp=1;}
+  let name=base;
+  if(r===3){const u=UNIQ[slot];name=u.n;for(const k of u.m)mods.push([k,rv(k,L,1.25,1.45)]);}
+  else if(r>0){const keys=shuffle(Object.keys(AFF)).slice(0,r===1?ri(1,2):ri(3,5));for(const k of keys)mods.push([k,rv(k,L,.6,1)]);
+    name=r===1?`${base} of ${AFF[keys[0]].s}`:`${pick(RA)} ${pick(RB)}`;}
+  return {id:uid(),slot,base,name,r,L,imp,mods};
+}
+const fmtMod=([k,v])=>{const a=AFF[k];return a.p?`+${v}% ${a.t}`:`+${v} ${a.t}`;};
+const score=it=>it?it.mods.reduce((s,[k,v])=>s+v*AFF[k].w,0):0;
+const sellVal=it=>Math.round((it.L*2+5)*(1+it.r*2.5));
+function takeItem(it){
+  if(it.r<S.filter){S.gold+=sellVal(it);log(`Auto-sold ${esc(it.name)} for ${sellVal(it)} gold.`);return;}
+  if(S.bag.length>=24){let lo=0;S.bag.forEach((b,i)=>{if(score(b)<score(S.bag[lo]))lo=i;});const x=S.bag.splice(lo,1)[0];S.gold+=sellVal(x);}
+  S.bag.unshift(it);R.dirty.bag=1;log(`Found <b>${esc(it.name)}</b> (${RN[it.r]} ${SLOTN[it.slot]}).`,'r'+it.r);
+}
+
+/* ---------- rendering: fight ---------- */
+function renderWave(){
+  const box=$('#enemies');R.refs={};
+  if(R.phase==='town'){
+    box.innerHTML=`<div class="notice"><h2>Recovering in town</h2><p id="towntxt"></p>
+      <div class="row" style="justify-content:center"><button class="btn primary" data-act="return">Return to ${esc(ZONES[R.returnZone].n)}</button></div></div>`;return;}
+  if(!R.monsters.length){box.innerHTML=`<div class="notice"><p>Searching for the next pack…</p></div>`;return;}
+  box.innerHTML=R.monsters.map(m=>{
+    const d=MON[m.def];const tag=m.rank?`<span class="tag r${m.rank}">${RANK[m.rank].n}</span>`:'';
+    const sub=m.rank===2?`${d.n} · ${m.mods.join(', ')}`:m.rank===3?m.sub:'';
+    const resTxt=Object.entries(m.res).filter(([,v])=>v>0).map(([k,v])=>`<span class="${k}">${EL[k]} ${Math.round(v*100)}%</span>`).join(' ');
+    return `<div class="enemy r${m.rank}" data-m="${m.id}">
+      <div class="sigil ${m.el}">${esc(d.n.split(' ').map(w=>w[0]).join(''))}</div>
+      <div><div class="ename">${esc(m.name)} ${tag}</div>
+        <div class="esub">Lv ${m.L}${sub?' · '+esc(sub):''} · hits with <b class="${m.el}">${EL[m.el]}</b> · resists ${resTxt}</div>
+        <div class="hp"><i></i><b></b></div><div class="status"></div></div>
+      <div class="fl"></div></div>`;}).join('');
+  for(const m of R.monsters){const el=box.querySelector(`[data-m="${m.id}"]`);R.refs[m.id]={el,hp:el.querySelector('.hp i'),ward:el.querySelector('.hp b'),st:el.querySelector('.status'),fl:el.querySelector('.fl'),sub:el.querySelector('.esub b'),sig:el.querySelector('.sigil'),last:''};}
+}
+function drawEnemies(){
+  if(R.phase==='town'){const t=$('#towntxt');if(t)t.textContent=S.autoReturn?`Back to ${ZONES[R.returnZone].n} in ${Math.max(0,Math.ceil(R.townT))}s.`:'Auto-return is off. Pick an area or press the button.';return;}
+  for(const m of R.monsters){const r=R.refs[m.id];if(!r)continue;
+    r.hp.style.width=(Math.max(0,m.hp)/m.maxHp*100)+'%';r.ward.style.width=(m.maxWard?m.ward/m.maxHp*100:0)+'%';
+    const s=(m.chill>0?'<span class="cold">Chilled</span>':'')+(m.burn>0?'<span class="fire">Burning</span>':'');
+    if(s!==r.last){r.st.innerHTML=s;r.last=s;}
+    if(m.hp<=0)r.el.classList.add('dead');
+    if(m.boss&&r.sub.textContent!==EL[m.el]){r.sub.textContent=EL[m.el];r.sub.className=m.el;r.sig.className='sigil '+m.el;}
+  }
+}
+function renderSkillbar(){
+  $('#skillbar').innerHTML=S.slots.map((sl,i)=>{const sk=sl.id&&SK[sl.id];
+    if(!sk)return `<div class="sk empty"><div class="ab">–</div><div class="nm">Empty</div></div>`;
+    return `<div class="sk" id="sk${i}"><div class="ab ${sk.el}">${sk.ab}</div><div class="nm">${sk.n}</div><div class="cdv"></div></div>`;}).join('');
+}
+function draw(){
+  const st=R.st,z=ZONES[S.zone];
+  $('#zname').textContent=z.n;
+  const wv=R.phase==='town'?'In town':(R.bossSpawned?'Boss':`Wave ${Math.max(1,Math.min(R.wave,z.waves))}/${z.waves}`);
+  $('#zmeta').textContent=`Act I · monster lv ${z.L} · ${wv}`;
+  $('#zprog').style.width=(R.bossSpawned?100:Math.max(0,(R.wave-1))/z.waves*100)+'%';
+  drawEnemies();
+  $('#hlvl').textContent='Lv '+S.lvl;$('#hgold').textContent=fmt(S.gold)+' gold';
+  $('#xptxt').textContent=`${fmt(S.xp)} / ${fmt(need(S.lvl))}`;$('#xpbar').style.width=(S.xp/need(S.lvl)*100)+'%';
+  const mb=maxBarrier();$('#bartxt').textContent=`${Math.round(S.barrier)} / ${Math.round(mb)}${R.buffs.frostarmor>0?' · Frost Armor '+Math.ceil(R.buffs.frostarmor)+'s':''}`;
+  $('#barbar').style.width=(mb?S.barrier/mb*100:0)+'%';
+  $('#lifebar').style.width=(Math.max(0,S.life)/st.maxLife*100)+'%';$('#lifetxt').textContent=`Life ${Math.max(0,Math.round(S.life))} / ${st.maxLife}`;
+  $('#manabar').style.width=(S.mana/st.maxMana*100)+'%';$('#manatxt').textContent=`Mana ${Math.round(S.mana)} / ${st.maxMana}`;
+  const cn=R.last==='spark'?SPARK.n:R.last?SK[R.last].n:'Ready';$('#castname').textContent=R.phase==='fight'?cn:'Ready';
+  $('#castbar').style.width=(R.phase==='fight'?clamp(1-R.castT/R.castDur,0,1)*100:100)+'%';
+  if(R.dirty.slots){renderSkillbar();R.dirty.slots=0;}
+  S.slots.forEach((sl,i)=>{const e=document.getElementById('sk'+i);if(!e)return;const sk=SK[sl.id];
+    e.querySelector('.cdv').style.height=(sk.cd&&R.cd[sl.id]>0?R.cd[sl.id]/sk.cd*100:(S.skills[sl.id]?0:100))+'%';
+    e.classList.toggle('flash',R.last===sl.id&&R.flash>0);});
+  $('#belt').innerHTML=`Health potions <b>${S.hpPot}</b> (at ${S.hpTh}%) · Mana potions <b>${S.mpPot}</b> (at ${S.mpTh}%)`;
+  $('#reschips').innerHTML=Object.keys(EL).map(k=>`<span class="${k}">${EL[k].slice(0,4)} ${st.res[k]}%</span>`).join('');
+  if(R.logDirty){$('#log').innerHTML=R.log.map(l=>`<li class="${l.cls}">${l.html}</li>`).join('');R.logDirty=false;}
+  if(R.dirty.zones){$('#zonesel').innerHTML=ZONES.slice(0,S.unlocked).map((z,i)=>`<option value="${i}" ${i===S.zone?'selected':''}>${z.n} (lv ${z.L})</option>`).join('');R.dirty.zones=0;}
+  else if(+$('#zonesel').value!==S.zone)$('#zonesel').value=S.zone;
+  document.querySelectorAll('#speedseg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.act==='speed:'+S.speed));
+  $('#dot-hero').hidden=!S.attrPts;$('#dot-skills').hidden=!S.skillPts;
+  const tg=$('#towngold');if(tg)tg.textContent=fmt(S.gold);
+  const p=activePanel();if(R.dirty[p]){renderPanel(p);R.dirty[p]=0;}
+}
+
+/* ---------- panels ---------- */
+const activePanel=()=>R.tab==='fight'?'hero':R.tab;
+function renderPanel(p){({hero:pHero,skills:pSkills,bag:pBag,town:pTown})[p]();}
+function pHero(){
+  const st=R.st;
+  const eq=SLOTS.map(s=>{const it=S.equip[s];return `<div class="eqs"><span class="s">${SLOTN[s]}</span>${it?`<span class="rn${it.r}">${esc(it.name)}</span><button class="btn sm" data-act="unequip:${s}">Remove</button>`:`<span style="color:var(--muted)">Empty</span><span></span>`}</div>`;}).join('');
+  $('#p-hero').innerHTML=`
+    <div class="row"><h2>Sorceress · Level ${S.lvl}</h2><span class="num">${S.attrPts?`<b class="gold">${S.attrPts}</b> points to spend`:'No points left'}</span></div>
+    <div>${Object.entries(ATTR).map(([k,[n,d]])=>`<div class="attr"><span>${n}</span><span class="v num">${st.a[k]}</span><span class="d">${d}</span><button class="btn sm" data-act="attr:${k}" ${S.attrPts?'':'disabled'} aria-label="Add point to ${n}">+</button></div>`).join('')}</div>
+    <h3>Character</h3>
+    <div class="kv num">
+      <div><span>Life</span>${st.maxLife}</div><div><span>Mana</span>${st.maxMana}</div>
+      <div><span>Mana / s</span>${st.manaRegen.toFixed(1)}</div><div><span>Life / s</span>${st.lifeRegen.toFixed(1)}</div>
+      <div><span>Cast time</span>${castTime().toFixed(2)}s</div><div><span>Crit chance</span>${st.crit.toFixed(1)}%</div>
+      <div><span>Spell damage</span>+${st.spellDmg}%</div><div><span>Barrier (items)</span>${st.barrier}</div>
+      <div><span class="fire">Fire damage</span>+${st.el.fire}%</div><div><span class="fire">Fire resist</span>${st.res.fire}%</div>
+      <div><span class="cold">Cold damage</span>+${st.el.cold}%</div><div><span class="cold">Cold resist</span>${st.res.cold}%</div>
+      <div><span class="light">Lightning damage</span>+${st.el.light}%</div><div><span class="light">Lightning resist</span>${st.res.light}%</div>
+      <div><span>Dodge</span>${st.dodge}%</div><div><span>Kills / deaths</span>${S.kills} / ${S.deaths}</div>
+    </div>
+    <h3>Equipment</h3><div class="eq">${eq}</div>`;
+}
+function pSkills(){
+  const learned=Object.keys(SK).filter(k=>S.skills[k]>0);
+  const trees=Object.entries(TREES).map(([t,T])=>`<div class="tree"><h3><span class="${T.el}">${T.n}</span><span>${EL[T.el]}</span></h3><p class="hint">${T.d}</p>
+    ${Object.entries(SK).filter(([,s])=>s.tree===t).map(([id,s])=>{const lv=S.skills[id]||0;const can=S.skillPts>0&&S.lvl>=s.req;
+      const info=s.type==='buff'?`Barrier ${6+6*Math.max(1,lv)}`:(()=>{const[a,b]=dmgRange(id);return lv?`Damage ${a}–${b}`:'';})();
+      return `<div class="skill ${S.lvl<s.req?'locked':''}"><div class="t"><b class="${s.el}">${s.n}</b><span class="num">Lv ${lv}</span></div>
+        <div class="d">${s.d}</div><div class="t num"><span class="d">${S.lvl<s.req?'Needs level '+s.req:`${info}${info?' · ':''}${manaCost(id)} mana`}</span>
+        <button class="btn sm" data-act="learn:${id}" ${can?'':'disabled'} aria-label="Level up ${s.n}">+</button></div></div>`;}).join('')}</div>`).join('');
+  const opts=(sel)=>`<option value="">Empty</option>`+learned.map(k=>`<option value="${k}" ${k===sel?'selected':''}>${SK[k].n}</option>`).join('');
+  const copts=(sel)=>Object.entries(COND).map(([k,n])=>`<option value="${k}" ${k===sel?'selected':''}>${n}</option>`).join('');
+  $('#p-skills').innerHTML=`
+    <div class="row"><h2>Skills</h2><span class="num">${S.skillPts?`<b class="gold">${S.skillPts}</b> skill point${S.skillPts>1?'s':''}`:'No skill points'}</span></div>
+    <div class="trees">${trees}</div>
+    <p class="hint">Each point in a skill also adds 8% damage to the other skills in the same tree.</p>
+    <h3>Cast priority</h3>
+    <p class="hint">She checks the slots from top to bottom and casts the first skill that is off cooldown, affordable and whose condition is true. If none fits, she uses Staff Spark (free, weak).</p>
+    <div class="prio">${S.slots.map((sl,i)=>`<div class="prow"><span class="ix">${i+1}</span>
+      <select id="slot${i}" data-slot="${i}" aria-label="Skill in slot ${i+1}">${opts(sl.id)}</select>
+      <select id="cond${i}" data-cond="${i}" aria-label="Condition for slot ${i+1}">${copts(sl.cond)}</select>
+      <span class="updn"><button class="btn sm" data-act="up:${i}" ${i?'':'disabled'} aria-label="Move up">↑</button><button class="btn sm" data-act="down:${i}" ${i<3?'':'disabled'} aria-label="Move down">↓</button></span></div>`).join('')}</div>`;
+}
+function itemCard(it,inBag){
+  const cur=S.equip[it.slot];const d=Math.round(score(it)-score(cur));
+  const cmp=inBag?(d>0?`<span class="cmp up">▲ ${d} better</span>`:d<0?`<span class="cmp down">▼ ${-d} worse</span>`:''):'';
+  return `<div class="item r${it.r}"><div class="row"><span class="n rn${it.r}">${esc(it.name)}</span>${cmp}</div>
+    <div class="b">${RN[it.r]} ${SLOTN[it.slot]}${it.r?' · '+esc(it.base):''} · item level ${it.L}</div>
+    <ul>${it.mods.map((m,i)=>`<li class="${i<it.imp?'imp':''}">${fmtMod(m)}</li>`).join('')}</ul>
+    ${inBag?`<div class="row" style="justify-content:flex-start"><button class="btn sm primary" data-act="equip:${it.id}">Equip</button><button class="btn sm" data-act="sell:${it.id}">Sell · ${sellVal(it)}g</button></div>`:''}</div>`;
+}
+function pBag(){
+  $('#p-bag').innerHTML=`
+    <div class="row"><h2>Bag</h2><span class="num">${S.bag.length} / 24</span></div>
+    <div class="row"><label class="check" for="filter">Keep loot:
+      <select class="plain" id="filter">${['Everything','Magic and better','Rare and better','Unique only'].map((n,i)=>`<option value="${i}" ${i===S.filter?'selected':''}>${n}</option>`).join('')}</select></label>
+      <button class="btn sm" data-act="sellLow" ${S.bag.some(i=>i.r<2)?'':'disabled'}>Sell all Normal & Magic</button></div>
+    <p class="hint">Loot below the filter is sold automatically. When the bag is full, the weakest item is sold.</p>
+    <div class="items">${S.bag.length?S.bag.map(it=>itemCard(it,true)).join(''):'<div class="empty-state">Your bag is empty. Monsters drop items as you fight; elites and bosses always drop something.</div>'}</div>`;
+}
+function pTown(){
+  const price=10+S.lvl*3,rc=S.lvl*40;
+  $('#p-town').innerHTML=`
+    <div class="row"><h2>Town</h2><span class="gold num"><span id="towngold">${fmt(S.gold)}</span> gold</span></div>
+    <h3>Merchant</h3>
+    <div class="kv num"><div><span>Health potions</span>${S.hpPot}</div><div><span>Mana potions</span>${S.mpPot}</div></div>
+    <div class="row" style="justify-content:flex-start">
+      <button class="btn" data-act="buy:hp:5">Buy 5 health · ${price*5}g</button>
+      <button class="btn" data-act="buy:mp:5">Buy 5 mana · ${price*5}g</button></div>
+    <p class="hint" id="townmsg">Health potions restore 40% life, mana potions 50% mana. 4s cooldown each.</p>
+    <h3>Potion belt</h3>
+    <label class="range" for="hpTh"><span>Drink health potion below</span><b class="num" id="hpThv">${S.hpTh}%</b><input type="range" id="hpTh" min="10" max="90" step="5" value="${S.hpTh}"></label>
+    <label class="range" for="mpTh"><span>Drink mana potion below</span><b class="num" id="mpThv">${S.mpTh}%</b><input type="range" id="mpTh" min="5" max="90" step="5" value="${S.mpTh}"></label>
+    <h3>Behaviour</h3>
+    <label class="check" for="autoAdvance"><input type="checkbox" id="autoAdvance" ${S.autoAdvance?'checked':''}> Move to the next area after clearing one</label>
+    <label class="check" for="autoReturn"><input type="checkbox" id="autoReturn" ${S.autoReturn?'checked':''}> After dying, return to the previous area automatically</label>
+    <h3>Mystic</h3>
+    <div class="row"><span class="hint">Reset all attribute and skill points.</span><button class="btn" data-act="respec">Respec · ${rc}g</button></div>
+    <div class="scope"><h3>About this demo</h3>
+      <ul><li>In: auto-combat, cast priority with conditions, 3 elements, resistances, barrier, champions, elites, a boss with two phases, auto-potions, loot with rarities and filter, death penalty.</li>
+      <li>Not yet: set items, crafting and salvage, Nightmare and Hell, rifts, offline progress, art.</li>
+      <li>Numbers are a first guess for testing the feel, not balanced.</li></ul></div>
+    <div class="row"><span class="hint">Progress is saved in this browser.</span><button class="btn sm" data-act="reset">${R.resetArm?'Tap again to wipe':'Start over'}</button></div>`;
+}
+
+/* ---------- input ---------- */
+function setTab(t){R.tab=t;$('#app').dataset.tab=t;
+  document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.act==='tab:'+t));
+  const p=activePanel();document.querySelectorAll('.panel').forEach(x=>x.classList.toggle('active',x.id==='p-'+p));R.dirty[p]=1;}
+function townMsg(t){const e=$('#townmsg');if(e)e.textContent=t;}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');if(!b||b.disabled)return;
+  const [a,x,y]=b.dataset.act.split(':');
+  if(a==='tab')setTab(x);
+  else if(a==='speed')S.speed=+x;
+  else if(a==='attr'&&S.attrPts>0){S.attrs[x]++;S.attrPts--;recalc();R.dirty.hero=1;}
+  else if(a==='learn'){const s=SK[x];if(S.skillPts>0&&S.lvl>=s.req){const first=!S.skills[x];S.skills[x]=(S.skills[x]||0)+1;S.skillPts--;
+    if(first){const e2=S.slots.find(sl=>!sl.id);if(e2){e2.id=x;e2.cond=s.type==='buff'?'notActive':'always';}}R.dirty.skills=R.dirty.slots=1;}}
+  else if(a==='up'||a==='down'){const i=+x,j=a==='up'?i-1:i+1;[S.slots[i],S.slots[j]]=[S.slots[j],S.slots[i]];R.dirty.skills=R.dirty.slots=1;}
+  else if(a==='equip'){const i=S.bag.findIndex(it=>it.id===+x);if(i>=0){const it=S.bag.splice(i,1)[0];const old=S.equip[it.slot];S.equip[it.slot]=it;if(old)S.bag.unshift(old);recalc();R.dirty.bag=R.dirty.hero=1;}}
+  else if(a==='unequip'){const it=S.equip[x];if(it){if(S.bag.length>=24){return;}S.equip[x]=null;S.bag.unshift(it);recalc();R.dirty.bag=R.dirty.hero=1;}}
+  else if(a==='sell'){const i=S.bag.findIndex(it=>it.id===+x);if(i>=0){S.gold+=sellVal(S.bag[i]);S.bag.splice(i,1);R.dirty.bag=1;}}
+  else if(a==='sellLow'){let g=0;S.bag=S.bag.filter(it=>{if(it.r<2){g+=sellVal(it);return false;}return true;});S.gold+=g;R.dirty.bag=1;log(`Sold items for ${g} gold.`);}
+  else if(a==='buy'){const price=(10+S.lvl*3)*+y;if(S.gold<price){townMsg(`Not enough gold. You need ${price}.`);return;}S.gold-=price;if(x==='hp')S.hpPot+=+y;else S.mpPot+=+y;R.dirty.town=1;}
+  else if(a==='respec'){const c=S.lvl*40;if(S.gold<c){townMsg(`Respec costs ${c} gold.`);return;}S.gold-=c;
+    S.attrPts+=Object.values(S.attrs).reduce((s,v)=>s+v,0)-30;S.attrs={power:5,focus:5,spirit:10,vit:10};
+    S.skillPts+=Object.values(S.skills).reduce((s,v)=>s+v,0)-1;S.skills={fireball:1};S.slots=[{id:'fireball',cond:'always'},{id:null,cond:'always'},{id:null,cond:'always'},{id:null,cond:'always'}];
+    recalc();R.dirty.town=R.dirty.hero=R.dirty.skills=R.dirty.slots=1;log('Points reset. Spend them in Hero and Skills.','lvl');}
+  else if(a==='return'){enterZone(R.returnZone);}
+  else if(a==='reset'){if(!R.resetArm){R.resetArm=true;R.dirty.town=1;setTimeout(()=>{R.resetArm=false;R.dirty.town=1;},4000);return;}
+    try{localStorage.removeItem(KEY);}catch(e2){}S=newState();R.resetArm=false;recalc();S.life=R.st.maxLife;S.mana=R.st.maxMana;R.log=[];R.cd={};R.buffs={};R.faAmt=0;
+    Object.keys(R.dirty).forEach(k=>R.dirty[k]=1);enterZone(0);}
+});
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.id==='zonesel'){enterZone(+t.value);}
+  else if(t.dataset.slot!=null){const sl=S.slots[+t.dataset.slot];sl.id=t.value||null;if(sl.id&&SK[sl.id].type==='buff')sl.cond='notActive';R.dirty.skills=R.dirty.slots=1;}
+  else if(t.dataset.cond!=null){S.slots[+t.dataset.cond].cond=t.value;}
+  else if(t.id==='filter'){S.filter=+t.value;}
+  else if(t.id==='autoAdvance'){S.autoAdvance=t.checked;}
+  else if(t.id==='autoReturn'){S.autoReturn=t.checked;}
+});
+document.addEventListener('input',e=>{const t=e.target;if(t.id==='hpTh'||t.id==='mpTh'){S[t.id]=+t.value;$('#'+t.id+'v').textContent=t.value+'%';}});
+
+/* ---------- boot ---------- */
+function start(data){
+  S=(data&&data.S)||load()||newState();
+  UID=1+Math.max(0,...S.bag.map(i=>i.id),...Object.values(S.equip).filter(Boolean).map(i=>i.id));
+  R.st=calc();if(S.life==null||S.life<=0)S.life=R.st.maxLife;if(S.mana==null)S.mana=R.st.maxMana;
+  setTab(window.matchMedia('(min-width:920px)').matches?'hero':'fight');
+  log('Demo started. The sorceress fights on her own. Spend points in Hero and Skills and equip loot from the Bag.','lvl');
+  enterZone(Math.min(S.zone,S.unlocked-1));
+  setInterval(()=>{for(let i=0;i<S.speed;i++)tick(.1);draw();},100);
+  setInterval(save,5000);
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)save();});
+  if(window.claude&&window.claude.hot&&window.claude.hot.snapshot)window.claude.hot.snapshot(()=>({S}));
+}
+window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});
+})();
+</script>
