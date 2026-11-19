@@ -146,6 +146,9 @@ h3{font-size:.85rem;text-transform:uppercase;letter-spacing:.12em;color:var(--mu
 .item li{color:#9fb0ff}
 .item.r0 li:not(.imp){color:var(--muted)}
 .cmp{font-size:.75rem;font-weight:700}
+.iicon{width:44px;height:44px;object-fit:contain;vertical-align:middle;margin-right:8px;background:rgba(0,0,0,.35);border-radius:4px}
+.eicon{width:26px;height:26px;object-fit:contain;vertical-align:middle;margin-right:6px}
+.pot img{width:15px;height:15px;vertical-align:-3px;margin-right:3px}
 .cmp.up{color:var(--good)} .cmp.down{color:var(--bad)}
 select.plain{background:var(--panel2);border:1px solid var(--line2);border-radius:4px;padding:5px}
 .range{display:grid;grid-template-columns:minmax(0,1fr) 48px;gap:8px;align-items:center;font-size:.85rem}
@@ -633,12 +636,16 @@ let lights=[];
 const SPR={};
 const SPR_NAMES=['imp','wraith','beetle','hound','cultist','crow','husk','shade','ghoul','vesper','hero-idle','hero-cast','hero-walk1','hero-walk2',
   'rock','rocks','tree','stump','torch','grave','pillar','pillar-broken','candelabra','reeds','crystal','gallows'];
-const GROUND={0:'ground-gallows-field.jpg'};const GPAT={};
+const GROUND={0:'ground-gallows-field.jpg',1:'ground-weeping-mire.jpg',2:'ground-cinder-hollow.jpg',3:'ground-stormwatch-ruins.jpg',4:'ground-rimefrost-crypt.jpg',5:'ground-pale-chapel.jpg'};const GPAT={};
+const ICON={'Gnarled Staff':'gnarled-staff','Bone Wand':'bone-wand','Ritual Staff':'ritual-staff',Hood:'hood',Circlet:'circlet',Cowl:'cowl',Robe:'robe',Vestments:'vestments',Shroud:'shroud',
+  Amulet:'amulet',Talisman:'talisman',Locket:'locket',Ring:'ring',Band:'band',Loop:'loop'};
+const iconSrc=it=>'sprites/item-'+ICON[it.base]+'.png';const II={};
 const FX_NAMES=['fireball','iceshard','orb','meteor','fire-burst','ice-burst','shock','fire-ring','shock-ring','flames','frost-aura','levelup'];const FXI={};
 const PROJ={fire:'fireball',cold:'iceshard',light:'orb'},BURST={fire:'fire-burst',cold:'ice-burst',light:'shock'},RING={fire:'fire-ring',cold:'frost-aura',light:'shock-ring'};
 function fxImg(img,x,y,w,o={}){const h=o.h||w*img.height/img.width;ctx.save();ctx.translate(x,y);if(o.rot)ctx.rotate(o.rot);ctx.globalAlpha=o.alpha??1;ctx.drawImage(img,-w/2,-h/2,w,h);ctx.restore();}
 function loadSprites(){
   for(const n of SPR_NAMES){const im=new Image();im.onload=()=>{SPR[n]=im;};im.src='sprites/'+n+'.png';}
+  for(const n of [...Object.values(ICON),'gold']){const im=new Image();im.onload=()=>{II[n]=im;};im.src='sprites/item-'+n+'.png';}
   for(const n of FX_NAMES){const im=new Image();im.onload=()=>{FXI[n]=im;};im.src='sprites/fx-'+n+'.jpg';}
   for(const [z,f] of Object.entries(GROUND)){const im=new Image();im.onload=()=>{GPAT[z]={pat:ctx.createPattern(im,'repeat'),size:im.width};};im.src='sprites/'+f;}
 }
@@ -766,7 +773,10 @@ function drawMon(m,px,py){
   m._sx=px;m._sy=py;m._top=py-(d.shape==='robed'?44:d.shape==='bird'?34:d.shape==='brute'?42:d.shape==='ghost'?40:28)*s;
 }
 function drawDrop(d,px,py){
-  const k=V.k;
+  const k=V.k;const ic=II[d.gold?'gold':ICON[d.item.base]];
+  if(ic){const sz=(d.gold?22:30)*k;ell(px,py,sz*.35,sz*.14,'rgba(0,0,0,.45)');
+    if(!d.gold)lights.push([px,py-sz*.4,(18+d.item.r*8)*k,RCOL[d.item.r],d.item.r?.45:.15]);
+    ctx.drawImage(ic,px-sz/2,py-sz*.85,sz,sz);return;}
   if(d.gold){ell(px,py,5*k,2.5*k,'#c9a557');ell(px+2*k,py-1.5*k,4*k,2*k,'#e6c76e');}
   else{ctx.save();ctx.translate(px,py-3*k);ctx.rotate(.5);ctx.fillStyle=RCOL[d.item.r];ctx.fillRect(-5*k,-2*k,10*k,4*k);ctx.restore();
     if(d.item.r>=2)lights.push([px,py,26*k,RCOL[d.item.r],.35]);}
@@ -783,7 +793,9 @@ function render(){
   const y0=Math.floor(Math.min(...cs.map(c=>c[1])))-1,y1=Math.ceil(Math.max(...cs.map(c=>c[1])))+1;
   const items=[];const gp=GPAT[S.zone];
   if(gp){ctx.save();ctx.setTransform(dpr*V.tw/2,dpr*V.th/2,-dpr*V.tw/2,dpr*V.th/2,dpr*V.ox,dpr*V.oy);
-    gp.pat.setTransform(new DOMMatrix().scaleSelf(5/gp.size,5/gp.size));ctx.fillStyle=gp.pat;ctx.fillRect(x0,y0,x1-x0+1,y1-y0+1);ctx.restore();}
+    gp.pat.setTransform(new DOMMatrix().scaleSelf(5/gp.size,5/gp.size));ctx.fillStyle=gp.pat;ctx.fillRect(x0,y0,x1-x0+1,y1-y0+1);
+    if(S.zone===2){ctx.globalCompositeOperation='lighter';ctx.globalAlpha=.1+Math.sin(R.time*1.7)*.07;ctx.fillRect(x0,y0,x1-x0+1,y1-y0+1);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';}
+    ctx.restore();}
   const [hsx,hsy]=iso(R.hero.x,R.hero.y),hz=R.hero.x+R.hero.y;
   for(let tx=x0;tx<=x1;tx++)for(let ty=y0;ty<=y1;ty++){
     const [ax,ay]=iso(tx,ty);if(ax<-V.tw||ax>w+V.tw||ay<-V.th*2||ay>h+V.th)continue;
@@ -885,7 +897,7 @@ function draw(){
   $('#bartxt').textContent=S.barrier>=1?'+'+Math.round(S.barrier)+' barrier':'';
   $('#lifebar').style.height=(Math.max(0,S.life)/st.maxLife*100)+'%';$('#lifetxt').textContent=`${Math.max(0,Math.round(S.life))}/${st.maxLife}`;
   $('#manabar').style.height=(S.mana/st.maxMana*100)+'%';$('#manatxt').textContent=`${Math.round(S.mana)}/${st.maxMana}`;
-  $('#hppot').textContent=`${S.hpPot} potions`;$('#mppot').textContent=`${S.mpPot} potions`;
+  if(R.lastPot!==S.hpPot+'/'+S.mpPot){R.lastPot=S.hpPot+'/'+S.mpPot;$('#hppot').innerHTML=`<img src="sprites/item-potion-hp.png" alt="Health potions" onerror="this.remove()">${S.hpPot}`;$('#mppot').innerHTML=`<img src="sprites/item-potion-mp.png" alt="Mana potions" onerror="this.remove()">${S.mpPot}`;}
   if(R.dirty.slots){renderSkillbar();R.dirty.slots=0;}
   S.slots.forEach((sl,i)=>{const e=document.getElementById('sk'+i);if(!e)return;const sk=SK[sl.id];
     e.querySelector('.cdv').style.height=(sk.cd&&R.cd[sl.id]>0?R.cd[sl.id]/sk.cd*100:(S.skills[sl.id]?0:100))+'%';
@@ -903,7 +915,7 @@ function draw(){
 function renderPanel(p){({hero:pHero,skills:pSkills,bag:pBag,town:pTown})[p]();}
 function pHero(){
   const st=R.st;
-  const eq=SLOTS.map(s=>{const it=S.equip[s];return `<div class="eqs"><span class="s">${SLOTN[s]}</span>${it?`<span class="rn${it.r}">${esc(it.name)}</span><button class="btn sm" data-act="unequip:${s}">Remove</button>`:`<span style="color:var(--muted)">Empty</span><span></span>`}</div>`;}).join('');
+  const eq=SLOTS.map(s=>{const it=S.equip[s];return `<div class="eqs"><span class="s">${SLOTN[s]}</span>${it?`<span class="rn${it.r}"><img class="eicon" src="${iconSrc(it)}" alt="" onerror="this.remove()">${esc(it.name)}</span><button class="btn sm" data-act="unequip:${s}">Remove</button>`:`<span style="color:var(--muted)">Empty</span><span></span>`}</div>`;}).join('');
   $('#p-hero').innerHTML=`
     <div class="row"><h2>Sorceress · Level ${S.lvl}</h2><span>${S.attrPts?`<b class="gold">${S.attrPts}</b> points to spend`:'No points left'}</span></div>
     <div>${Object.entries(ATTR).map(([k,[n,d]])=>`<div class="attr"><span>${n}</span><span class="v">${st.a[k]}</span><span class="d">${d}</span><button class="btn sm" data-act="attr:${k}" ${S.attrPts?'':'disabled'} aria-label="Add point to ${n}">+</button></div>`).join('')}</div>
@@ -946,7 +958,7 @@ function pSkills(){
 function itemCard(it,inBag){
   const cur=S.equip[it.slot];const d=Math.round(score(it)-score(cur));
   const cmp=inBag?(d>0?`<span class="cmp up">▲ ${d} better</span>`:d<0?`<span class="cmp down">▼ ${-d} worse</span>`:''):'';
-  return `<div class="item r${it.r}"><div class="row"><span class="n rn${it.r}">${esc(it.name)}</span>${cmp}</div>
+  return `<div class="item r${it.r}"><div class="row"><span class="n rn${it.r}"><img class="iicon" src="${iconSrc(it)}" alt="" onerror="this.remove()">${esc(it.name)}</span>${cmp}</div>
     <div class="b">${RN[it.r]} ${SLOTN[it.slot]}${it.r?' · '+esc(it.base):''} · item level ${it.L}</div>
     <ul>${it.mods.map((m,i)=>`<li class="${i<it.imp?'imp':''}">${fmtMod(m)}</li>`).join('')}</ul>
     ${inBag?`<div class="row" style="justify-content:flex-start"><button class="btn sm primary" data-act="equip:${it.id}">Equip</button><button class="btn sm" data-act="sell:${it.id}">Sell · ${sellVal(it)}g</button></div>`:''}</div>`;

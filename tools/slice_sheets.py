@@ -20,6 +20,10 @@ SHEETS = {
                      "candelabra", "reeds", "crystal", "gallows"]),
     "skill-icons": (4, 2, ["icon-fireball", "icon-meteor", "icon-frostbolt", "icon-frostarmor",
                            "icon-chain", "icon-nova", "icon-spark", None]),
+    "items": (5, 4, ["item-gnarled-staff", "item-bone-wand", "item-ritual-staff", "item-hood", "item-circlet",
+                     "item-cowl", "item-robe", "item-vestments", "item-shroud", "item-amulet",
+                     "item-talisman", "item-locket", "item-ring", "item-band", "item-loop",
+                     "item-gold", "item-potion-hp", "item-potion-mp", "item-scroll", "item-key"]),
     "orbs": (4, 1, ["orb-frame-life", "orb-frame-mana", "orb-glass", "orb-globe"]),
 }
 # Effects are drawn additively, so their black background stays and simply adds nothing.
@@ -45,6 +49,18 @@ def key_green(img):
     return Image.fromarray(out, "RGBA")
 
 
+def save_seamless(tile, path, shade):
+    """Blend the tile with a half-offset copy of itself so its edges wrap."""
+    a = np.asarray(tile).astype(np.float32)
+    h, w = a.shape[:2]
+    rolled = np.roll(np.roll(a, h // 2, 0), w // 2, 1)
+    wy = np.sin(np.linspace(0, np.pi, h))[:, None]
+    wx = np.sin(np.linspace(0, np.pi, w))[None, :]
+    mask = np.clip((wy * wx) * 1.8, 0, 1)[..., None]
+    out = a * mask + rolled * (1 - mask)
+    Image.fromarray((out * shade).clip(0, 255).astype(np.uint8)).save(path, quality=86)
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     for sheet, (cols, rows, names) in SHEETS.items():
@@ -62,7 +78,13 @@ def main():
                 continue
             cell = cell.crop((xs.min(), ys.min(), xs.max() + 1, ys.max() + 1))
             mh = MAX_H.get(name, 256)
-            if name in MAX_SIDE:
+            if name.startswith("item-"):
+                f = 112 / max(cell.size)
+                cell = cell.resize((max(1, round(cell.width * f)), max(1, round(cell.height * f))), Image.LANCZOS)
+                sq = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
+                sq.paste(cell, ((128 - cell.width) // 2, (128 - cell.height) // 2), cell)
+                cell = sq
+            elif name in MAX_SIDE:
                 cell = cell.resize((MAX_SIDE[name], MAX_SIDE[name]), Image.LANCZOS)
             elif cell.height > mh:
                 cell = cell.resize((round(cell.width * mh / cell.height), mh), Image.LANCZOS)
@@ -89,6 +111,17 @@ def main():
             print(name, cell.size)
     for liq in ["liquid-life", "liquid-mana"]:
         Image.open(ROOT / "assets" / "sheets" / f"{liq}.png").convert("RGB").resize((256, 256), Image.LANCZOS).save(OUT / f"{liq}.jpg", quality=86)
+    # ground sheet: 3x2 tiles with black gutters -> seamless 512 textures
+    grounds = ["ground-weeping-mire", "ground-cinder-hollow", "ground-stormwatch-ruins",
+               "ground-rimefrost-crypt", "ground-pale-chapel", "ground-dead-grass"]
+    shade = {"ground-pale-chapel": .62, "ground-rimefrost-crypt": .78, "ground-stormwatch-ruins": .72}
+    sheet = Image.open(ROOT / "assets" / "sheets" / "grounds.png").convert("RGB")
+    cw, ch = sheet.width / 3, sheet.height / 2
+    for i, name in enumerate(grounds):
+        c, r = i % 3, i // 3
+        m = 14
+        tile = sheet.crop((round(c * cw) + m, round(r * ch) + m, round((c + 1) * cw) - m, round((r + 1) * ch) - m)).resize((512, 512), Image.LANCZOS)
+        save_seamless(tile, OUT / f"{name}.jpg", shade.get(name, .85))
     g = Image.open(ROOT / "assets" / "sheets" / "ground-gallows-field.png").convert("RGB").resize((512, 512), Image.LANCZOS)
     g.save(OUT / "ground-gallows-field.jpg", quality=85)
 
