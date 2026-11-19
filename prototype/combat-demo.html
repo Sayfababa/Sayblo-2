@@ -7,7 +7,7 @@
   --bg:#130f10; --panel:#1c1718; --panel2:#251f1f; --line:#3b3231; --line2:#55473f;
   --bone:#e4d8c3; --muted:#9b8e7f; --gold:#c9a557;
   --life:#a8232a; --life2:#5c1216; --mana:#3352c2; --mana2:#18245a; --barrier:#a6dcf0; --xp:#c9a557;
-  --fire:#ef6c3c; --cold:#74cbee; --light:#e9d65e;
+  --fire:#ef6c3c; --cold:#74cbee; --light:#b99bff;
   --r0:#d8d0c2; --r1:#7f98ff; --r2:#e8cc5c; --r3:#d08a40;
   --good:#86c46f; --bad:#e3625b;
   --f-display:'Cinzel', Georgia, 'Times New Roman', serif;
@@ -49,6 +49,7 @@ h3{font-size:.85rem;text-transform:uppercase;letter-spacing:.12em;color:var(--mu
 /* log drawer */
 .log{position:absolute;left:8px;bottom:118px;width:min(380px,calc(100% - 16px));max-height:min(42%,260px);overflow:auto;margin:0;padding:8px 10px;list-style:none;
   background:rgba(10,7,8,.86);border:1px solid var(--line);border-radius:6px;font-size:.78rem;display:flex;flex-direction:column;gap:2px;z-index:2}
+.log[hidden]{display:none}
 .log li{color:var(--muted)}
 .log .bad{color:var(--bad)} .log .good{color:var(--good)} .log .lvl{color:var(--gold);font-weight:700}
 .log .r1{color:var(--r1)} .log .r2{color:var(--r2)} .log .r3{color:var(--r3);font-weight:700}
@@ -73,15 +74,17 @@ h3{font-size:.85rem;text-transform:uppercase;letter-spacing:.12em;color:var(--mu
 .lvlrow b{font-family:var(--f-display)}
 .xp{height:4px;background:rgba(255,255,255,.1);border-radius:2px;overflow:hidden}
 .xp i{display:block;height:100%;background:var(--xp);width:0}
-.skillbar{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
-.sk{position:relative;border:1px solid var(--line2);border-radius:5px;background:rgba(30,24,24,.92);height:50px;display:grid;place-content:center;text-align:center;overflow:hidden}
+.skillbar{display:grid;grid-template-columns:repeat(4,minmax(0,60px));gap:6px;justify-content:center}
+.sk{position:relative;border:1px solid var(--line2);border-radius:5px;background:rgba(30,24,24,.92);aspect-ratio:1;display:grid;place-content:center;text-align:center;overflow:hidden}
+.sk img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.sicon{width:28px;height:28px;border-radius:3px;vertical-align:middle;margin-right:6px}
 .sk .ab{font-family:var(--f-display);font-weight:700;font-size:1rem;line-height:1}
-.sk .nm{font-size:.58rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;padding:0 2px}
-.sk .cdv{position:absolute;inset:auto 0 0 0;background:rgba(0,0,0,.6);height:0}
-.sk.flash{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset}
+.sk .nm{display:none}
+.sk .cdv{position:absolute;inset:auto 0 0 0;background:rgba(0,0,0,.65);height:0}
+.sk.flash{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold) inset,0 0 10px rgba(201,165,87,.6)}
 .sk.empty{opacity:.4}
-@media (max-width:420px){.sk .nm{display:none}.sk{height:44px}.orb{width:78px;height:78px}}
-@media (min-width:800px){.orb{width:108px;height:108px}.sk{height:58px}.center{max-width:400px}.orb .v{bottom:28px;font-size:.8rem}}
+@media (max-width:420px){.orb{width:78px;height:78px}}
+@media (min-width:800px){.orb{width:108px;height:108px}.skillbar{grid-template-columns:repeat(4,minmax(0,70px))}.center{max-width:400px}.orb .v{bottom:28px;font-size:.8rem}}
 
 .overlay{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:10px;text-align:center;background:rgba(10,5,6,.78);padding:16px;z-index:2}
 .overlay[hidden]{display:none}
@@ -227,7 +230,7 @@ let UID=1; const uid=()=>UID++;
 
 /* ---------- data ---------- */
 const EL={fire:'Fire',cold:'Cold',light:'Lightning'};
-const ELC={fire:'#ff7a3d',cold:'#8fd8ff',light:'#f4e66a'};
+const ELC={fire:'#ff7a3d',cold:'#8fd8ff',light:'#b48cff'};
 const TREES={ember:{n:'Ember',el:'fire',d:'Raw fire: big hits and burning.'},frost:{n:'Frost',el:'cold',d:'Control and protection.'},storm:{n:'Storm',el:'light',d:'Wild damage that jumps between foes.'}};
 const SK={
   fireball:{n:'Fireball',ab:'FB',tree:'ember',el:'fire',type:'single',mana:5,cd:0,min:6,max:11,req:1,spd:10,d:'Hurls a ball of fire at one enemy.'},
@@ -347,7 +350,7 @@ function fwd(d){
 function mkMon(def,L,rank,x,y){
   const d=MON[def],rm=RANK[rank];
   const hp=Math.round(18*Math.pow(1.17,L-1)*d.hp*rm.hp);
-  const m={id:uid(),def,L,rank,el:d.el,hp,maxHp:hp,dmg:2.4*Math.pow(1.15,L-1)*d.dmg*rm.dmg,spd:d.spd,mv:d.mv,range:d.ranged||1.05,
+  const m={id:uid(),def,L,rank,el:d.el,hp,maxHp:hp,dmg:2.4*Math.pow(1.15,L-1)*d.dmg*rm.dmg,spd:d.spd,mv:d.mv,range:d.ranged||1.55,
     atkT:rnd(.3,d.spd),chill:0,burn:0,burnDps:0,mods:[],ward:0,maxWard:0,vamp:false,res:{fire:0,cold:0,light:0},name:d.n,sub:'',
     x,y,f:-1,walking:false,lunge:0,hitT:0,deadT:0,ph:Math.random()*6};
   m.res[d.el]=.25;
@@ -443,7 +446,7 @@ function applyHit(m,r,sk){
   if(m.hp<=0)return;
   if(sk.chill)m.chill=sk.chill;
   if(sk.burn){m.burn=3;m.burnDps=r.n*sk.burn/3;}
-  m.hitT=.15;addFloat(m.x,m.y,r.n+(r.c?'!':''),ELC[sk.el],r.c);
+  m.hitT=.15;R.fx.push({k:'burst',x:m.x,y:m.y,z:.9,el:sk.el,t:0,dur:.35,size:sk.type==='single'?58:44});addFloat(m.x,m.y,r.n+(r.c?'!':''),ELC[sk.el],r.c);
   dmgMon(m,r.n);
 }
 function face(t){const h=R.hero;const dx=(t.x-t.y)-(h.x-h.y);if(Math.abs(dx)>.05)h.f=dx>0?1:-1;}
@@ -456,7 +459,7 @@ function cast(id,cond,alive){
   if(sk.type==='nova'){R.fx.push({k:'ring',x:h.x,y:h.y,r0:.4,r1:sk.rad,t:0,dur:.35,el:'light'});
     for(const m of alive)if(dist(m,h)<=sk.rad)applyHit(m,roll(m,id,1),sk);return;}
   if(sk.type==='meteor'){const t=target(cond,alive);face(t);R.targetId=t.id;const px=t.x,py=t.y;
-    R.fx.push({k:'meteor',x:px,y:py,t:0,dur:.7,on:()=>{R.fx.push({k:'ring',x:px,y:py,r0:.3,r1:sk.rad,t:0,dur:.45,el:'fire',fill:1});
+    R.fx.push({k:'meteor',x:px,y:py,t:0,dur:.7,on:()=>{R.fx.push({k:'ring',x:px,y:py,r0:.6,r1:sk.rad,t:0,dur:.6,el:'fire',fill:1});R.fx.push({k:'burst',x:px,y:py,z:.6,el:'fire',t:0,dur:.5,size:150});
       for(const m of R.monsters)if(m.hp>0&&Math.hypot(m.x-px,m.y-py)<=sk.rad)applyHit(m,roll(m,id,1),sk);}});return;}
   if(sk.type==='chain'){const t=target(cond,alive);face(t);R.targetId=t.id;const ts=[t];let cur=t;
     for(let j=1;j<sk.jumps;j++){const nx=alive.filter(m=>!ts.includes(m)&&dist(m,cur)<=4).sort((a,b)=>dist(a,cur)-dist(b,cur))[0];if(!nx)break;ts.push(nx);cur=nx;}
@@ -607,8 +610,12 @@ const SPR={};
 const SPR_NAMES=['imp','wraith','beetle','hound','cultist','crow','husk','shade','ghoul','vesper','hero-idle','hero-cast','hero-walk1','hero-walk2',
   'rock','rocks','tree','stump','torch','grave','pillar','pillar-broken','candelabra','reeds','crystal','gallows'];
 const GROUND={0:'ground-gallows-field.jpg'};const GPAT={};
+const FX_NAMES=['fireball','iceshard','orb','meteor','fire-burst','ice-burst','shock','fire-ring','shock-ring','flames','frost-aura','levelup'];const FXI={};
+const PROJ={fire:'fireball',cold:'iceshard',light:'orb'},BURST={fire:'fire-burst',cold:'ice-burst',light:'shock'},RING={fire:'fire-ring',cold:'frost-aura',light:'shock-ring'};
+function fxImg(img,x,y,w,o={}){const h=o.h||w*img.height/img.width;ctx.save();ctx.translate(x,y);if(o.rot)ctx.rotate(o.rot);ctx.globalAlpha=o.alpha??1;ctx.drawImage(img,-w/2,-h/2,w,h);ctx.restore();}
 function loadSprites(){
   for(const n of SPR_NAMES){const im=new Image();im.onload=()=>{SPR[n]=im;};im.src='sprites/'+n+'.png';}
+  for(const n of FX_NAMES){const im=new Image();im.onload=()=>{FXI[n]=im;};im.src='sprites/fx-'+n+'.jpg';}
   for(const [z,f] of Object.entries(GROUND)){const im=new Image();im.onload=()=>{GPAT[z]={pat:ctx.createPattern(im,'repeat'),size:im.width};};im.src='sprites/'+f;}
 }
 const TINT=new Map();
@@ -617,7 +624,7 @@ function tint(img,col){const key=img.src+col;let c=TINT.get(key);if(c)return c;c
 function drawSprite(img,px,py,H,o={}){
   const w=img.width*H/img.height,al=o.alpha??1;ctx.save();ctx.translate(px,py);if(o.rot)ctx.rotate(o.rot);
   ctx.scale((o.flip?-1:1)*(o.sx||1),o.sy||1);ctx.globalAlpha=al;ctx.drawImage(img,-w/2,-H,w,H);
-  if(o.flash>0){ctx.globalAlpha=al*Math.min(1,o.flash)*.7;ctx.drawImage(tint(img,'#ffffff'),-w/2,-H,w,H);}
+  if(o.flash>0){ctx.globalAlpha=al*Math.min(1,o.flash)*(o.fs||.45);ctx.drawImage(tint(img,'#ffffff'),-w/2,-H,w,H);}
   if(o.chill){ctx.globalAlpha=al*.35;ctx.drawImage(tint(img,'#7fd0ff'),-w/2,-H,w,H);}
   ctx.restore();return w;}
 const DSPR={rock:[['rock',34],['rocks',26]],tree:[['tree',125],['stump',44]],torch:[['torch',64]],reed:[['reeds',42]],pillar:[['pillar',88],['pillar-broken',70]],
@@ -654,7 +661,7 @@ function drawHero(px,py){
   if(SPR[fr]){const H=88*k;
     if(R.buffs.frostarmor>0){ctx.beginPath();ctx.ellipse(px,py,18*k,8*k,0,0,Math.PI*2);ctx.strokeStyle='rgba(166,220,240,.55)';ctx.lineWidth=1.5*k;ctx.stroke();}
     ell(px,py,15*k,6*k,'rgba(0,0,0,.5)');
-    drawSprite(SPR[fr],px,py-bob*1.5,H,{flip:f<0,flash:R.heroHit/.15,sy:h.walking?1:1+Math.sin(h.anim*2.2)*.012});
+    drawSprite(SPR[fr],px,py-bob*1.5,H,{flip:f<0,flash:R.heroHit/.15,fs:.3,sy:h.walking?1:1+Math.sin(h.anim*2.2)*.012});
     lights.push([px+f*H*.18,py-H*(h.castA>0?.95:.72),(h.castA>0?80:40)*k,h.castA>0?ELC[h.orb]:'#a36bff',h.castA>0?.6:.35]);
     if(R.buffs.frostarmor>0)lights.push([px,py-H*.5,45*k,'#8fd8ff',.18]);
     return;}
@@ -777,21 +784,35 @@ function render(){
   ctx.globalCompositeOperation='lighter';
   for(const [x,y,r,c,a] of lights)glow(x,y,r,c,a);
   for(const f of R.fx){
-    if(f.k==='proj'){const [px,py]=iso(f.x,f.y);const y=py-f.z*26*k;const c=ELC[f.el];glow(px,y,(f.small?14:26)*k,c,.8);ell(px,y,(f.small?2.5:4.5)*k,(f.small?2.5:4.5)*k,'#fff7e0');}
-    else if(f.k==='ring'){const [px,py]=iso(f.x,f.y);const p=f.t/f.dur,r=f.r0+(f.r1-f.r0)*p;const c=f.el==='gold'?'#e8cc5c':ELC[f.el];
+    if(f.k==='proj'){const [px,py]=iso(f.x,f.y);const y=py-f.z*26*k;const c=ELC[f.el];const img=FXI[PROJ[f.el]];
+      if(img){const t=f.tgt==='hero'?R.hero:f.tgt;const [tx,ty]=iso(t.x,t.y);const ang=Math.atan2(ty-26*k-y,tx-px);
+        glow(px,y,(f.small?16:28)*k,c,.45);
+        if(f.el==='light')fxImg(img,px,y,(f.small?24:34)*k,{rot:R.time*9});
+        else fxImg(img,px,y,(f.small?32:58)*k,{rot:ang});}
+      else{glow(px,y,(f.small?14:26)*k,c,.8);ell(px,y,(f.small?2.5:4.5)*k,(f.small?2.5:4.5)*k,'#fff7e0');}}
+    else if(f.k==='burst'){const img=FXI[BURST[f.el]];if(!img)continue;const [px,py]=iso(f.x,f.y);const p=f.t/f.dur;
+      fxImg(img,px,py-f.z*26*k,f.size*k*(.55+.6*p),{alpha:Math.max(0,1-p*p)});}
+    else if(f.k==='ring'){const [px,py]=iso(f.x,f.y);const p=f.t/f.dur,r=f.r0+(f.r1-f.r0)*Math.sqrt(p);
+      if(f.el==='gold'){const img=FXI.levelup;if(img){fxImg(img,px,py-40*k,140*k*(.4+p),{alpha:1-p});continue;}}
+      const img=FXI[RING[f.el]];
+      if(img){const w2=r*V.tw*1.15;fxImg(img,px,py,w2,{h:w2*.55,alpha:Math.min(1,(1-p)*1.6)});continue;}
+      const c=f.el==='gold'?'#e8cc5c':ELC[f.el];
       ctx.beginPath();ctx.ellipse(px,py,r*V.tw/2,r*V.th/2,0,0,Math.PI*2);ctx.strokeStyle=hexA(c,(1-p)*.9);ctx.lineWidth=3*k;ctx.stroke();
       if(f.fill){ctx.fillStyle=hexA(c,(1-p)*.3);ctx.fill();}}
     else if(f.k==='bolt'){const a=1-f.t/f.dur;ctx.beginPath();let first=true;let sd=f.seed*1000;
       for(let i=0;i<f.pts.length-1;i++){const p1=f.pts[i],p2=f.pts[i+1];const [ax,ay]=iso(p1.x,p1.y),[bx,by]=iso(p2.x,p2.y);
         const ay2=ay-p1.z*26*k,by2=by-p2.z*26*k;if(first){ctx.moveTo(ax,ay2);first=false;}
         for(let j=1;j<=6;j++){sd+=1.7;const q=j/6;const jit=j<6?(Math.sin(sd*12.9+R.time*40)*10*k):0;ctx.lineTo(ax+(bx-ax)*q+jit,ay2+(by2-ay2)*q+jit*.6);}}
-      ctx.strokeStyle=hexA(ELC.light,a);ctx.lineWidth=2.5*k;ctx.stroke();ctx.strokeStyle=`rgba(255,255,255,${a})`;ctx.lineWidth=1*k;ctx.stroke();
+      ctx.strokeStyle=hexA(ELC.light,a);ctx.lineWidth=3*k;ctx.stroke();ctx.strokeStyle=`rgba(255,255,255,${a})`;ctx.lineWidth=1.2*k;ctx.stroke();
       for(const p of f.pts.slice(1)){const [bx,by]=iso(p.x,p.y);glow(bx,by-p.z*26*k,30*k,ELC.light,a*.6);}}
-    else if(f.k==='meteor'){const [px,py]=iso(f.x,f.y);const p=f.t/f.dur;const mx=px+(1-p)*90*k,my=py-(1-p)*260*k;
-      for(let i=1;i<5;i++)glow(mx+i*9*k*(1-p)+i*4*k,my-i*22*k*(1-p)-i*8*k,(16-i*2.5)*k,'#ff7a3d',.35);
-      glow(mx,my,30*k,'#ff7a3d',.9);ell(mx,my,6*k,6*k,'#ffe7b0');
-      ctx.beginPath();ctx.ellipse(px,py,SK.meteor.rad*V.tw/2*p,SK.meteor.rad*V.th/2*p,0,0,Math.PI*2);ctx.strokeStyle=hexA('#ff7a3d',.35);ctx.lineWidth=1.5*k;ctx.stroke();}
+    else if(f.k==='meteor'){const [px,py]=iso(f.x,f.y);const p=f.t/f.dur;const mx=px+(1-p)*110*k,my=py-(1-p)*280*k;
+      ctx.beginPath();ctx.ellipse(px,py,SK.meteor.rad*V.tw/2*p,SK.meteor.rad*V.th/2*p,0,0,Math.PI*2);ctx.strokeStyle=hexA('#ff7a3d',.4);ctx.lineWidth=1.5*k;ctx.stroke();
+      glow(mx,my,40*k,'#ff7a3d',.6);
+      if(FXI.meteor)fxImg(FXI.meteor,mx+14*k,my-14*k,90*k);
+      else{for(let i=1;i<5;i++)glow(mx+i*9*k*(1-p)+i*4*k,my-i*22*k*(1-p)-i*8*k,(16-i*2.5)*k,'#ff7a3d',.35);ell(mx,my,6*k,6*k,'#ffe7b0');}}
   }
+  if(FXI.flames)for(const m of R.monsters)if(m.burn>0&&m.hp>0&&m._sx!=null)fxImg(FXI.flames,m._sx,m._sy-14*k,40*k*(1+Math.sin(R.time*14+m.id)*.08),{alpha:.85});
+  if(FXI['frost-aura']&&R.buffs.frostarmor>0&&R.phase!=='town'){const [px,py]=iso(R.hero.x,R.hero.y);fxImg(FXI['frost-aura'],px,py-2*k,78*k,{h:40*k,alpha:.45+Math.sin(R.time*3)*.12});}
   ctx.globalCompositeOperation='source-over';
   // ground labels for loot
   ctx.textAlign='center';ctx.textBaseline='middle';
@@ -823,7 +844,7 @@ function render(){
 function renderSkillbar(){
   $('#skillbar').innerHTML=S.slots.map((sl,i)=>{const sk=sl.id&&SK[sl.id];
     if(!sk)return `<div class="sk empty"><div class="ab">–</div><div class="nm">Empty</div></div>`;
-    return `<div class="sk" id="sk${i}"><div class="ab ${sk.el}">${sk.ab}</div><div class="nm">${sk.n}</div><div class="cdv"></div></div>`;}).join('');
+    return `<div class="sk" id="sk${i}" title="${sk.n}"><div class="ab ${sk.el}">${sk.ab}</div><img src="sprites/icon-${sl.id}.png" alt="${sk.n}" onerror="this.remove()"><div class="cdv"></div></div>`;}).join('');
 }
 function draw(){
   const st=R.st,z=ZONES[S.zone];
@@ -880,7 +901,7 @@ function pSkills(){
   const trees=Object.entries(TREES).map(([t,T])=>`<div class="tree"><h3><span class="${T.el}">${T.n}</span><span>${EL[T.el]}</span></h3><p class="hint">${T.d}</p>
     ${Object.entries(SK).filter(([,s])=>s.tree===t).map(([id,s])=>{const lv=S.skills[id]||0;const can=S.skillPts>0&&S.lvl>=s.req;
       const info=s.type==='buff'?`Barrier ${6+6*Math.max(1,lv)}`:(()=>{const[a,b]=dmgRange(id);return lv?`Damage ${a}–${b}`:'';})();
-      return `<div class="skill ${S.lvl<s.req?'locked':''}"><div class="t"><b class="${s.el}">${s.n}</b><span>Lv ${lv}</span></div>
+      return `<div class="skill ${S.lvl<s.req?'locked':''}"><div class="t"><span><img class="sicon" src="sprites/icon-${id}.png" alt="" onerror="this.remove()"><b class="${s.el}">${s.n}</b></span><span>Lv ${lv}</span></div>
         <div class="d">${s.d}</div><div class="t"><span class="d">${S.lvl<s.req?'Needs level '+s.req:`${info}${info?' · ':''}${manaCost(id)} mana`}</span>
         <button class="btn sm" data-act="learn:${id}" ${can?'':'disabled'} aria-label="Level up ${s.n}">+</button></div></div>`;}).join('')}</div>`).join('');
   const opts=(sel)=>`<option value="">Empty</option>`+learned.map(k=>`<option value="${k}" ${k===sel?'selected':''}>${SK[k].n}</option>`).join('');
