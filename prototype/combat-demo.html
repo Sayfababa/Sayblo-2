@@ -1,5 +1,4 @@
 <title>Grimlight Combat Demo</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Alegreya+Sans:wght@400;500;700&display=swap">
 <style>
@@ -16,11 +15,8 @@
   color-scheme:dark;
 }
 *{box-sizing:border-box}
-html,body{background:var(--bg);color:var(--bone)}
-body{font-family:var(--f-body);font-size:15px;line-height:1.4;
-  padding-left:max(16px, env(safe-area-inset-left,0px));padding-right:max(16px, env(safe-area-inset-right,0px));
-  padding-block:0 calc(72px + env(safe-area-inset-bottom,0px));
-  background:radial-gradient(120% 60% at 50% 0%, #1f1617 0%, var(--bg) 60%) fixed, var(--bg)}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--bg);color:var(--bone)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.4;overscroll-behavior:none}
 button,select,input{font:inherit;color:inherit}
 button{cursor:pointer}
 :focus-visible{outline:2px solid var(--gold);outline-offset:2px}
@@ -28,73 +24,78 @@ h2,h3{font-family:var(--f-display);font-weight:700;letter-spacing:.04em;margin:0
 h2{font-size:1.05rem;color:var(--gold)}
 h3{font-size:.85rem;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
 .fire{color:var(--fire)} .cold{color:var(--cold)} .light{color:var(--light)}
+.gold{color:var(--gold);font-weight:700;font-variant-numeric:tabular-nums}
 
-.top{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding-block:12px 10px;border-bottom:1px solid var(--line);max-width:1280px;margin:0 auto}
-.brand{font-family:var(--f-display);font-weight:700;font-size:1.25rem;letter-spacing:.08em;color:var(--gold);line-height:1}
-.brand small{display:block;font-family:var(--f-body);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-top:3px}
-.top .spacer{flex:1}
-.zonesel{background:var(--panel);border:1px solid var(--line2);border-radius:4px;padding:6px 8px;max-width:100%}
-.seg{display:inline-flex;border:1px solid var(--line2);border-radius:4px;overflow:hidden}
-.seg button{background:var(--panel);border:0;padding:6px 10px;color:var(--muted)}
-.seg button[aria-pressed="true"]{background:var(--panel2);color:var(--gold)}
-.gold{color:var(--gold);font-weight:700}
+.app{height:100%;display:flex;flex-direction:column}
+.stage{position:relative;flex:1;min-height:0;overflow:hidden;background:#050405}
+#world{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
 
-.grid{max-width:1280px;margin:0 auto;display:grid;gap:18px;padding-top:14px}
-@media (min-width:920px){
-  .grid{grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);align-items:start}
-  .tab-fight{display:none!important}
-  .side{position:sticky;top:12px;max-height:calc(100vh - 100px);overflow:auto}
-}
-@media (max-width:919px){
-  .app[data-tab="fight"] .side{display:none}
-  .app:not([data-tab="fight"]) .fight{display:none}
-}
-.pane{min-width:0}
-
-.zonehead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
-.zonehead .meta{color:var(--muted);font-size:.85rem;font-variant-numeric:tabular-nums}
-.prog{height:4px;background:var(--panel2);border-radius:2px;margin:8px 0 10px;overflow:hidden}
+/* HUD: top */
+.hud-top{position:absolute;top:8px;left:8px;right:8px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;pointer-events:none;z-index:1}
+.hud-top>*{pointer-events:auto}
+.zinfo{display:grid;gap:3px;min-width:0;max-width:55%}
+.zonesel{background:rgba(20,15,16,.82);border:1px solid var(--line2);border-radius:4px;padding:4px 6px;font-family:var(--f-display);font-weight:700;color:var(--gold);font-size:.85rem;max-width:100%}
+.meta{font-size:.72rem;color:var(--bone);opacity:.75;text-shadow:0 1px 2px #000;font-variant-numeric:tabular-nums}
+.prog{height:3px;background:rgba(255,255,255,.1);border-radius:2px;overflow:hidden}
 .prog i{display:block;height:100%;background:var(--gold);width:0;transition:width .3s}
+.tr{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.tr .gold{text-shadow:0 1px 2px #000;font-size:.85rem}
+.seg{display:inline-flex;border:1px solid var(--line2);border-radius:4px;overflow:hidden}
+.seg button{background:rgba(20,15,16,.82);border:0;padding:4px 8px;color:var(--muted);font-size:.8rem}
+.seg button[aria-pressed="true"]{background:var(--panel2);color:var(--gold)}
+.hbtn{background:rgba(20,15,16,.82);border:1px solid var(--line2);border-radius:4px;padding:4px 9px;font-size:.8rem;color:var(--muted)}
+.hbtn[aria-pressed="true"]{color:var(--gold);border-color:var(--gold)}
 
-.stage{position:relative;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#050405}
-#world{display:block;width:100%;height:340px}
-.overlay{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:10px;text-align:center;background:rgba(10,5,6,.78);padding:16px}
-.overlay[hidden]{display:none}
-.overlay h2{font-size:1.4rem;color:var(--bad)}
-.overlay p{margin:0;color:var(--muted)}
-
-.hero{margin-top:12px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px;display:grid;gap:8px}
-.herohead{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline}
-.herohead .who{font-family:var(--f-display);font-weight:700}
-.bars{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.bar{position:relative;height:18px;border-radius:3px;overflow:hidden;background:var(--life2)}
-.bar.mana{background:var(--mana2)}
-.bar i{position:absolute;inset:0 auto 0 0;background:var(--life)}
-.bar.mana i{background:var(--mana)}
-.bar span{position:relative;display:block;text-align:center;font-size:.75rem;line-height:18px;font-weight:700;text-shadow:0 1px 2px #000;font-variant-numeric:tabular-nums}
-.thin{height:5px;border-radius:2px;background:var(--panel2);overflow:hidden;position:relative}
-.thin i{position:absolute;inset:0 auto 0 0;background:var(--barrier)}
-.thin.xp i{background:var(--xp)}
-.lbl{display:flex;justify-content:space-between;font-size:.72rem;color:var(--muted);margin-bottom:2px;font-variant-numeric:tabular-nums}
-.skillbar{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
-.sk{position:relative;border:1px solid var(--line2);border-radius:6px;background:var(--panel2);padding:6px 4px;text-align:center;overflow:hidden;min-height:50px}
-.sk .ab{font-family:var(--f-display);font-weight:700;font-size:1rem}
-.sk .nm{font-size:.66rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sk .cdv{position:absolute;inset:auto 0 0 0;background:rgba(0,0,0,.6);height:0}
-.sk.flash{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset}
-.sk.empty{opacity:.4}
-.row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
-.belt{font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
-.belt b{color:var(--bone)}
-.chips{display:flex;gap:6px;flex-wrap:wrap;font-size:.75rem;font-variant-numeric:tabular-nums}
-.chips span{border:1px solid var(--line2);border-radius:3px;padding:1px 6px}
-
-.log{margin:12px 0 0;padding:10px 12px;list-style:none;background:#0e0b0c;border:1px solid var(--line);border-radius:6px;height:130px;overflow:auto;font-size:.8rem;display:flex;flex-direction:column;gap:2px}
+/* log drawer */
+.log{position:absolute;left:8px;bottom:118px;width:min(380px,calc(100% - 16px));max-height:min(42%,260px);overflow:auto;margin:0;padding:8px 10px;list-style:none;
+  background:rgba(10,7,8,.86);border:1px solid var(--line);border-radius:6px;font-size:.78rem;display:flex;flex-direction:column;gap:2px;z-index:2}
 .log li{color:var(--muted)}
 .log .bad{color:var(--bad)} .log .good{color:var(--good)} .log .lvl{color:var(--gold);font-weight:700}
 .log .r1{color:var(--r1)} .log .r2{color:var(--r2)} .log .r3{color:var(--r3);font-weight:700}
 
-.panel{display:none;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;gap:14px}
+/* HUD: bottom with orbs */
+.hud-bottom{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:flex-end;justify-content:center;gap:10px;padding:24px 8px 8px;
+  background:linear-gradient(to top,rgba(5,3,4,.9),rgba(5,3,4,0));pointer-events:none;z-index:1}
+.hud-bottom>*{pointer-events:auto}
+.orbwrap{position:relative;flex:none}
+.orb{width:86px;height:86px;border-radius:50%;position:relative;overflow:hidden;background:#140708;border:3px solid #4d4036;box-shadow:inset 0 0 14px #000}
+.orb.mana{background:#070a18}
+.orb i{position:absolute;left:0;right:0;bottom:0;height:100%;background:radial-gradient(circle at 40% 25%,#e2484f,#8a141a 55%,#4a0a0d)}
+.orb.mana i{background:radial-gradient(circle at 40% 25%,#5a7cf0,#2236a0 55%,#111d5a)}
+.orb::after{content:"";position:absolute;top:7px;left:16px;right:20px;height:22px;border-radius:50%;background:linear-gradient(rgba(255,255,255,.25),rgba(255,255,255,0))}
+.orb .v{position:absolute;left:0;right:0;bottom:20px;text-align:center;font-size:.74rem;font-weight:700;text-shadow:0 1px 2px #000;font-variant-numeric:tabular-nums;line-height:1.15}
+.orb .bv{display:block;color:var(--barrier);font-size:.68rem}
+.ring{position:absolute;inset:-6px;border-radius:50%;border:3px solid var(--barrier);opacity:0;pointer-events:none;transition:opacity .2s}
+.pot{position:absolute;top:-8px;font-size:.7rem;font-weight:700;padding:1px 7px;border-radius:8px;background:#1c1718;border:1px solid var(--line2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.orbwrap.l .pot{left:-4px;color:#ff9a9a} .orbwrap.r .pot{right:-4px;color:#a9bcff}
+.center{flex:1;max-width:340px;min-width:0;display:grid;gap:4px;padding-bottom:2px}
+.lvlrow{display:flex;justify-content:space-between;font-size:.7rem;color:var(--bone);opacity:.8;text-shadow:0 1px 2px #000;font-variant-numeric:tabular-nums}
+.lvlrow b{font-family:var(--f-display)}
+.xp{height:4px;background:rgba(255,255,255,.1);border-radius:2px;overflow:hidden}
+.xp i{display:block;height:100%;background:var(--xp);width:0}
+.skillbar{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+.sk{position:relative;border:1px solid var(--line2);border-radius:5px;background:rgba(30,24,24,.92);height:50px;display:grid;place-content:center;text-align:center;overflow:hidden}
+.sk .ab{font-family:var(--f-display);font-weight:700;font-size:1rem;line-height:1}
+.sk .nm{font-size:.58rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;padding:0 2px}
+.sk .cdv{position:absolute;inset:auto 0 0 0;background:rgba(0,0,0,.6);height:0}
+.sk.flash{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset}
+.sk.empty{opacity:.4}
+@media (max-width:420px){.sk .nm{display:none}.sk{height:44px}.orb{width:78px;height:78px}}
+@media (min-width:800px){.orb{width:108px;height:108px}.sk{height:58px}.center{max-width:400px}.orb .v{bottom:28px;font-size:.8rem}}
+
+.overlay{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:10px;text-align:center;background:rgba(10,5,6,.78);padding:16px;z-index:2}
+.overlay[hidden]{display:none}
+.overlay h2{font-size:1.4rem;color:var(--bad)}
+.overlay p{margin:0;color:var(--muted)}
+
+/* menu sheet over the map */
+.sheet{position:absolute;inset:0;overflow:auto;background:rgba(19,15,16,.97);padding:12px 14px 20px;z-index:4;overscroll-behavior:contain}
+.sheet[hidden]{display:none}
+@media (min-width:820px){.sheet{left:auto;width:460px;border-left:1px solid var(--line);box-shadow:-12px 0 30px rgba(0,0,0,.55)}
+  .stage.open .hud-top,.stage.open .hud-bottom{right:460px}.stage.open .hud-top{right:468px}}
+.sheet .close{position:sticky;top:0;float:right;z-index:1;background:var(--panel2);border:1px solid var(--line2);border-radius:4px;width:34px;height:34px;color:var(--bone);margin-left:8px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.panel{display:none;gap:14px}
 .panel.active{display:grid}
 .btn{background:var(--panel2);border:1px solid var(--line2);border-radius:4px;padding:5px 10px}
 .btn:hover:not(:disabled){border-color:var(--gold)}
@@ -144,62 +145,65 @@ select.plain{background:var(--panel2);border:1px solid var(--line2);border-radiu
 .scope ul{margin:0;padding-left:18px}
 .empty-state{color:var(--muted);font-size:.85rem;text-align:center;padding:20px 0}
 
-.tabs{position:fixed;left:0;right:0;bottom:0;z-index:5;display:flex;justify-content:center;gap:4px;background:#0d0a0b;border-top:1px solid var(--line);
-  padding:6px max(8px, env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px, env(safe-area-inset-left,0px))}
+.tabs{flex:none;display:flex;justify-content:center;gap:4px;background:#0d0a0b;border-top:1px solid var(--line);padding:6px 8px}
 .tabs button{flex:1;max-width:140px;background:none;border:0;border-radius:4px;padding:8px 4px;color:var(--muted);font-family:var(--f-display);font-weight:700;font-size:.82rem;letter-spacing:.06em;position:relative}
 .tabs button[aria-selected="true"]{color:var(--gold);background:var(--panel)}
 .tabs .dot{position:absolute;top:4px;right:calc(50% - 30px);width:7px;height:7px;border-radius:50%;background:var(--gold)}
 </style>
 
-<div class="app" id="app" data-tab="fight">
-  <header class="top">
-    <div class="brand">Grimlight<small>working title · combat demo</small></div>
-    <div class="spacer"></div>
-    <select class="zonesel" id="zonesel" aria-label="Area"></select>
-    <div class="seg" role="group" aria-label="Game speed" id="speedseg">
-      <button data-act="speed:1">1×</button><button data-act="speed:2">2×</button><button data-act="speed:4">4×</button>
+<div class="app" id="app">
+  <div class="stage" id="stage">
+    <canvas id="world" aria-label="Game world: the sorceress fights on her own"></canvas>
+
+    <div class="hud-top">
+      <div class="zinfo">
+        <select class="zonesel" id="zonesel" aria-label="Area"></select>
+        <div class="meta" id="zmeta"></div>
+        <div class="prog"><i id="zprog"></i></div>
+      </div>
+      <div class="tr">
+        <span class="gold" id="hgold">0 gold</span>
+        <div class="seg" role="group" aria-label="Game speed" id="speedseg">
+          <button data-act="speed:1">1×</button><button data-act="speed:2">2×</button><button data-act="speed:4">4×</button>
+        </div>
+        <button class="hbtn" data-act="log" id="logbtn" aria-pressed="false">Log</button>
+      </div>
     </div>
-  </header>
 
-  <main class="grid">
-    <section class="pane fight" aria-label="Combat">
-      <div class="zonehead"><h2 id="zname">Gallows Field</h2><div class="meta" id="zmeta"></div></div>
-      <div class="prog"><i id="zprog"></i></div>
-      <div class="stage" id="stage">
-        <canvas id="world" aria-label="Game world: the sorceress fights on her own"></canvas>
-        <div class="overlay" id="overlay" hidden>
-          <h2>You have died</h2><p id="towntxt"></p>
-          <button class="btn primary" data-act="return" id="returnbtn">Return</button>
-        </div>
+    <ul class="log" id="log" hidden></ul>
+
+    <div class="hud-bottom">
+      <div class="orbwrap l">
+        <div class="orb life" id="lifeorb"><i id="lifebar"></i><span class="v"><span class="bv" id="bartxt"></span><span id="lifetxt"></span></span></div>
+        <div class="ring" id="barring"></div>
+        <span class="pot" id="hppot"></span>
       </div>
-
-      <div class="hero">
-        <div class="herohead">
-          <span class="who">Sorceress · <span id="hlvl">Lv 1</span></span>
-          <span class="gold" id="hgold">0 gold</span>
-        </div>
-        <div><div class="lbl"><span>Experience</span><span id="xptxt"></span></div><div class="thin xp"><i id="xpbar"></i></div></div>
-        <div><div class="lbl"><span>Barrier</span><span id="bartxt"></span></div><div class="thin"><i id="barbar"></i></div></div>
-        <div class="bars">
-          <div class="bar"><i id="lifebar"></i><span id="lifetxt"></span></div>
-          <div class="bar mana"><i id="manabar"></i><span id="manatxt"></span></div>
-        </div>
+      <div class="center">
+        <div class="lvlrow"><span>Sorceress · Lv <b id="hlvl">1</b></span><span id="xptxt"></span></div>
+        <div class="xp"><i id="xpbar"></i></div>
         <div class="skillbar" id="skillbar"></div>
-        <div class="row"><div class="belt" id="belt"></div><div class="chips" id="reschips"></div></div>
       </div>
-      <ul class="log" id="log"></ul>
-    </section>
+      <div class="orbwrap r">
+        <div class="orb mana"><i id="manabar"></i><span class="v" id="manatxt"></span></div>
+        <span class="pot" id="mppot"></span>
+      </div>
+    </div>
 
-    <section class="pane side" aria-label="Menus">
+    <div class="overlay" id="overlay" hidden>
+      <h2>You have died</h2><p id="towntxt"></p>
+      <button class="btn primary" data-act="return" id="returnbtn">Return</button>
+    </div>
+
+    <section class="sheet" id="sheet" hidden aria-label="Menu">
+      <button class="close" data-act="close" aria-label="Close menu">✕</button>
       <div class="panel" id="p-hero"></div>
       <div class="panel" id="p-skills"></div>
       <div class="panel" id="p-bag"></div>
       <div class="panel" id="p-town"></div>
     </section>
-  </main>
+  </div>
 
   <nav class="tabs" role="tablist">
-    <button class="tab-fight" role="tab" data-act="tab:fight">Fight</button>
     <button role="tab" data-act="tab:hero">Hero<i class="dot" id="dot-hero" hidden></i></button>
     <button role="tab" data-act="tab:skills">Skills<i class="dot" id="dot-skills" hidden></i></button>
     <button role="tab" data-act="tab:bag">Bag</button>
@@ -307,7 +311,7 @@ let S;
 const R={phase:'walk',wps:[],waitT:0,wave:0,monsters:[],fx:[],floats:[],drops:[],cd:{},buffs:{},faAmt:0,castT:0,castDur:1,last:null,flash:0,
   potH:0,potM:0,noHit:9,townT:0,returnZone:0,bossSpawned:false,targetId:null,time:0,
   hero:{x:0,y:0,f:1,anim:0,walking:false,castA:0,orb:'fire'},cam:{x:0,y:0},dir:{x:.33,y:-.94},
-  log:[],logDirty:true,dirty:{hero:1,skills:1,bag:1,town:1,slots:1,zones:1},tab:'fight',st:null,resetArm:false,view:{w:600,h:400,dpr:1}};
+  log:[],logDirty:true,dirty:{hero:1,skills:1,bag:1,town:1,slots:1,zones:1},tab:null,showLog:false,st:null,resetArm:false,view:{w:600,h:400,dpr:1}};
 
 function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.v===2)return s;}catch(e){}return null;}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
@@ -586,8 +590,8 @@ function takeItem(it){
 const cv=$('#world'),ctx=cv.getContext('2d');
 const V={tw:64,th:32,k:1,ox:0,oy:0};
 function resize(){
-  const w=cv.parentElement.clientWidth;const h=Math.round(clamp(w*.68,290,540));const dpr=Math.min(2,window.devicePixelRatio||1);
-  cv.style.height=h+'px';cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);R.view={w,h,dpr};
+  const st=$('#stage');const w=st.clientWidth,h=st.clientHeight;if(!w||!h)return;const dpr=Math.min(2,window.devicePixelRatio||1);
+  cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);R.view={w,h,dpr};
 }
 const iso=(x,y)=>[(x-y)*V.tw/2+V.ox,(x+y)*V.th/2+V.oy];
 const unIso=(sx,sy)=>{const a=(sx-V.ox)/(V.tw/2),b=(sy-V.oy)/(V.th/2);return [(a+b)/2,(b-a)/2];};
@@ -694,8 +698,8 @@ function drawDrop(d,px,py){
 function render(){
   const {w,h,dpr}=R.view;
   ctx.setTransform(dpr,0,0,dpr,0,0);
-  const k=clamp(w/620,.9,1.15);V.k=k;V.tw=64*k;V.th=32*k;
-  V.ox=w/2-(R.cam.x-R.cam.y)*V.tw/2;V.oy=h*.6-(R.cam.x+R.cam.y)*V.th/2;
+  const k=clamp(Math.min(w/620,h/560),.9,1.3);V.k=k;V.tw=64*k;V.th=32*k;
+  const sw=(R.tab&&w>=820)?460:0;V.ox=(w-sw)/2-(R.cam.x-R.cam.y)*V.tw/2;V.oy=(h-40)*.52-(R.cam.x+R.cam.y)*V.th/2;
   const pal=PAL[S.zone];lights=[];
   ctx.fillStyle='#050405';ctx.fillRect(0,0,w,h);
   const cs=[unIso(0,0),unIso(w,0),unIso(0,h),unIso(w,h)];
@@ -760,11 +764,11 @@ function render(){
   ctx.globalAlpha=1;
   // target frame like a classic ARPG
   const tg=R.monsters.find(m=>m.id===R.targetId&&m.hp>0)||R.monsters.find(m=>m.hp>0&&m.rank>=2);
-  if(tg&&R.phase==='fight'){const bw=Math.min(w-32,240*k),x=w/2-bw/2,y=10;
+  if(tg&&R.phase==='fight'){const cw=(R.tab&&w>=820)?w-460:w;const bw=Math.min(cw-32,240*k),x=cw/2-bw/2,y=cw<760?84:10;
     ctx.fillStyle='rgba(10,6,7,.85)';ctx.fillRect(x,y,bw,(tg.sub?40:28)*k);ctx.strokeStyle='#55473f';ctx.lineWidth=1;ctx.strokeRect(x+.5,y+.5,bw-1,(tg.sub?40:28)*k-1);
     ctx.fillStyle='#5c1216';ctx.fillRect(x+6,y+18*k,bw-12,6*k);ctx.fillStyle='#b3262b';ctx.fillRect(x+6,y+18*k,(bw-12)*tg.hp/tg.maxHp,6*k);
-    ctx.font=`700 ${Math.round(11*k+1)}px Cinzel, serif`;ctx.fillStyle=RCOL[tg.rank];ctx.fillText(tg.name,w/2,y+9*k);
-    if(tg.sub){ctx.font=`500 ${Math.round(10*k+1)}px "Alegreya Sans", sans-serif`;ctx.fillStyle='#9b8e7f';ctx.fillText(tg.sub,w/2,y+32*k);}}
+    ctx.font=`700 ${Math.round(11*k+1)}px Cinzel, serif`;ctx.fillStyle=RCOL[tg.rank];ctx.fillText(tg.name,cw/2,y+9*k);
+    if(tg.sub){ctx.font=`500 ${Math.round(10*k+1)}px "Alegreya Sans", sans-serif`;ctx.fillStyle='#9b8e7f';ctx.fillText(tg.sub,cw/2,y+32*k);}}
 }
 
 /* ---------- HUD ---------- */
@@ -775,36 +779,34 @@ function renderSkillbar(){
 }
 function draw(){
   const st=R.st,z=ZONES[S.zone];
-  $('#zname').textContent=z.n;
   const wv=R.phase==='town'?'In town':(R.bossSpawned?'Boss':R.wave?`Wave ${Math.min(R.wave,z.waves)}/${z.waves}`:'Exploring');
   $('#zmeta').textContent=`Act I · monster lv ${z.L} · ${wv}`;
   $('#zprog').style.width=(R.bossSpawned?100:Math.max(0,R.wave-(R.phase==='fight'?1:0))/z.waves*100)+'%';
-  const ov=$('#overlay');ov.hidden=R.phase!=='town';
+  $('#overlay').hidden=R.phase!=='town';
   if(R.phase==='town'){$('#towntxt').textContent=S.autoReturn?`You lost some experience and gold. Back to ${ZONES[R.returnZone].n} in ${Math.max(0,Math.ceil(R.townT))}s.`:'Auto-return is off. Pick an area or press Return.';
     $('#returnbtn').textContent='Return to '+ZONES[R.returnZone].n;}
-  $('#hlvl').textContent='Lv '+S.lvl;$('#hgold').textContent=fmt(S.gold)+' gold';
-  $('#xptxt').textContent=`${fmt(S.xp)} / ${fmt(need(S.lvl))}`;$('#xpbar').style.width=(S.xp/need(S.lvl)*100)+'%';
-  const mb=maxBarrier();$('#bartxt').textContent=`${Math.round(S.barrier)} / ${Math.round(mb)}${R.buffs.frostarmor>0?' · Frost Armor '+Math.ceil(R.buffs.frostarmor)+'s':''}`;
-  $('#barbar').style.width=(mb?S.barrier/mb*100:0)+'%';
-  $('#lifebar').style.width=(Math.max(0,S.life)/st.maxLife*100)+'%';$('#lifetxt').textContent=`Life ${Math.max(0,Math.round(S.life))} / ${st.maxLife}`;
-  $('#manabar').style.width=(S.mana/st.maxMana*100)+'%';$('#manatxt').textContent=`Mana ${Math.round(S.mana)} / ${st.maxMana}`;
+  $('#hlvl').textContent=S.lvl;$('#hgold').textContent=fmt(S.gold)+' gold';
+  $('#xptxt').textContent=`${fmt(S.xp)} / ${fmt(need(S.lvl))} XP`;$('#xpbar').style.width=(S.xp/need(S.lvl)*100)+'%';
+  const mb=maxBarrier(),bf=mb?S.barrier/mb:0;
+  $('#barring').style.opacity=S.barrier>0?(.25+bf*.75).toFixed(2):0;
+  $('#bartxt').textContent=S.barrier>=1?'+'+Math.round(S.barrier)+' barrier':'';
+  $('#lifebar').style.height=(Math.max(0,S.life)/st.maxLife*100)+'%';$('#lifetxt').textContent=`${Math.max(0,Math.round(S.life))}/${st.maxLife}`;
+  $('#manabar').style.height=(S.mana/st.maxMana*100)+'%';$('#manatxt').textContent=`${Math.round(S.mana)}/${st.maxMana}`;
+  $('#hppot').textContent=`${S.hpPot} potions`;$('#mppot').textContent=`${S.mpPot} potions`;
   if(R.dirty.slots){renderSkillbar();R.dirty.slots=0;}
   S.slots.forEach((sl,i)=>{const e=document.getElementById('sk'+i);if(!e)return;const sk=SK[sl.id];
     e.querySelector('.cdv').style.height=(sk.cd&&R.cd[sl.id]>0?R.cd[sl.id]/sk.cd*100:(S.skills[sl.id]?0:100))+'%';
     e.classList.toggle('flash',R.last===sl.id&&R.flash>0);});
-  $('#belt').innerHTML=`Health potions <b>${S.hpPot}</b> (at ${S.hpTh}%) · Mana potions <b>${S.mpPot}</b> (at ${S.mpTh}%)`;
-  $('#reschips').innerHTML=Object.keys(EL).map(k=>`<span class="${k}">${EL[k].slice(0,4)} ${st.res[k]}%</span>`).join('');
-  if(R.logDirty){$('#log').innerHTML=R.log.map(l=>`<li class="${l.cls}">${l.html}</li>`).join('');R.logDirty=false;}
-  if(R.dirty.zones){$('#zonesel').innerHTML=ZONES.slice(0,S.unlocked).map((z,i)=>`<option value="${i}" ${i===S.zone?'selected':''}>${z.n} (lv ${z.L})</option>`).join('');R.dirty.zones=0;}
+  if(R.logDirty&&R.showLog){$('#log').innerHTML=R.log.map(l=>`<li class="${l.cls}">${l.html}</li>`).join('');R.logDirty=false;}
+  if(R.dirty.zones){$('#zonesel').innerHTML=ZONES.slice(0,S.unlocked).map((z,i)=>`<option value="${i}" ${i===S.zone?'selected':''}>${z.n}</option>`).join('');R.dirty.zones=0;}
   else if(+$('#zonesel').value!==S.zone)$('#zonesel').value=S.zone;
   document.querySelectorAll('#speedseg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.act==='speed:'+S.speed));
   $('#dot-hero').hidden=!S.attrPts;$('#dot-skills').hidden=!S.skillPts;
   const tg=$('#towngold');if(tg)tg.textContent=fmt(S.gold);
-  const p=activePanel();if(R.dirty[p]){renderPanel(p);R.dirty[p]=0;}
+  const p=R.tab;if(p&&R.dirty[p]){renderPanel(p);R.dirty[p]=0;}
 }
 
 /* ---------- panels ---------- */
-const activePanel=()=>R.tab==='fight'?'hero':R.tab;
 function renderPanel(p){({hero:pHero,skills:pSkills,bag:pBag,town:pTown})[p]();}
 function pHero(){
   const st=R.st;
@@ -889,15 +891,17 @@ function pTown(){
 }
 
 /* ---------- input ---------- */
-function setTab(t){R.tab=t;$('#app').dataset.tab=t;
-  document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.act==='tab:'+t));
-  const p=activePanel();document.querySelectorAll('.panel').forEach(x=>x.classList.toggle('active',x.id==='p-'+p));R.dirty[p]=1;
-  requestAnimationFrame(resize);}
+function setTab(t){R.tab=(t&&R.tab!==t)?t:null;
+  document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.act==='tab:'+R.tab));
+  $('#sheet').hidden=!R.tab;$('#stage').classList.toggle('open',!!R.tab);document.querySelectorAll('.panel').forEach(x=>x.classList.toggle('active',x.id==='p-'+R.tab));
+  if(R.tab){R.dirty[R.tab]=1;$('#sheet').scrollTop=0;}}
 function townMsg(t){const e=$('#townmsg');if(e)e.textContent=t;}
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]');if(!b||b.disabled)return;
   const [a,x,y]=b.dataset.act.split(':');
   if(a==='tab')setTab(x);
+  else if(a==='close')setTab(null);
+  else if(a==='log'){R.showLog=!R.showLog;$('#log').hidden=!R.showLog;b.setAttribute('aria-pressed',R.showLog);R.logDirty=true;}
   else if(a==='speed')S.speed=+x;
   else if(a==='attr'&&S.attrPts>0){S.attrs[x]++;S.attrPts--;recalc();R.dirty.hero=1;}
   else if(a==='learn'){const s=SK[x];if(S.skillPts>0&&S.lvl>=s.req){const first=!S.skills[x];S.skills[x]=(S.skills[x]||0)+1;S.skillPts--;
@@ -933,7 +937,7 @@ function start(data){
   S=(data&&data.S)||load()||newState();
   UID=1+Math.max(0,...S.bag.map(i=>i.id),...Object.values(S.equip).filter(Boolean).map(i=>i.id));
   R.st=calc();if(S.life==null||S.life<=0)S.life=R.st.maxLife;if(S.mana==null)S.mana=R.st.maxMana;
-  setTab(window.matchMedia('(min-width:920px)').matches?'hero':'fight');
+  setTab(null);
   resize();new ResizeObserver(resize).observe($('#stage'));
   log('The sorceress sets out. She fights on her own: spend points in Hero and Skills, and equip loot from the Bag.','lvl');
   enterZone(Math.min(S.zone,S.unlocked-1));
