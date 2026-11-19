@@ -59,14 +59,22 @@ h3{font-size:.85rem;text-transform:uppercase;letter-spacing:.12em;color:var(--mu
   background:linear-gradient(to top,rgba(5,3,4,.9),rgba(5,3,4,0));pointer-events:none;z-index:1}
 .hud-bottom>*{pointer-events:auto}
 .orbwrap{position:relative;flex:none}
-.orb{width:86px;height:86px;border-radius:50%;position:relative;overflow:hidden;background:#140708;border:3px solid #4d4036;box-shadow:inset 0 0 14px #000}
-.orb.mana{background:#070a18}
-.orb i{position:absolute;left:0;right:0;bottom:0;height:100%;background:radial-gradient(circle at 40% 25%,#e2484f,#8a141a 55%,#4a0a0d)}
-.orb.mana i{background:radial-gradient(circle at 40% 25%,#5a7cf0,#2236a0 55%,#111d5a)}
-.orb::after{content:"";position:absolute;top:7px;left:16px;right:20px;height:22px;border-radius:50%;background:linear-gradient(rgba(255,255,255,.25),rgba(255,255,255,0))}
-.orb .v{position:absolute;left:0;right:0;bottom:20px;text-align:center;font-size:.74rem;font-weight:700;text-shadow:0 1px 2px #000;font-variant-numeric:tabular-nums;line-height:1.15}
-.orb .bv{display:block;color:var(--barrier);font-size:.68rem}
-.ring{position:absolute;inset:-6px;border-radius:50%;border:3px solid var(--barrier);opacity:0;pointer-events:none;transition:opacity .2s}
+.orb{--ow:100px;width:var(--ow);height:calc(var(--ow)*1.185);position:relative}
+.orb .globe{position:absolute;width:70%;aspect-ratio:1;left:15%;top:calc(50% - var(--ow)*.35);border-radius:50%;overflow:hidden;
+  background:#0b0607 url(sprites/orb-globe.png) center/cover;box-shadow:inset 0 0 12px #000}
+.orb .globe i{position:absolute;left:0;right:0;bottom:0;height:100%;transition:height .25s ease-out;
+  background:url(sprites/liquid-life.jpg) 0 0/calc(var(--ow)*1.2) repeat,radial-gradient(circle at 40% 25%,#e2484f,#8a141a 55%,#4a0a0d);
+  box-shadow:inset 0 2px 3px rgba(255,170,170,.45);animation:slosh 22s linear infinite}
+.orb.mana .globe i{background:url(sprites/liquid-mana.jpg) 0 0/calc(var(--ow)*1.2) repeat,radial-gradient(circle at 40% 25%,#5a7cf0,#2236a0 55%,#111d5a);
+  box-shadow:inset 0 2px 3px rgba(170,200,255,.45);animation-duration:26s;animation-direction:reverse}
+@keyframes slosh{from{background-position:0 0}to{background-position:calc(var(--ow)*-1.2) calc(var(--ow)*.6)}}
+@media (prefers-reduced-motion:reduce){.orb .globe i{animation:none}}
+.orb .glass{position:absolute;inset:0;background:url(sprites/orb-glass.png) center/100% 100%;pointer-events:none}
+.orb .ring{position:absolute;inset:0;border-radius:50%;box-shadow:inset 0 0 0 3px var(--barrier),inset 0 0 14px var(--barrier);opacity:0;transition:opacity .2s}
+.orb .frame{position:absolute;inset:0;background:url(sprites/orb-frame-life.png) center/100% 100% no-repeat;pointer-events:none}
+.orb.mana .frame{background-image:url(sprites/orb-frame-mana.png)}
+.orb .v{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;font-size:.76rem;font-weight:700;text-shadow:0 1px 3px #000,0 0 6px #000;font-variant-numeric:tabular-nums;line-height:1.15}
+.orb .bv{display:block;color:var(--barrier);font-size:.66rem}
 .pot{position:absolute;top:-8px;font-size:.7rem;font-weight:700;padding:1px 7px;border-radius:8px;background:#1c1718;border:1px solid var(--line2);font-variant-numeric:tabular-nums;white-space:nowrap}
 .orbwrap.l .pot{left:-4px;color:#ff9a9a} .orbwrap.r .pot{right:-4px;color:#a9bcff}
 .center{flex:1;max-width:340px;min-width:0;display:grid;gap:4px;padding-bottom:2px}
@@ -83,8 +91,8 @@ h3{font-size:.85rem;text-transform:uppercase;letter-spacing:.12em;color:var(--mu
 .sk .cdv{position:absolute;inset:auto 0 0 0;background:rgba(0,0,0,.65);height:0}
 .sk.flash{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold) inset,0 0 10px rgba(201,165,87,.6)}
 .sk.empty{opacity:.4}
-@media (max-width:420px){.orb{width:78px;height:78px}}
-@media (min-width:800px){.orb{width:108px;height:108px}.skillbar{grid-template-columns:repeat(4,minmax(0,70px))}.center{max-width:400px}.orb .v{bottom:28px;font-size:.8rem}}
+@media (max-width:420px){.orb{--ow:90px}}
+@media (min-width:800px){.orb{--ow:124px}.skillbar{grid-template-columns:repeat(4,minmax(0,70px))}.center{max-width:400px}.orb .v{font-size:.85rem}}
 
 .overlay{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:10px;text-align:center;background:rgba(10,5,6,.78);padding:16px;z-index:2}
 .overlay[hidden]{display:none}
@@ -177,8 +185,7 @@ select.plain{background:var(--panel2);border:1px solid var(--line2);border-radiu
 
     <div class="hud-bottom">
       <div class="orbwrap l">
-        <div class="orb life" id="lifeorb"><i id="lifebar"></i><span class="v"><span class="bv" id="bartxt"></span><span id="lifetxt"></span></span></div>
-        <div class="ring" id="barring"></div>
+        <div class="orb life" id="lifeorb"><div class="globe"><i id="lifebar"></i><b class="ring" id="barring"></b><b class="glass"></b></div><span class="frame"></span><span class="v"><span class="bv" id="bartxt"></span><span id="lifetxt"></span></span></div>
         <span class="pot" id="hppot"></span>
       </div>
       <div class="center">
@@ -187,7 +194,7 @@ select.plain{background:var(--panel2);border:1px solid var(--line2);border-radiu
         <div class="skillbar" id="skillbar"></div>
       </div>
       <div class="orbwrap r">
-        <div class="orb mana"><i id="manabar"></i><span class="v" id="manatxt"></span></div>
+        <div class="orb mana"><div class="globe"><i id="manabar"></i><b class="glass"></b></div><span class="frame"></span><span class="v" id="manatxt"></span></div>
         <span class="pot" id="mppot"></span>
       </div>
     </div>

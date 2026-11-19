@@ -20,6 +20,7 @@ SHEETS = {
                      "candelabra", "reeds", "crystal", "gallows"]),
     "skill-icons": (4, 2, ["icon-fireball", "icon-meteor", "icon-frostbolt", "icon-frostarmor",
                            "icon-chain", "icon-nova", "icon-spark", None]),
+    "orbs": (4, 1, ["orb-frame-life", "orb-frame-mana", "orb-glass", "orb-globe"]),
 }
 # Effects are drawn additively, so their black background stays and simply adds nothing.
 FX_SHEETS = {
@@ -86,6 +87,8 @@ def main():
                 cell = cell.resize((round(cell.width * f), round(cell.height * f)), Image.LANCZOS)
             cell.save(OUT / f"{name}.jpg", quality=88)
             print(name, cell.size)
+    for liq in ["liquid-life", "liquid-mana"]:
+        Image.open(ROOT / "assets" / "sheets" / f"{liq}.png").convert("RGB").resize((256, 256), Image.LANCZOS).save(OUT / f"{liq}.jpg", quality=86)
     g = Image.open(ROOT / "assets" / "sheets" / "ground-gallows-field.png").convert("RGB").resize((512, 512), Image.LANCZOS)
     g.save(OUT / "ground-gallows-field.jpg", quality=85)
 
