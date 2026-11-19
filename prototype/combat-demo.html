@@ -235,13 +235,20 @@ const TREES={ember:{n:'Ember',el:'fire',d:'Raw fire: big hits and burning.'},fro
 const SK={
   fireball:{n:'Fireball',ab:'FB',tree:'ember',el:'fire',type:'single',mana:5,cd:0,min:6,max:11,req:1,spd:10,d:'Hurls a ball of fire at one enemy.'},
   meteor:{n:'Meteor',ab:'ME',tree:'ember',el:'fire',type:'meteor',mana:16,cd:6,min:14,max:24,req:6,burn:.5,rad:2.5,d:'Calls a meteor onto the target. Hits everything within 2.5 tiles and burns them for 50% more over 3s.'},
-  frostbolt:{n:'Frost Bolt',ab:'FR',tree:'frost',el:'cold',type:'single',mana:3,cd:0,min:4,max:7,req:1,chill:3,spd:13,d:'Cheap bolt. Chilled enemies move and attack 40% slower for 3s.'},
-  frostarmor:{n:'Frost Armor',ab:'FA',tree:'frost',el:'cold',type:'buff',mana:10,cd:1,req:3,dur:30,d:'Adds 6 + 6 per level barrier for 30s.'},
+  frostbolt:{n:'Frost Bolt',ab:'FR',tree:'frost',el:'cold',type:'single',mana:3,cd:0,min:4,max:7,req:1,chill:3,spd:13,d:'Cheap bolt. Chilled enemies move and attack 50% slower for 3s.'},
+  frostarmor:{n:'Frost Armor',ab:'FA',tree:'frost',el:'cold',type:'buff',mana:10,cd:1,req:3,dur:30,d:'Adds 6 + 6 per level barrier for 30s. Melee attackers get chilled.'},
   chain:{n:'Chain Lightning',ab:'CL',tree:'storm',el:'light',type:'chain',mana:8,cd:0,min:1,max:20,req:1,jumps:3,d:'Arcs through up to 3 enemies close to each other, 15% weaker per jump.'},
   nova:{n:'Static Nova',ab:'SN',tree:'storm',el:'light',type:'nova',mana:12,cd:3,min:3,max:15,req:4,rad:4,d:'Shocks every enemy within 4 tiles. 3s cooldown.'}
 };
 const SPARK={n:'Staff Spark',el:'light',type:'single',min:1,max:4,spd:14};
-const COND={always:'Always',notActive:'When not active',enemies3:'3+ enemies',elite:'Elite or boss present',manaHigh:'Mana above 50%',notChilled:'Target not chilled'};
+// default cast order and condition when a skill is learned
+const AUTO=[['frostarmor','notActive'],['meteor','enemies3'],['nova','enemies3'],['chain','enemies2'],['frostbolt','notChilled'],['fireball','always']];
+function autoOrder(){const have=S.slots.filter(x=>x.id).map(x=>x.id);const order=AUTO.filter(([id])=>have.includes(id)).map(([id,c])=>({id,cond:c}));
+  for(const id of have)if(!order.some(o=>o.id===id))order.push({id,cond:'always'});
+  while(order.length<4)order.push({id:null,cond:'always'});S.slots=order.slice(0,4);R.dirty.skills=R.dirty.slots=1;}
+function blockedSlots(){const out=[];let blocker=null;S.slots.forEach((sl,i)=>{if(!sl.id)return;if(blocker!=null)out.push([i,blocker]);
+  const sk=SK[sl.id];if(blocker==null&&sl.cond==='always'&&!sk.cd&&sk.type!=='buff')blocker=i;});return out;}
+const COND={always:'Always',notActive:'When not active',enemies2:'2+ enemies',enemies3:'3+ enemies',elite:'Elite or boss present',manaHigh:'Mana above 50%',notChilled:'Target not chilled'};
 const MON={
   imp:{spr:'imp',h:58,n:'Ember Imp',el:'fire',hp:1,dmg:1,spd:1.4,mv:1.6,shape:'imp',col:'#8a3524',size:.9},
   wraith:{spr:'wraith',h:80,fl:1,n:'Bog Wraith',el:'cold',hp:1.2,dmg:.85,spd:1.8,mv:1.1,shape:'ghost',col:'#6f98aa',size:1},
@@ -311,7 +318,7 @@ function newState(){return {v:2,lvl:1,xp:0,gold:30,attrs:{power:5,focus:5,spirit
   equip:{weapon:null,helm:null,armor:null,amulet:null,ring:null},bag:[],filter:0,hpPot:8,mpPot:8,hpTh:40,mpTh:25,
   zone:0,unlocked:1,autoAdvance:true,autoReturn:true,speed:1,life:null,mana:null,barrier:0,kills:0,deaths:0};}
 let S;
-const R={phase:'walk',wps:[],waitT:0,wave:0,monsters:[],fx:[],floats:[],drops:[],cd:{},buffs:{},faAmt:0,heroHit:0,castT:0,castDur:1,last:null,flash:0,
+const R={phase:'walk',wps:[],waitT:0,wave:0,monsters:[],fx:[],floats:[],drops:[],cd:{},buffs:{},faAmt:0,heroHit:0,kite:0,kiteCd:0,kdir:{x:0,y:0},castT:0,castDur:1,last:null,flash:0,
   potH:0,potM:0,noHit:9,townT:0,returnZone:0,bossSpawned:false,targetId:null,time:0,
   hero:{x:0,y:0,f:1,anim:0,walking:false,castA:0,orb:'fire'},cam:{x:0,y:0},dir:{x:.33,y:-.94},
   log:[],logDirty:true,dirty:{hero:1,skills:1,bag:1,town:1,slots:1,zones:1},tab:null,showLog:false,st:null,resetArm:false,view:{w:600,h:400,dpr:1}};
@@ -418,7 +425,7 @@ function regen(dt){
   R.noHit+=dt;const mb=maxBarrier();if(R.noHit>2.5&&S.barrier<mb)S.barrier=Math.min(mb,S.barrier+mb*.25*dt);
 }
 function condOk(c,id,alive){
-  switch(c){case 'notActive':return !(R.buffs[id]>0);case 'enemies3':return alive.length>=3;case 'elite':return alive.some(m=>m.rank>=2);
+  switch(c){case 'notActive':return !(R.buffs[id]>0);case 'enemies2':return alive.length>=2;case 'enemies3':return alive.length>=3;case 'elite':return alive.some(m=>m.rank>=2);
   case 'manaHigh':return S.mana/R.st.maxMana>.5;case 'notChilled':return alive.some(m=>m.chill<=0);default:return true;}
 }
 function target(c,alive){if(c==='elite')return alive.find(m=>m.rank>=2)||alive[0];if(c==='notChilled')return alive.find(m=>m.chill<=0)||alive[0];return alive[0];}
@@ -487,7 +494,7 @@ function monHit(m,mult=1,label){
 function monAttack(m){
   const d=MON[m.def];
   if(d.ranged)R.fx.push({k:'proj',x:m.x,y:m.y,z:1.1,tgt:'hero',spd:7,el:m.el,small:true,on:()=>monHit(m)});
-  else{m.lunge=.22;monHit(m);}
+  else{m.lunge=.22;monHit(m);if(R.buffs.frostarmor>0&&m.hp>0){m.chill=Math.max(m.chill,2);}}
 }
 function potions(){
   const st=R.st,h=R.hero;
@@ -550,12 +557,22 @@ function tick(dt){
     return;
   }
   h.walking=false;
-  R.castT-=dt;if(R.castT<=0)heroAct();
   const alive=R.monsters.filter(m=>m.hp>0);
+  R.kiteCd-=dt;
+  if(R.kite>0){R.kite-=dt;const s=3.1*dt;h.x+=R.kdir.x*s;h.y+=R.kdir.y*s;h.walking=true;
+    const dsx=R.kdir.x-R.kdir.y;if(Math.abs(dsx)>.05)h.f=dsx>0?1:-1;}
+  else{
+    const near=alive.filter(m=>!MON[m.def].ranged&&dist(m,h)<2.6);
+    if(S.kite!==false&&near.length&&R.kiteCd<=0&&R.castT<=.2){
+      let ax=0,ay=0;for(const m of near){const d=Math.max(.3,dist(m,h));ax+=(h.x-m.x)/(d*d);ay+=(h.y-m.y)/(d*d);}
+      const l=Math.hypot(ax,ay)||1;ax/=l;ay/=l;const side=(Math.random()<.5?-1:1)*.45;
+      const kx=ax-ay*side,ky=ay+ax*side,kl=Math.hypot(kx,ky);R.kdir={x:kx/kl,y:ky/kl};R.kite=.5;R.kiteCd=1.3;
+    }else{R.castT-=dt;if(R.castT<=0)heroAct();}
+  }
   for(const m of alive){
     if(m.chill>0)m.chill-=dt;
     if(m.burn>0){m.burn-=dt;dmgMon(m,m.burnDps*dt);if(m.hp<=0)continue;}
-    const d=dist(m,h),slow=m.chill>0?.6:1;
+    const d=dist(m,h),slow=m.chill>0?.5:1;
     const dsx=(h.x-h.y)-(m.x-m.y);if(Math.abs(dsx)>.05)m.f=dsx>0?1:-1;
     if(d>m.range){m.walking=true;const s=m.mv*slow*dt;m.x+=(h.x-m.x)/d*s;m.y+=(h.y-m.y)/d*s;}
     else{m.walking=false;m.atkT-=dt*slow;if(m.atkT<=0){m.atkT=m.spd;monAttack(m);}}
@@ -911,7 +928,9 @@ function pSkills(){
     <div class="trees">${trees}</div>
     <p class="hint">Each point in a skill also adds 8% damage to the other skills in the same tree.</p>
     <h3>Cast priority</h3>
-    <p class="hint">She checks the slots from top to bottom and casts the first skill that is off cooldown, affordable and whose condition is true. If none fits, she uses Staff Spark (free, weak).</p>
+    <p class="hint">She checks the slots from top to bottom and casts the first skill that is off cooldown, affordable and whose condition is true. If none fits, she uses Staff Spark (free, weak). Put cheap filler skills set to "Always" at the bottom.</p>
+    ${blockedSlots().map(([i,b])=>`<p class="hint" style="color:var(--bad)">Slot ${i+1} is never cast: slot ${b+1} is set to "Always" and is always ready.</p>`).join('')}
+    <div class="row" style="justify-content:flex-start"><button class="btn sm" data-act="autoorder">Sort automatically</button></div>
     <div class="prio">${S.slots.map((sl,i)=>`<div class="prow"><span class="ix">${i+1}</span>
       <select id="slot${i}" data-slot="${i}" aria-label="Skill in slot ${i+1}">${opts(sl.id)}</select>
       <select id="cond${i}" data-cond="${i}" aria-label="Condition for slot ${i+1}">${copts(sl.cond)}</select>
@@ -950,6 +969,7 @@ function pTown(){
     <h3>Behaviour</h3>
     <label class="check" for="autoAdvance"><input type="checkbox" id="autoAdvance" ${S.autoAdvance?'checked':''}> Move to the next area after clearing one</label>
     <label class="check" for="autoReturn"><input type="checkbox" id="autoReturn" ${S.autoReturn?'checked':''}> After dying, return to the previous area automatically</label>
+    <label class="check" for="kite"><input type="checkbox" id="kite" ${S.kite!==false?'checked':''}> Keep distance from melee enemies (kiting)</label>
     <h3>Mystic</h3>
     <div class="row"><span class="hint">Reset all attribute and skill points.</span><button class="btn" data-act="respec">Respec · ${rc}g</button></div>
     <div class="scope"><h3>About this demo</h3>
@@ -970,11 +990,12 @@ document.addEventListener('click',e=>{
   const [a,x,y]=b.dataset.act.split(':');
   if(a==='tab')setTab(x);
   else if(a==='close')setTab(null);
+  else if(a==='autoorder'){autoOrder();log('Cast order sorted automatically.','good');}
   else if(a==='log'){R.showLog=!R.showLog;$('#log').hidden=!R.showLog;b.setAttribute('aria-pressed',R.showLog);R.logDirty=true;}
   else if(a==='speed')S.speed=+x;
   else if(a==='attr'&&S.attrPts>0){S.attrs[x]++;S.attrPts--;recalc();R.dirty.hero=1;}
   else if(a==='learn'){const s=SK[x];if(S.skillPts>0&&S.lvl>=s.req){const first=!S.skills[x];S.skills[x]=(S.skills[x]||0)+1;S.skillPts--;
-    if(first){const e2=S.slots.find(sl=>!sl.id);if(e2){e2.id=x;e2.cond=s.type==='buff'?'notActive':'always';}}R.dirty.skills=R.dirty.slots=1;}}
+    if(first){const e2=S.slots.find(sl=>!sl.id);if(e2){e2.id=x;autoOrder();}}R.dirty.skills=R.dirty.slots=1;}}
   else if(a==='up'||a==='down'){const i=+x,j=a==='up'?i-1:i+1;[S.slots[i],S.slots[j]]=[S.slots[j],S.slots[i]];R.dirty.skills=R.dirty.slots=1;}
   else if(a==='equip'){const i=S.bag.findIndex(it=>it.id===+x);if(i>=0){const it=S.bag.splice(i,1)[0];const old=S.equip[it.slot];S.equip[it.slot]=it;if(old)S.bag.unshift(old);recalc();R.dirty.bag=R.dirty.hero=1;}}
   else if(a==='unequip'){const it=S.equip[x];if(it&&S.bag.length<24){S.equip[x]=null;S.bag.unshift(it);recalc();R.dirty.bag=R.dirty.hero=1;}}
@@ -994,10 +1015,11 @@ document.addEventListener('change',e=>{
   const t=e.target;
   if(t.id==='zonesel'){enterZone(+t.value);}
   else if(t.dataset.slot!=null){const sl=S.slots[+t.dataset.slot];sl.id=t.value||null;if(sl.id&&SK[sl.id].type==='buff')sl.cond='notActive';R.dirty.skills=R.dirty.slots=1;}
-  else if(t.dataset.cond!=null){S.slots[+t.dataset.cond].cond=t.value;}
+  else if(t.dataset.cond!=null){S.slots[+t.dataset.cond].cond=t.value;R.dirty.skills=1;}
   else if(t.id==='filter'){S.filter=+t.value;}
   else if(t.id==='autoAdvance'){S.autoAdvance=t.checked;}
   else if(t.id==='autoReturn'){S.autoReturn=t.checked;}
+  else if(t.id==='kite'){S.kite=t.checked;}
 });
 document.addEventListener('input',e=>{const t=e.target;if(t.id==='hpTh'||t.id==='mpTh'){S[t.id]=+t.value;$('#'+t.id+'v').textContent=t.value+'%';}});
 
@@ -1007,6 +1029,7 @@ function start(data){
   UID=1+Math.max(0,...S.bag.map(i=>i.id),...Object.values(S.equip).filter(Boolean).map(i=>i.id));
   R.st=calc();if(S.life==null||S.life<=0)S.life=R.st.maxLife;if(S.mana==null)S.mana=R.st.maxMana;
   setTab(null);
+  if(blockedSlots().length)autoOrder();
   loadSprites();resize();new ResizeObserver(resize).observe($('#stage'));
   log('The sorceress sets out. She fights on her own: spend points in Hero and Skills, and equip loot from the Bag.','lvl');
   enterZone(Math.min(S.zone,S.unlocked-1));
