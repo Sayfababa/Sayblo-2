@@ -1,0 +1,29 @@
+{
+  "act": "Act I",
+  "areas": [
+    { "id": "gallows-field", "name": "Gallows Field", "level": 1, "waves": 5, "pool": ["imp", "wraith"], "ground": "ground-gallows-field.jpg",
+      "decor": [["grass", 0.08], ["rock", 0.025], ["tree", 0.02], ["torch", 0.005], ["gallows", 0.003]] },
+    { "id": "weeping-mire", "name": "Weeping Mire", "level": 3, "waves": 6, "pool": ["wraith", "beetle"], "ground": "ground-weeping-mire.jpg",
+      "decor": [["reed", 0.08], ["puddle", 0.03], ["tree", 0.02], ["rock", 0.01]] },
+    { "id": "cinder-hollow", "name": "Cinder Hollow", "level": 5, "waves": 6, "pool": ["hound", "imp", "cultist"], "ground": "ground-cinder-hollow.jpg", "groundPulse": true,
+      "decor": [["rock", 0.05], ["ember", 0.025], ["tree", 0.01]] },
+    { "id": "stormwatch-ruins", "name": "Stormwatch Ruins", "level": 7, "waves": 7, "pool": ["crow", "beetle", "husk"], "ground": "ground-stormwatch-ruins.jpg",
+      "decor": [["pillar", 0.022], ["rock", 0.04], ["torch", 0.006]] },
+    { "id": "rimefrost-crypt", "name": "Rimefrost Crypt", "level": 9, "waves": 7, "pool": ["shade", "ghoul"], "ground": "ground-rimefrost-crypt.jpg",
+      "decor": [["grave", 0.035], ["crystal", 0.03], ["rock", 0.012]] },
+    { "id": "pale-chapel", "name": "The Pale Chapel", "level": 11, "waves": 4, "pool": ["cultist", "shade"], "boss": "vesper", "ground": "ground-pale-chapel.jpg",
+      "decor": [["pillar", 0.03], ["candle", 0.025], ["grave", 0.012]] }
+  ],
+  "props": {
+    "rock":    { "variants": [["rock", 34], ["rocks", 26]] },
+    "tree":    { "variants": [["tree", 125], ["stump", 44]] },
+    "torch":   { "variants": [["torch", 64]], "noFlip": true, "light": { "y": 0.85, "radius": 100, "color": "#ff9a3c", "alpha": 0.32, "flicker": 0.04 } },
+    "reed":    { "variants": [["reeds", 42]] },
+    "pillar":  { "variants": [["pillar", 88], ["pillar-broken", 70]] },
+    "grave":   { "variants": [["grave", 48]] },
+    "crystal": { "variants": [["crystal", 46]], "light": { "y": 0.5, "radius": 40, "color": "#8fd8ff", "alpha": 0.22 } },
+    "candle":  { "variants": [["candelabra", 56]], "light": { "y": 0.9, "radius": 60, "color": "#ffb050", "alpha": 0.35 } },
+    "gallows": { "variants": [["gallows", 104]] }
+  },
+  "unlockedAtStart": 1
+}

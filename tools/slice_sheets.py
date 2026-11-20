@@ -1,14 +1,19 @@
 """Cut green-screen sprite sheets into single transparent sprites.
 
 Usage: python3 tools/slice_sheets.py
-Reads assets/sheets/*.png, writes prototype/sprites/*.png (trimmed, max 256 px high).
+Reads assets/sheets/*.png, writes public/sprites/* (used by the game, trimmed, max 256 px high)
+and mirrors them into prototype/sprites/ so the old single-file demo keeps working.
+Also writes the PWA app icons to public/icons/.
 """
+import shutil
 import numpy as np
 from PIL import Image
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / "prototype" / "sprites"
+OUT = ROOT / "public" / "sprites"
+MIRROR = ROOT / "prototype" / "sprites"
+ICONS = ROOT / "public" / "icons"
 
 SHEETS = {
     "monsters": (4, 3, ["imp", "wraith", "beetle", "hound",
@@ -124,6 +129,30 @@ def main():
         save_seamless(tile, OUT / f"{name}.jpg", shade.get(name, .85))
     g = Image.open(ROOT / "assets" / "sheets" / "ground-gallows-field.png").convert("RGB").resize((512, 512), Image.LANCZOS)
     g.save(OUT / "ground-gallows-field.jpg", quality=85)
+    make_app_icons()
+    MIRROR.mkdir(parents=True, exist_ok=True)
+    for f in OUT.iterdir():
+        shutil.copy2(f, MIRROR / f.name)
+
+
+def make_app_icons():
+    """App icon: the Static Nova skill icon on the game background colour."""
+    ICONS.mkdir(parents=True, exist_ok=True)
+    sheet = Image.open(ROOT / "assets" / "sheets" / "skill-icons.png").convert("RGB")
+    cols, rows, idx = 4, 2, 5
+    cw, ch = sheet.width / cols, sheet.height / rows
+    c, r = idx % cols, idx // cols
+    cell = sheet.crop((round(c * cw), round(r * ch), round((c + 1) * cw), round((r + 1) * ch)))
+    al = np.asarray(key_green(cell))[..., 3]
+    ys, xs = np.where(al > 24)
+    cell = cell.crop((xs.min(), ys.min(), xs.max() + 1, ys.max() + 1))
+    m = round(cell.width * 0.045)  # cut away the green fringe around the painted frame
+    cell = cell.crop((m, m, cell.width - m, cell.height - m))
+    for size, pad, name in [(192, 0, "icon-192.png"), (512, 0, "icon-512.png"), (180, 0, "apple-touch-icon.png"), (512, 0.12, "icon-maskable-512.png")]:
+        bg = Image.new("RGB", (size, size), (19, 15, 16))
+        inner = round(size * (1 - 2 * pad))
+        bg.paste(cell.resize((inner, inner), Image.LANCZOS), ((size - inner) // 2, (size - inner) // 2))
+        bg.save(ICONS / name, optimize=True)
 
 
 if __name__ == "__main__":

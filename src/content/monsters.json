@@ -1,0 +1,55 @@
+{
+  "monsters": {
+    "imp":     { "name": "Ember Imp",     "element": "fire",  "hp": 1,   "dmg": 1,    "attackTime": 1.4, "moveSpeed": 1.6, "sprite": "imp",     "height": 58 },
+    "wraith":  { "name": "Bog Wraith",    "element": "cold",  "hp": 1.2, "dmg": 0.85, "attackTime": 1.8, "moveSpeed": 1.1, "sprite": "wraith",  "height": 80, "flying": true },
+    "beetle":  { "name": "Spark Beetle",  "element": "light", "hp": 0.8, "dmg": 1.1,  "attackTime": 1.2, "moveSpeed": 1.9, "sprite": "beetle",  "height": 46 },
+    "hound":   { "name": "Cinder Hound",  "element": "fire",  "hp": 1,   "dmg": 1.15, "attackTime": 1.1, "moveSpeed": 2.5, "sprite": "hound",   "height": 60 },
+    "cultist": { "name": "Ashen Cultist", "element": "fire",  "hp": 1.3, "dmg": 1.3,  "attackTime": 1.9, "moveSpeed": 1.2, "sprite": "cultist", "height": 82, "facesLeft": true, "ranged": 5 },
+    "crow":    { "name": "Storm Crow",    "element": "light", "hp": 0.7, "dmg": 1,    "attackTime": 1,   "moveSpeed": 2.7, "sprite": "crow",    "height": 56, "flying": true },
+    "husk":    { "name": "Thunder Husk",  "element": "light", "hp": 1.6, "dmg": 1.2,  "attackTime": 2,   "moveSpeed": 0.9, "sprite": "husk",    "height": 90 },
+    "shade":   { "name": "Frost Shade",   "element": "cold",  "hp": 1,   "dmg": 1.2,  "attackTime": 1.8, "moveSpeed": 1.3, "sprite": "shade",   "height": 86, "flying": true, "ranged": 4.5 },
+    "ghoul":   { "name": "Rime Ghoul",    "element": "cold",  "hp": 1.5, "dmg": 1.1,  "attackTime": 1.8, "moveSpeed": 1.4, "sprite": "ghoul",   "height": 72 },
+    "vesper":  { "name": "Mother Vesper", "element": "fire",  "hp": 1,   "dmg": 1,    "attackTime": 1.6, "moveSpeed": 1,   "sprite": "vesper",  "height": 150, "ranged": 6,
+      "boss": {
+        "title": "The Pale Abbess",
+        "res": { "fire": 0.4, "cold": 0.2, "light": 0.2 },
+        "intro": "**Mother Vesper** rises from the altar. Her flames turn to frost when she is wounded.",
+        "phases": [
+          { "belowHp": 0.5, "element": "cold", "res": { "fire": 0.2, "cold": 0.4, "light": 0.2 },
+            "message": "Mother Vesper's flame gutters out. Frost pours from her robes." }
+        ],
+        "special": { "name": "Pale Toll", "first": 6, "every": 8, "mult": 2.5, "radius": 7 }
+      }
+    }
+  },
+  "ranks": [
+    { "name": "",         "hp": 1,  "dmg": 1,   "xp": 1,  "gold": 1,  "size": 1,    "color": "#d8d0c2" },
+    { "name": "Champion", "hp": 3,  "dmg": 1.4, "xp": 3,  "gold": 2,  "size": 1.15, "color": "#8aa2ff" },
+    { "name": "Elite",    "hp": 5,  "dmg": 1.7, "xp": 6,  "gold": 4,  "size": 1.25, "color": "#e8cc5c" },
+    { "name": "Boss",     "hp": 24, "dmg": 2,   "xp": 30, "gold": 15, "size": 1,    "color": "#e0913f" }
+  ],
+  "eliteMods": {
+    "Fast":      { "attackTime": 0.6, "moveSpeed": 1.5 },
+    "Warded":    { "wardPct": 0.3 },
+    "Vampiric":  { "vampPct": 0.3 },
+    "Enchanted": { "ownResAdd": 0.4, "dmg": 1.3 },
+    "Mighty":    { "dmg": 1.6 }
+  },
+  "eliteModCount": [1, 3],
+  "eliteNames": {
+    "first": ["Gorefang", "Ashmaw", "Grimwick", "Hollowcall", "Sorrowkin", "Vellum", "Moldtongue", "Rotbell", "Cinderjaw", "Hesk"],
+    "second": ["the Cruel", "the Unwept", "the Hungry", "the Lantern-Eater", "the Gnawing", "Twice-Buried", "of the Mire", "the Ashen"]
+  },
+  "scaling": {
+    "hpBase": 18, "hpGrowth": 1.17,
+    "dmgBase": 2.4, "dmgGrowth": 1.15,
+    "xpBase": 5, "xpGrowth": 1.22,
+    "ownElementRes": 0.25,
+    "meleeRange": 1.55,
+    "projectileSpeed": 7
+  },
+  "waves": {
+    "championChance": 0.12, "eliteChance": 0.03,
+    "spawnDistance": 7.5, "bossDistance": 8
+  }
+}
