@@ -3,13 +3,13 @@
  * Reads the simulation state and its events; never changes the simulation.
  * Positions are interpolated between simulation ticks, so motion stays smooth at any frame rate.
  */
-import { Application, ColorMatrixFilter, Container, Graphics, Matrix, Sprite, Text, TextStyle, Texture, TilingSprite } from 'pixi.js';
+import { Application, ColorMatrixFilter, Container, Graphics, Matrix, RenderTexture, Sprite, Text, TextStyle, Texture, TilingSprite } from 'pixi.js';
 import { AREAS, BASE_ICON, ELEMENT_COLORS, GEMS, MONSTERS, PROPS, RANKS, RARITIES, SKILLS, type Element } from '../content/index.ts';
 import { isGem } from '../sim/types.ts';
 import { GEM_COLOR, gemColor } from '../ui/gemcolor.ts';
 import { TICK, type Sim } from '../sim/sim.ts';
 import type { Monster, SimEvent } from '../sim/types.ts';
-import { darknessTexture, discTexture, glowTexture, tex } from './textures.ts';
+import { discTexture, glowTexture, holeTexture, tex } from './textures.ts';
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -23,6 +23,16 @@ const BURST: Record<Element, string> = { fire: 'fx-fire-burst.jpg', cold: 'fx-ic
 const RING: Record<Element, string> = { fire: 'fx-fire-ring.jpg', cold: 'fx-frost-aura.jpg', light: 'fx-shock-ring.jpg' };
 const FONT_BODY = '"Alegreya Sans", "Segoe UI", system-ui, sans-serif';
 const FONT_DISPLAY = 'Cinzel, Georgia, serif';
+/** World zoom: < 1 shows more of the map. Text keeps its own size (see V.kt). */
+const ZOOM = 0.62;
+/** How dark the map is outside every light (0 = no darkness, 1 = black). */
+const AMBIENT_DARK = 0.66;
+/** Light radius of the hero in tile widths: fully lit core and where the light ends. */
+const HERO_LIGHT = { core: 3.6, outer: 7.5 };
+/** Darkness is drawn at a lower resolution, it is only soft gradients. */
+const DARK_RES = 0.5;
+/** Props that grow in groups instead of evenly. */
+const CLUSTERED = new Set(['tree', 'rock', 'grave', 'reed', 'pillar', 'crystal']);
 
 /** A layer whose children are drawn in the order they are requested each frame. */
 class Layer {
@@ -98,13 +108,19 @@ export class Scene {
   private groundPulse: TilingSprite | null = null;
   private groundZone = -1;
   private world = new Layer();
-  private dark = new Sprite();
-  private darkKey = '';
+  /** Darkness: a black layer with soft holes cut out (erase blend) at the hero and every light. */
+  private darkC = new Container();
+  private darkFill = new Sprite(Texture.WHITE);
+  private darkHoles: Sprite[] = [];
+  private darkRT: RenderTexture | null = null;
+  private darkView = new Sprite();
+  private grade = { ground: new ColorMatrixFilter(), world: new ColorMatrixFilter() };
   private lightL = new Layer();
   private fxL = new Layer();
   private labels = new Layer();
 
-  private V = { tw: 64, th: 32, k: 1, ox: 0, oy: 0 };
+  /** k: world scale (includes ZOOM), kt: text scale */
+  private V = { tw: 64, th: 32, k: 1, kt: 1, ox: 0, oy: 0 };
   private cam = { x: 0, y: 0 };
   private time = 0;
   private hero = { anim: 0, castA: 0, orb: 'fire' as Element, hit: 0, x: 0, y: 0 };
@@ -120,8 +136,14 @@ export class Scene {
 
   constructor(app: Application) {
     this.app = app;
-    this.dark.anchor.set(0.5);
-    app.stage.addChild(this.groundC, this.world.c, this.dark, this.lightL.c, this.fxL.c, this.labels.c);
+    this.darkFill.tint = 0x050304;
+    this.darkC.addChild(this.darkFill);
+    // colour grading: the painted ground and props are greener and brighter than the mood wants
+    this.grade.ground.saturate(-0.35); this.grade.ground.brightness(0.82, true);
+    this.grade.world.saturate(-0.2); this.grade.world.brightness(0.9, true);
+    this.groundC.filters = [this.grade.ground];
+    this.world.c.filters = [this.grade.world];
+    app.stage.addChild(this.groundC, this.world.c, this.darkView, this.lightL.c, this.fxL.c, this.labels.c);
   }
 
   /** Forget everything that belongs to the old run (after import or reset). */
@@ -159,6 +181,38 @@ export class Scene {
     const v = Math.sin(x * 127.1 + y * 311.7 + s * 74.7 + this.zone * 17.3) * 43758.5453;
     return v - Math.floor(v);
   }
+  /** Renders the darkness layer: black, with soft holes at the hero and at every light of this frame. */
+  private drawDarkness(w: number, h: number, heroes: [number, number][]) {
+    const R = DARK_RES, rw = Math.max(1, Math.ceil(w * R)), rh = Math.max(1, Math.ceil(h * R));
+    if (!this.darkRT || this.darkRT.width !== rw || this.darkRT.height !== rh) {
+      this.darkRT?.destroy(true);
+      this.darkRT = RenderTexture.create({ width: rw, height: rh });
+      this.darkView.texture = this.darkRT;
+    }
+    this.darkFill.width = rw; this.darkFill.height = rh;
+    let n = 0;
+    const hole = (x: number, y: number, r: number, a: number, flat = 1, soft = true) => {
+      let sp = this.darkHoles[n++];
+      if (!sp) { sp = new Sprite(); sp.anchor.set(0.5); sp.blendMode = 'erase'; this.darkC.addChild(sp); this.darkHoles.push(sp); }
+      sp.texture = soft ? glowTexture() : holeTexture();
+      sp.visible = true; sp.position.set(x * R, y * R); sp.width = r * 2 * R; sp.height = r * 2 * R * flat; sp.alpha = clamp(a, 0, 1);
+    };
+    const tw = this.V.tw;
+    for (const [x, y] of heroes) { hole(x, y, HERO_LIGHT.outer * tw, 0.55, 0.8); hole(x, y, HERO_LIGHT.core * tw, 1, 0.8, false); }
+    for (const L of this.lights) hole(L.x, L.y, L.r * 1.7, L.a * 2.6, L.flat);
+    for (let i = n; i < this.darkHoles.length; i++) this.darkHoles[i].visible = false;
+    this.app.renderer.render({ container: this.darkC, target: this.darkRT, clear: true });
+    this.darkView.width = w; this.darkView.height = h; this.darkView.alpha = AMBIENT_DARK;
+  }
+
+  /** Smooth value noise in 0..1 with features about `scale` tiles wide (for clusters of props). */
+  private noise(x: number, y: number, scale: number, s: number) {
+    const fx = x / scale, fy = y / scale, ix = Math.floor(fx), iy = Math.floor(fy);
+    const tx = fx - ix, ty = fy - iy, sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
+    const a = this.hash(ix, iy, s), b = this.hash(ix + 1, iy, s), c = this.hash(ix, iy + 1, s), d = this.hash(ix + 1, iy + 1, s);
+    return lerp(lerp(a, b, sx), lerp(c, d, sx), sy);
+  }
+
   /** Additive light; `flat` < 1 squashes it into an ellipse lying on the ground. */
   private light(x: number, y: number, r: number, c: string, a: number, flat = 1) { this.lights.push({ x, y, r, c, a, flat }); }
 
@@ -202,8 +256,8 @@ export class Scene {
     this.settings = sim.s.settings;
     const w = this.app.screen.width, h = this.app.screen.height;
     if (!w || !h) return;
-    const k = clamp(Math.min(w / 620, h / 560), 0.9, 1.3), V = this.V;
-    V.k = k; V.tw = 64 * k; V.th = 32 * k;
+    const k0 = clamp(Math.min(w / 620, h / 560), 0.9, 1.3), k = k0 * ZOOM, V = this.V;
+    V.k = k; V.kt = k0 * 0.85; V.tw = 64 * k; V.th = 32 * k;
     if (sim.s.zone !== this.zone) { this.zone = sim.s.zone; }
 
     // interpolated hero position and camera
@@ -256,9 +310,11 @@ export class Scene {
       const [ax, ay] = this.iso(tx, ty);
       if (ax < -V.tw || ax > w + V.tw || ay < -V.th * 2 || ay > h + V.th) continue;
       const dv = this.hash(tx, ty, 9);
+      // groves and clearings: trees, rocks and graves gather where the noise is high
+      const grove = this.noise(tx, ty, 8, 21), cluster = 0.05 + 4 * grove * grove * grove;
       let acc = 0;
       for (const [type, p] of area.decor) {
-        acc += p;
+        acc += CLUSTERED.has(type) ? p * cluster : p;
         if (dv < acc) {
           if (type === 'grass') break; // the painted ground already has grass
           items.push({ z: tx + ty + 1, kind: 'decor', type, x: tx + 0.5 + (this.hash(tx, ty, 4) - 0.5) * 0.6, y: ty + 0.5 + (this.hash(tx, ty, 5) - 0.5) * 0.6, v: this.hash(tx, ty, 6) });
@@ -280,12 +336,9 @@ export class Scene {
       else this.drawHero(sim, px, py);
     }
 
-    // darkness with a light radius around the hero
+    // darkness with a light radius around the hero and holes at every light
     const [dhx, dhy] = this.iso(hx, hy);
-    const inner = 90 * k, outer = Math.max(w, h) * 0.7, half = Math.max(w, h) * 1.1;
-    const dk = `${Math.round(inner)}|${Math.round(outer)}`;
-    if (dk !== this.darkKey) { if (this.darkKey) this.dark.texture.destroy(true); this.dark.texture = darknessTexture(inner, outer, half); this.darkKey = dk; }
-    this.dark.position.set(dhx, dhy - 20 * k); this.dark.width = this.dark.height = half * 2;
+    this.drawDarkness(w, h, town ? [] : [[dhx, dhy - 20 * k]]);
 
     // lights and spells (additive)
     for (const L of this.lights) this.glow(this.lightL, L.x, L.y, L.r, L.c, L.a, L.flat);
@@ -467,9 +520,9 @@ export class Scene {
   }
 
   private drawLabels(sim: Sim) {
-    const k = this.V.k, L = this.labels;
+    const k = this.V.k, kt = this.V.kt, L = this.labels;
     // loot names on the ground
-    const lsz = Math.round(11 * k + 1);
+    const lsz = Math.round(11 * kt + 1);
     for (const d of (sim.s.settings.lootLabels ? sim.drops : [])) {
       const [px, py] = this.iso(d.x, d.y);
       const it = d.item;
@@ -477,27 +530,27 @@ export class Scene {
       const box = L.box();
       const t = L.text(txt, FONT_BODY, '700', lsz, d.gold ? '#d8d0c2' : isGem(it) ? GEM_COLOR : RARITIES[it!.r].color);
       const tw = t.width + 8;
-      box.rect(px - tw / 2, py - 22 * k, tw, 14 * k + 2).fill({ color: '#000000', alpha: 0.72 });
-      t.position.set(px, py - 15 * k + 1);
+      box.rect(px - tw / 2, py - 8 * k - 14 * kt, tw, 14 * kt + 2).fill({ color: '#000000', alpha: 0.72 });
+      t.position.set(px, py - 8 * k - 7 * kt + 1);
     }
     // health bars and names
     for (const v of this.mons.values()) {
       const m = v.m, a = this.anchors.get(m.id);
       if (v.dead || !a) continue;
-      const bw = (m.rank === 3 ? 60 : 34) * k, by = a.top - 6 * k;
+      const bw = (m.rank === 3 ? 60 : 34) * kt, by = a.top - 6 * kt;
       if (m.hp < m.maxHp || m.rank > 0) {
         const g = L.box();
-        g.rect(a.x - bw / 2 - 1, by - 1, bw + 2, 5 * k + 2).fill({ color: '#000000', alpha: 0.7 });
-        g.rect(a.x - bw / 2, by, bw * Math.max(0, m.hp) / m.maxHp, 5 * k).fill({ color: '#b3262b' });
-        if (m.ward > 0) g.rect(a.x - bw / 2, by, bw * m.ward / m.maxHp, 2 * k).fill({ color: '#a6dcf0' });
+        g.rect(a.x - bw / 2 - 1, by - 1, bw + 2, 4 * kt + 2).fill({ color: '#000000', alpha: 0.7 });
+        g.rect(a.x - bw / 2, by, bw * Math.max(0, m.hp) / m.maxHp, 4 * kt).fill({ color: '#b3262b' });
+        if (m.ward > 0) g.rect(a.x - bw / 2, by, bw * m.ward / m.maxHp, 2 * kt).fill({ color: '#a6dcf0' });
       }
-      if (m.rank > 0) L.text(m.name, FONT_DISPLAY, '700', lsz, RANKS[m.rank].color).position.set(a.x, by - 9 * k);
+      if (m.rank > 0) L.text(m.name, FONT_DISPLAY, '700', lsz, RANKS[m.rank].color).position.set(a.x, by - 9 * kt);
     }
     // floating numbers
     for (const fl of this.floats) {
       const [px, py] = this.iso(fl.x, fl.y);
-      const t = L.text(fl.text, FONT_BODY, '700', Math.round((fl.big ? 17 : 13) * k + 1), fl.col, true);
-      t.position.set(px, py - (40 + fl.t * 34) * k);
+      const t = L.text(fl.text, FONT_BODY, '700', Math.round((fl.big ? 17 : 13) * kt + 1), fl.col, true);
+      t.position.set(px, py - 40 * k - fl.t * 34 * kt);
       t.alpha = Math.max(0, 1 - fl.t);
     }
   }

@@ -64,18 +64,16 @@ export function discTexture(): Texture {
   }));
 }
 
-/**
- * Darkness around the hero: transparent inside `inner`, then darker towards `outer`.
- * The texture covers a square of half-size `half` (all in screen pixels).
- */
-export function darknessTexture(inner: number, outer: number, half: number): Texture {
-  return canvasTexture(512, (c, s) => {
-    const k = s / 2 / half;
-    const g = c.createRadialGradient(s / 2, s / 2, inner * k, s / 2, s / 2, outer * k);
-    g.addColorStop(0, 'rgba(4,2,3,0)');
-    g.addColorStop(0.5, 'rgba(4,2,3,.25)');
-    g.addColorStop(1, 'rgba(4,2,3,.85)');
+let holeTex: Texture | null = null;
+/** Light radius cut into the darkness: fully clear up to 45 % of the radius, then a smooth falloff. */
+export function holeTexture(): Texture {
+  return (holeTex ??= canvasTexture(256, (c, s) => {
+    const g = c.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+    for (let i = 0; i <= 10; i++) {
+      const t = i / 10, u = Math.min(1, Math.max(0, (t - 0.45) / 0.55)), a = 1 - u * u * (3 - 2 * u);
+      g.addColorStop(t, `rgba(255,255,255,${a.toFixed(3)})`);
+    }
     c.fillStyle = g;
     c.fillRect(0, 0, s, s);
-  });
+  }));
 }
