@@ -183,3 +183,59 @@ Stand auf Branch `claude/ui-assets` (Testversion https://claude.ai/artifact/LBgX
 - Ladebildschirm-Hänger behoben: Ursache war ein unvollständiges Hochladen der Testversion (geänderter Pixi-Chunk `RenderTargetSystem-*.js` fehlte). **Beim Veröffentlichen immer alle Dateien aus `dist-artifact/assets/` mit neuen Namen hochladen, nicht nur `index/init/browserAll/webworkerAll`.**
 - Fehlende Dateien vom Owner: `skill-icons-2.png`, `gems-element.png`.
 - Als Nächstes geplant: Gallows Field ausbauen mit `props-gallows.png` (hängende Laternen, Käfig, Zäune, Vogelscheuche …), `ground-decals.png`, dunklerem Boden; Laternen-Licht, Zaun-/Laternenreihen als Weg, kleine Szenen auf Lichtungen. Danach Monster im düsteren Stil. Prompts siehe letzter Chat bzw. hier ergänzen.
+
+## 7. Gallows Field neu (realistisch, erste Karte)
+
+Ziel: Die alten Bodentexturen und Deko-Sprites der ersten Karte fliegen raus und werden durch einen einheitlichen, realistischen Satz ersetzt. Der Look ist gerendert statt gemalt, wie späte 90er-ARPGs: Erde, nasses Holz, Rost und Knochen mit echter Materialstruktur, gedeckte Farben, keine Comic-Kanten. Wir übernehmen keine Formen oder Motive aus einem bestimmten Spiel.
+
+### Regeln für alle Bilder dieser Karte
+
+- Einheitliches Licht: weiches Mondlicht von **oben links**, nachts, kalt. Keine harten Schlagschatten ins Bild malen, die macht der Code.
+- **Magenta `#FF00FF`** als Hintergrund für Props und Decals, nicht Grün, denn trockenes Gras und Moos sind grünlich und würden mit ausgeschnitten.
+- Boden: **gerade Draufsicht** (90°, wie ein Foto von oben). Der Code kippt ihn selbst in die Schrägansicht.
+- Props: **isometrische Schrägansicht, 30° von oben**, Objekt steht mittig unten in der Zelle.
+- Kein Text, keine Rahmen.
+- Negativ-Prompt (falls möglich): `cartoon, painterly, stylized, cel shading, outlines, saturated colors, glowing, fantasy colors, text, frame, cast shadow, perspective distortion`.
+
+Gemeinsamer Stil-Satz:
+
+> photorealistic pre-rendered 3D look, gritty dark medieval fantasy, physically realistic materials, rotten wood, rusted iron, wet soil, dry dead grass, bone, moss, cold moonlit night, soft light from top-left, low saturation, muted brown grey and dark olive tones, high detail but calm, no stylization
+
+### Bild 1 – `ground-gallows-base.png` (quadratisch, 1024 × 1024, kein Hintergrund-Key)
+
+> [Stil-Satz], seamless tileable ground texture, straight top-down orthographic view, trampled dead grass and dark damp soil, scattered small pebbles, a few dry leaves, uneven patches, low contrast, no large features, no objects, no paths, evenly lit, no shadows, no text
+
+Wichtig: wenig Kontrast und keine auffälligen Einzelstücke, sonst sieht man die Wiederholung und es wird wieder körnig.
+
+### Bild 2 – `ground-gallows-path.png` (quadratisch, 1024 × 1024)
+
+> [Stil-Satz], seamless tileable ground texture, straight top-down orthographic view, muddy rutted cart track, packed dark earth with puddle stains, wheel ruts, thin sparse dead grass at the edges only, low contrast, no objects, evenly lit, no shadows, no text
+
+Wird im Code als Weg über den Grundboden geblendet.
+
+### Sheet 3 – `props-gallows.png` (4 × 3, Querformat 4:3, Magenta)
+
+> [Stil-Satz], isometric view 30 degrees from above, game prop sprite sheet, 4 columns x 3 rows, each object centered in its cell with wide spacing, nothing touches the cell edges, flat pure magenta #FF00FF background, no ground plane, no cast shadows
+
+| Zeile | Spalte 1 | Spalte 2 | Spalte 3 | Spalte 4 |
+|---|---|---|---|---|
+| 1 | Galgen aus dunklem Holz mit Strick | Laternenpfahl, schief, mit hängender Eisenlaterne (Glas dunkel, nicht leuchtend) | eiserner Hängekäfig an Holzgestell | toter, kahler Baum mit Strickresten |
+| 2 | Holzzaun-Stück, kaputt, schräg | Grabkreuz aus Holz, schief | flacher Grabstein, verwittert, moosig | Haufen Knochen und Schädel |
+| 3 | Dornenstrauch, trocken | Holzkarren, kaputt, ein Rad fehlt | Vogelscheuche in Lumpen | alter Steinbrunnen mit Holzbalken |
+
+Die Laterne bewusst **nicht** leuchtend generieren, das Licht kommt aus dem Code (flackert, beleuchtet die Umgebung).
+
+### Sheet 4 – `ground-decals.png` (3 × 2, Querformat 3:2, Magenta)
+
+> [Stil-Satz], straight top-down view, flat ground decal sprites lying on the ground, 3 columns x 2 rows, soft feathered irregular edges that fade out, centered in each cell, flat pure magenta #FF00FF background, no objects standing up, no shadows
+
+| Zeile | Spalte 1 | Spalte 2 | Spalte 3 |
+|---|---|---|---|
+| 1 | dunkle Schlammpfütze mit Wasserglanz | Fleck aus Asche und verkohltem Gras | vertrocknetes Blut, braun, eingetrocknet |
+| 2 | Streu aus Laub und Zweigen | Risse in trockener Erde | Büschel hohes, totes Gras (flach von oben) |
+
+### Danach (meine Seite)
+
+- Alte Deko der ersten Karte (`rock`, `tree`, `grave`, `torch`, `gallows`, Gras) raus, neue Props mit Gruppen-Logik verteilen: Laternenpfähle als Reihe entlang des Wegs, Galgen und Käfige als kleine Szenen auf Lichtungen, Zäune in Reihen.
+- Weg-Textur über eine weiche Rauschmaske einblenden, Decals einzeln drüberstreuen.
+- Laternen bekommen flackerndes Licht im Dunkel.
