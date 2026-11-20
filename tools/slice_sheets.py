@@ -37,6 +37,28 @@ FX_SHEETS = {
                        "fx-fire-burst", "fx-ice-burst", "fx-shock", "fx-fire-ring",
                        "fx-shock-ring", "fx-flames", "fx-frost-aura", "fx-levelup"]),
 }
+# UI pieces (docs/ui-assets.md). Frames keep more pixels because they are stretched as 9-slices.
+UI_SHEETS = {
+    "ui-frames": (3, 2, ["ui-panel", "ui-header", "ui-well", "ui-tipframe", "ui-divider", "ui-close"]),
+    "ui-buttons": (3, 2, ["ui-btn", "ui-btn-on", "ui-btn-off", "ui-tab", "ui-tab-on", "ui-btn-sq"]),
+    "ui-sockets": (4, 2, ["ui-eqslot", "ui-node", "ui-node-round", "ui-socket",
+                          "ui-socket-locked", "ui-badge", "ui-chevron", "ui-corner"]),
+    "ui-glyphs": (3, 3, ["glyph-hero", "glyph-skills", "glyph-bag", "glyph-town", "glyph-weapon", "glyph-helm",
+                         "glyph-armor", "glyph-amulet", "glyph-ring"]),
+    "ui-icons": (4, 4, ["ic-gold", "ic-skillpt", "ic-attrpt", "ic-normal", "ic-nightmare", "ic-hell", "ic-barrier", "ic-burn",
+                        "ic-chill", "ic-freeze", "ic-shock", "ic-settings", "ic-log", "ic-sort", "ic-sell", "ic-lock"]),
+    "skill-icons-2": (3, 3, ["icon-searing", "icon-pyromancy", "icon-kindling", "icon-icenova", "icon-coldmastery",
+                             "icon-permafrost", "icon-thunder", "icon-conductivity", "icon-stormmastery"]),
+    "gems-element": (3, 2, ["gem-searingburn", "gem-addedfire", "gem-deepfreeze", "gem-addedcold", "gem-overcharge", "gem-addedlight"]),
+    "gems-general": (4, 3, ["gem-multi", "gem-pierce", "gem-fork", "gem-wider", "gem-concentrated", "gem-chains",
+                            "gem-spread", "gem-echo", "gem-quick", "gem-efficiency", "gem-lingering", None]),
+}
+MAGENTA = {"gems-general"}
+# longest side after trimming; anything not listed keeps at most 320 px
+UI_SIDE = {"ui-panel": 360, "ui-well": 300, "ui-tipframe": 300, "ui-eqslot": 240, "ui-header": 400, "ui-divider": 400,
+           "ui-close": 128, "ui-btn-sq": 128, "ui-node": 192, "ui-node-round": 192, "ui-socket": 160, "ui-socket-locked": 160,
+           "ui-badge": 96, "ui-chevron": 128, "ui-corner": 192}
+UI_SMALL = ("glyph-", "ic-", "gem-")  # 96 px icons
 MAX_H = {"vesper": 384}
 MAX_SIDE = {n: 128 for n in ["icon-fireball", "icon-meteor", "icon-frostbolt", "icon-frostarmor", "icon-chain", "icon-nova", "icon-spark"]}
 
@@ -52,6 +74,108 @@ def key_green(img):
     g2 = np.where(g > m, m + (g - m) * (1 - np.clip((g - m) / 60, 0, 1)), g)
     out = np.dstack([r, g2, b, alpha * 255]).clip(0, 255).astype(np.uint8)
     return Image.fromarray(out, "RGBA")
+
+
+def key_magenta(img):
+    a = np.asarray(img.convert("RGB")).astype(np.float32)
+    r, g, b = a[..., 0], a[..., 1], a[..., 2]
+    m = np.minimum(r, b)
+    spill = np.clip((m - g - 40) / 90, 0, 1)
+    alpha = 1 - spill
+    # despill: pull red and blue down towards green on edge pixels
+    k = np.clip((m - g) / 80, 0, 1)
+    r2 = np.where(m > g, r - (r - g) * k * 0.6, r)
+    b2 = np.where(m > g, b - (b - g) * k * 0.6, b)
+    out = np.dstack([r2, g, b2, alpha * 255]).clip(0, 255).astype(np.uint8)
+    return Image.fromarray(out, "RGBA")
+
+
+def cut_cells(img, cols, rows, names):
+    """Yield (name, trimmed RGBA cell) for every named grid cell."""
+    cw, ch = img.width / cols, img.height / rows
+    for i, name in enumerate(names):
+        if not name:
+            continue
+        c, r = i % cols, i // cols
+        cell = img.crop((round(c * cw), round(r * ch), round((c + 1) * cw), round((r + 1) * ch)))
+        a = np.array(cell)
+        m = 4  # ignore a thin border: neighbours that poke over the cell line by a pixel
+        a[:m, :, 3] = 0; a[-m:, :, 3] = 0; a[:, :m, 3] = 0; a[:, -m:, 3] = 0
+        cell = Image.fromarray(a, "RGBA")
+        solid = a[..., 3] > 24
+        # rows/columns with only a few stray pixels do not count
+        xs = np.where(solid.sum(0) >= 3)[0]
+        ys = np.where(solid.sum(1) >= 3)[0]
+        if not len(xs):
+            print("empty", name)
+            continue
+        yield name, cell.crop((xs.min(), ys.min(), xs.max() + 1, ys.max() + 1))
+
+
+def fit(cell, side):
+    f = side / max(cell.size)
+    if f >= 1:
+        return cell
+    return cell.resize((max(1, round(cell.width * f)), max(1, round(cell.height * f))), Image.LANCZOS)
+
+
+def slice_ui():
+    for sheet, (cols, rows, names) in UI_SHEETS.items():
+        src = ROOT / "assets" / "sheets" / f"{sheet}.png"
+        if not src.exists():
+            print("missing sheet (skipped):", src.name)
+            continue
+        img = Image.open(src)
+        img = key_magenta(img) if sheet in MAGENTA else key_green(img)
+        for name, cell in cut_cells(img, cols, rows, names):
+            if name.startswith("icon-"):
+                cell = cell.resize((128, 128), Image.LANCZOS)
+            elif name.startswith(UI_SMALL):
+                cell = fit(cell, 96)
+            else:
+                cell = fit(cell, UI_SIDE.get(name, 320))
+            cell.save(OUT / f"{name}.png", optimize=True)
+            print(name, cell.size)
+            if name.startswith("icon-"):
+                PLACEHOLDER_ICONS.pop(name[5:], None)
+
+
+def make_tall_weapons():
+    """Staffs lie diagonally in their icon. For the 1x3 bag cell and the weapon slot they are turned upright."""
+    cols, rows, names = SHEETS["items"]
+    full = dict(cut_cells(key_green(Image.open(ROOT / "assets" / "sheets" / "items.png")), cols, rows, names))
+    for name in ["gnarled-staff", "bone-wand", "ritual-staff"]:
+        im = full[f"item-{name}"]
+        # main axis of the opaque pixels -> rotate it to vertical
+        ys, xs = np.where(np.asarray(im)[..., 3] > 60)
+        cov = np.cov(np.vstack([xs - xs.mean(), ys - ys.mean()]))
+        vx, vy = np.linalg.eigh(cov)[1][:, -1]
+        ang = np.degrees(np.arctan2(vy, vx))  # angle of the axis in image coordinates (y down)
+        rot = -(90 - ang) if ang > 0 else -(-90 - ang)
+        im = im.rotate(rot, resample=Image.BICUBIC, expand=True)
+        al = np.asarray(im)[..., 3]
+        ys, xs = np.where(al > 24)
+        im = im.crop((xs.min(), ys.min(), xs.max() + 1, ys.max() + 1))
+        im = fit(im, 240) if im.height > 240 else im
+        im.save(OUT / f"item-{name}-tall.png", optimize=True)
+        print(f"item-{name}-tall", im.size)
+
+
+def make_stone_texture():
+    """Panel background. Uses the painted texture when the owner has generated it, otherwise procedural granite."""
+    src = ROOT / "assets" / "sheets" / "ui-bg-stone.png"
+    if src.exists():
+        save_seamless(Image.open(src).convert("RGB").resize((512, 512), Image.LANCZOS), OUT / "ui-stone.jpg", 0.55)
+        return
+    rng = np.random.default_rng(7)
+    n, acc = 512, np.zeros((512, 512), np.float32)
+    for octave, amp in [(8, 0.5), (16, 0.25), (32, 0.14), (64, 0.08), (128, 0.05), (512, 0.05)]:
+        g = rng.random((octave, octave)).astype(np.float32)
+        acc += np.asarray(Image.fromarray((g * 255).astype(np.uint8)).resize((n, n), Image.BICUBIC), np.float32) / 255 * amp
+    acc = (acc - acc.min()) / (acc.max() - acc.min())
+    base = 20 + acc * 26
+    rgb = np.dstack([base * 1.0, base * 0.97, base * 0.95])
+    Image.fromarray(rgb.clip(0, 255).astype(np.uint8)).save(OUT / "ui-stone.jpg", quality=86)
 
 
 def save_seamless(tile, path, shade):
@@ -130,9 +254,15 @@ def main():
     g = Image.open(ROOT / "assets" / "sheets" / "ground-gallows-field.png").convert("RGB").resize((512, 512), Image.LANCZOS)
     g.save(OUT / "ground-gallows-field.jpg", quality=85)
     make_app_icons()
+    slice_ui()
+    make_tall_weapons()
+    make_stone_texture()
     make_placeholder_skill_icons()
     MIRROR.mkdir(parents=True, exist_ok=True)
     for f in OUT.iterdir():
+        # the old demo only needs the scene sprites, not the new interface pieces
+        if f.name.startswith(("ui-", "glyph-", "ic-", "gem-")) or "-tall" in f.name:
+            continue
         shutil.copy2(f, MIRROR / f.name)
 
 

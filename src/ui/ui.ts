@@ -12,11 +12,12 @@ import { SaveError, exportCode, importCode } from '../sim/save.ts';
 import type { RunStats, Sim } from '../sim/sim.ts';
 import { isGem, type Monster, type SaveState, type SimEvent } from '../sim/types.ts';
 import { spriteUrl } from '../render/textures.ts';
-import { $, duration, esc, fmt, itemPic, richText, skillIcon } from './html.ts';
+import { $, duration, esc, fmt, ic, itemPic, phead, richText, skillIcon } from './html.ts';
 import { itemTooltip } from './tooltip.ts';
 import { gemColor } from './gemcolor.ts';
 
 const SHEET_W = 460;
+const DIFF_ICON = ['normal', 'nightmare', 'hell'];
 type Tab = 'hero' | 'skills' | 'bag' | 'town';
 
 export interface GameHooks {
@@ -47,10 +48,21 @@ export class UI {
   private selSkill = 'fireball';
   private pickSocket: number | null = null;
   private skillMsg = '';
+  private skillView: 'tree' | 'prio' = 'tree';
+  /** open custom dropdown, e.g. "slot:2", "cond:0", "filter" */
+  private openDD: string | null = null;
+  private sellMode = false;
+  private sellSel = new Set<number>();
+  private drag: { from: number; to: number; id: number; y0: number } | null = null;
 
   constructor(game: GameHooks) {
     this.game = game;
     document.addEventListener('click', e => this.onClick(e));
+    document.addEventListener('pointerdown', e => this.onPointerDown(e));
+    document.addEventListener('pointermove', e => this.onPointerMove(e));
+    document.addEventListener('pointerup', e => this.onPointerUp(e));
+    document.addEventListener('pointercancel', () => this.endDrag(false));
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (this.openDD) { this.openDD = null; this.sim.dirty.add(this.tab ?? 'skills'); this.draw(); } else if (this.tab) this.setTab(null); } });
     document.addEventListener('change', e => this.onChange(e));
     document.addEventListener('input', e => this.onInput(e));
   }
@@ -130,7 +142,7 @@ export class UI {
     const sim = this.sim, b: string[] = [];
     const fa = sim.buffs.frostarmor ?? 0;
     if (fa > 0) b.push(`<span class="buff" title="Frost Armor"><img src="${skillIcon('frostarmor')}" alt="Frost Armor"><b>${Math.ceil(fa)}</b></span>`);
-    if (sim.s.difficulty) b.push(`<span class="buff diff d${sim.s.difficulty}">${DIFFICULTIES[sim.s.difficulty].name}</span>`);
+    if (sim.s.difficulty) b.push(`<span class="buff diff d${sim.s.difficulty}" title="${DIFFICULTIES[sim.s.difficulty].name}">${ic(DIFF_ICON[sim.s.difficulty])}${DIFFICULTIES[sim.s.difficulty].name}</span>`);
     const key = b.join('');
     if (key !== this.lastBuffs) { this.lastBuffs = key; $('#buffs').innerHTML = key; }
   }
@@ -148,7 +160,7 @@ export class UI {
       $('#returnbtn').textContent = 'Return to ' + AREAS[sim.returnZone].name;
     }
     $('#hlvl').textContent = String(s.lvl);
-    $('#hgold').textContent = fmt(s.gold) + ' gold';
+    $('#hgold').textContent = fmt(s.gold);
     $('#xptxt').textContent = `${fmt(s.xp)} / ${fmt(xpNeeded(s.lvl))} XP`;
     $('#xpbar').style.width = (s.xp / xpNeeded(s.lvl)) * 100 + '%';
     const mb = sim.maxBarrier(), bf = mb ? s.barrier / mb : 0;
@@ -205,9 +217,9 @@ export class UI {
     const res = (e: 'fire' | 'cold' | 'light') => `${st.res[e]}%${st.rawRes[e] + sim.diff.resPenalty > st.res[e] ? ` <small class="over">(${st.rawRes[e] + sim.diff.resPenalty})</small>` : ''}`;
     const plus = Object.entries(st.plus).filter(([, v]) => v).map(([t, v]) => row(`+ ${TREES[t].name} skills`, `+${v}`)).join('');
     $('#p-hero').innerHTML = `
-      <div class="row"><h2>${HERO.className} · Level ${s.lvl}</h2><span>${s.attrPts ? `<b class="gold">${s.attrPts}</b> points to spend` : 'No points left'}</span></div>
-      <div>${ATTRS.map(k => { const A = HERO.attributes[k]; const dis = s.attrPts ? '' : 'disabled'; return `<div class="attr"><span>${A.name}</span><span class="v">${st.a[k]}</span><span class="d">${A.description}</span>
-        <span class="updn"><button class="btn sm" data-act="attr:${k}:1" ${dis} aria-label="Add point to ${A.name}">+</button><button class="btn sm" data-act="attr:${k}:5" ${s.attrPts >= 5 ? '' : 'disabled'} aria-label="Add 5 points to ${A.name}">+5</button></span></div>`; }).join('')}</div>
+      ${phead(`${HERO.className} · Level ${s.lvl}`, s.attrPts ? `${ic('attrpt', 'Attribute points')}<b class="gold">${s.attrPts}</b> to spend` : 'No points left')}
+      <div class="well attrs">${ATTRS.map(k => { const A = HERO.attributes[k]; const dis = s.attrPts ? '' : 'disabled'; return `<div class="attr"><span>${A.name}</span><span class="v">${st.a[k]}</span><span class="d">${A.description}</span>
+        <span class="updn"><button class="btn sq" data-act="attr:${k}:1" ${dis} aria-label="Add point to ${A.name}">+</button><button class="btn sq" data-act="attr:${k}:5" ${s.attrPts >= 5 ? '' : 'disabled'} aria-label="Add 5 points to ${A.name}">+5</button></span></div>`; }).join('')}</div>
       <details class="grp" open><summary>Offense</summary><div class="kv">
         ${row('Spell damage', `+${st.spellDmg}%`)}${row('Cast time', `${sim.ctx('fireball').castTime.toFixed(2)}s`)}
         ${row('Fire damage', `+${st.el.fire}%`, 'fire')}${row('Fire penetration', `${st.pen.fire}%`, 'fire')}
@@ -280,6 +292,12 @@ export class UI {
 
   private pSkills() {
     const s = this.s, sim = this.sim, sel = SKILLS[this.selSkill] ? this.selSkill : 'fireball';
+    const view = this.skillView;
+    const sub = `<div class="subtabs" role="tablist">
+      <button role="tab" data-act="sview:tree" aria-selected="${view === 'tree'}">Tree</button>
+      <button role="tab" data-act="sview:prio" aria-selected="${view === 'prio'}">Priority${sim.blockedSlots().length ? '<i class="dot"></i>' : ''}</button></div>`;
+    const head = phead('Skills', s.skillPts ? `${ic('skillpt', 'Skill points')}<b class="gold">${s.skillPts}</b> point${s.skillPts > 1 ? 's' : ''}` : 'No skill points');
+    if (view === 'prio') { $('#p-skills').innerHTML = head + sub + this.prioView(); return; }
     const trees = Object.entries(TREES).map(([t, T]) => {
       const ids = Object.keys(SKILLS).filter(id => SKILLS[id].tree === t);
       const rows = [0, 1, 2, 3].map(r => ids.filter(id => SKILLS[id].row === r));
@@ -287,41 +305,52 @@ export class UI {
         const sk = SKILLS[id], lv = s.skills[id] || 0, locked = s.lvl < sk.reqLevel, can = sim.canLearn(id);
         const eff = lv ? lv + (sim.st.plus[t] || 0) : 0;
         return `<button class="snode ${isPassive(id) ? 'passive' : ''} ${locked ? 'locked' : ''} ${lv ? 'learned' : ''} ${can ? 'can' : ''} ${id === sel ? 'sel' : ''}" data-act="skillsel:${id}" aria-label="${esc(sk.name)}, level ${lv}">
-          <img src="${skillIcon(id)}" alt=""><b class="lv">${eff > lv ? `<em>${eff}</em>` : lv}</b>${locked ? `<i class="req">${sk.reqLevel}</i>` : ''}</button>`;
+          <span class="art"><img src="${skillIcon(id)}" alt=""></span><b class="lv">${eff > lv ? `<em>${eff}</em>` : lv}</b>${locked ? `<i class="req">${sk.reqLevel}</i>` : ''}</button>`;
       }).join('')}</div>${r < 3 ? '<div class="sline"></div>' : ''}`).join('')}</div>`;
     }).join('');
     const sk = SKILLS[sel], lv = s.skills[sel] || 0, passive = isPassive(sel);
     const sockets = passive ? '' : `<h4>Support gems</h4><div class="sockets">${SOCKET_LEVELS.map((need, i) => {
       const g = sim.socketsOf(sel)[i], open = lv >= need;
-      if (g) return `<button class="sock full ${this.pickSocket === i ? 'sel' : ''}" data-act="sockpick:${i}" style="--gc:${gemColor(g.gem)}">${itemPic(g, 'sockpic')}<span><b>${esc(GEMS[g.gem].name)}</b> <small>Lv ${g.lvl}</small><br><small>${esc(gemText(g))}</small></span></button>`;
+      if (g) return `<button class="sock full ${this.pickSocket === i ? 'sel' : ''}" data-act="sockpick:${i}" style="--gc:${gemColor(g.gem)}"><span class="hole">${itemPic(g, 'sockpic')}</span><span><b>${esc(GEMS[g.gem].name)}</b> <small>Lv ${g.lvl}</small><br><small>${esc(gemText(g))}</small></span></button>`;
       return `<button class="sock ${open ? '' : 'closed'} ${this.pickSocket === i ? 'sel' : ''}" data-act="sockpick:${i}" ${open ? '' : 'disabled'}><span class="hole"></span><span>${open ? 'Empty socket: tap to insert a gem' : `Opens at skill level ${need}`}</span></button>`;
     }).join('')}</div>${this.pickSocket != null && lv >= SOCKET_LEVELS[this.pickSocket] ? this.gemPicker(sel, this.pickSocket) : ''}`;
-    const learned = Object.keys(SKILLS).filter(k => s.skills[k] > 0 && !isPassive(k));
-    const opts = (cur: string | null) => `<option value="">Empty</option>` + learned.map(k => `<option value="${k}" ${k === cur ? 'selected' : ''}>${SKILLS[k].name}</option>`).join('');
-    const copts = (cur: string) => Object.entries(CONDITIONS).map(([k, n]) => `<option value="${k}" ${k === cur ? 'selected' : ''}>${n}</option>`).join('');
-    $('#p-skills').innerHTML = `
-      <div class="row"><h2>Skills</h2><span>${s.skillPts ? `<b class="gold">${s.skillPts}</b> skill point${s.skillPts > 1 ? 's' : ''}` : 'No skill points'}</span></div>
+    $('#p-skills').innerHTML = `${head}${sub}
       <div class="strees">${trees}</div>
-      <div class="sdetail">
-        <div class="row"><span class="sdname"><img class="sicon" src="${skillIcon(sel)}" alt=""><b class="${sk.element}">${esc(sk.name)}</b> <small>${passive ? 'Passive' : 'Active'} · Lv ${lv}/${skillMaxLevel(sel)}${lv && sim.st.plus[sk.tree] ? ` (+${sim.st.plus[sk.tree]})` : ''}</small></span>
-          <button class="btn primary sm" data-act="learn:${sel}" ${sim.canLearn(sel) ? '' : 'disabled'}>${lv ? 'Level up' : 'Learn'}</button></div>
+      <div class="sdetail framed">
+        <div class="row"><span class="sdname"><span class="snode mini ${passive ? 'passive' : ''} learned"><span class="art"><img src="${skillIcon(sel)}" alt=""></span></span><span><b class="${sk.element}">${esc(sk.name)}</b><br><small>${passive ? 'Passive' : 'Active'} · Lv ${lv}/${skillMaxLevel(sel)}${lv && sim.st.plus[sk.tree] ? ` (+${sim.st.plus[sk.tree]})` : ''}</small></span></span>
+          <button class="btn primary" data-act="learn:${sel}" ${sim.canLearn(sel) ? '' : 'disabled'}>${lv ? 'Level up' : 'Learn'}</button></div>
         ${sk.tags ? `<div class="chips">${sk.tags.filter(t => t !== 'hit').map(t => `<span class="chip">${t}</span>`).join('')}</div>` : ''}
         <p class="d">${esc(sk.description)}</p>
-        ${s.lvl < sk.reqLevel ? `<p class="hint bad">Needs character level ${sk.reqLevel}.</p>` : ''}
+        ${s.lvl < sk.reqLevel ? `<p class="hint bad">${ic('lock')} Needs character level ${sk.reqLevel}.</p>` : ''}
         ${this.skillInfo(sel)}
         ${sockets}
         ${this.skillMsg ? `<p class="hint bad">${esc(this.skillMsg)}</p>` : ''}
       </div>
-      <p class="hint">Each point in a skill adds ${8}% increased damage to the other skills of its tree. Passive skills work on their own.</p>
-      <h3>Cast priority</h3>
-      <p class="hint">She checks the slots from top to bottom and casts the first skill that is ready, affordable and whose condition is true. If none fits, she uses Staff Spark (free, weak).</p>
+      <p class="hint">Each point in a skill adds ${8}% increased damage to the other skills of its tree. Passive skills work on their own.</p>`;
+  }
+
+  /** Custom dropdown: a button with the current value, and the option list while it is open. */
+  private dropdown(key: string, label: string, cur: string, options: [string, string, string?][]): string {
+    const open = this.openDD === key;
+    const curOpt = options.find(o => o[0] === cur) ?? options[0];
+    const pic = (o: [string, string, string?]) => (o[2] ? `<img src="${o[2]}" alt="">` : '');
+    return `<div class="dd ${open ? 'open' : ''}"><button class="ddbtn" data-act="dd:${key}" aria-haspopup="listbox" aria-expanded="${open}" aria-label="${esc(label)}">${pic(curOpt)}<span>${esc(curOpt[1])}</span><i class="chev"></i></button>
+      ${open ? `<div class="ddlist" role="listbox">${options.map(o => `<button role="option" aria-selected="${o[0] === cur}" data-act="ddpick:${key}:${o[0]}">${pic(o)}<span>${esc(o[1])}</span></button>`).join('')}</div>` : ''}</div>`;
+  }
+
+  private prioView(): string {
+    const s = this.s, sim = this.sim;
+    const learned = Object.keys(SKILLS).filter(k => s.skills[k] > 0 && !isPassive(k));
+    const skillOpts: [string, string, string?][] = [['', 'Empty'], ...learned.map(k => [k, SKILLS[k].name, skillIcon(k)] as [string, string, string])];
+    const condOpts: [string, string][] = Object.entries(CONDITIONS);
+    return `<p class="hint">She checks the slots from top to bottom and casts the first skill that is ready, affordable and whose condition is true. If none fits, she uses Staff Spark (free, weak). Drag a card by its handle to reorder.</p>
       ${sim.blockedSlots().map(([i, b]) => `<p class="hint bad">Slot ${i + 1} is never cast: slot ${b + 1} is set to "Always" and is always ready.</p>`).join('')}
-      <div class="prio">${s.slots.map((sl, i) => `<div class="pcard">
-        <span class="ix">${i + 1}</span>${sl.id ? `<img class="picon" src="${skillIcon(sl.id)}" alt="">` : '<span class="picon empty"></span>'}
-        <span class="psel"><select data-slot="${i}" aria-label="Skill in slot ${i + 1}">${opts(sl.id)}</select>
-        <select data-cond="${i}" aria-label="Condition for slot ${i + 1}">${copts(sl.cond)}</select></span>
-        <span class="updn vert"><button class="btn sm" data-act="up:${i}" ${i ? '' : 'disabled'} aria-label="Move up">↑</button><button class="btn sm" data-act="down:${i}" ${i < 3 ? '' : 'disabled'} aria-label="Move down">↓</button></span></div>`).join('')}</div>
-      <div class="row" style="justify-content:flex-start"><button class="btn sm" data-act="autoorder">Sort automatically</button></div>`;
+      <div class="prio">${s.slots.map((sl, i) => `<div class="pcard" data-slot="${i}">
+        <span class="grip" data-grip="${i}" aria-hidden="true"><b>${i + 1}</b></span>
+        <span class="snode mini ${sl.id ? 'learned' : 'empty'}"><span class="art">${sl.id ? `<img src="${skillIcon(sl.id)}" alt="">` : ''}</span></span>
+        <span class="psel">${this.dropdown(`slot:${i}`, `Skill in slot ${i + 1}`, sl.id ?? '', skillOpts)}${this.dropdown(`cond:${i}`, `Condition for slot ${i + 1}`, sl.cond, condOpts)}</span>
+        <span class="updn vert"><button class="btn sq" data-act="up:${i}" ${i ? '' : 'disabled'} aria-label="Move up">▲</button><button class="btn sq" data-act="down:${i}" ${i < 3 ? '' : 'disabled'} aria-label="Move down">▼</button></span></div>`).join('')}</div>
+      <div class="row" style="justify-content:flex-start"><button class="btn" data-act="autoorder">${ic('sort')}Sort automatically</button></div>`;
   }
 
   private gemPicker(skill: string, i: number): string {
@@ -341,10 +370,11 @@ export class UI {
     const s = this.s, sim = this.sim;
     const sel = this.selBag != null ? s.bag.find(i => i.id === this.selBag) ?? null : null;
     if (!sel) { this.selBag = null; this.moveMode = false; }
+    for (const id of this.sellSel) if (!s.bag.some(i => i.id === id)) this.sellSel.delete(id);
     const eqSlot = (slot: Slot) => {
       const it = s.equip[slot];
-      return `<button class="eqslot e-${slot} ${it ? 'r' + it.r : 'empty'} ${this.selEq === slot ? 'sel' : ''}" data-act="eqsel:${slot}" aria-label="${SLOT_NAMES[slot]}">
-        ${it ? itemPic(it) : `<span class="slotname">${SLOT_NAMES[slot]}</span>`}</button>`;
+      return `<button class="eqslot e-${slot} ${it ? 'r' + it.r : 'empty'} ${this.selEq === slot ? 'sel' : ''}" data-act="eqsel:${slot}" aria-label="${SLOT_NAMES[slot]}${it ? ': ' + esc(it.name) : ', empty'}">
+        ${it ? itemPic(it, 'pic', true) : `<img class="glyph" src="${spriteUrl(`glyph-${slot}.png`)}" alt="">`}</button>`;
     };
     const cells = this.moveMode && sel ? (() => {
       const out: string[] = [];
@@ -354,45 +384,74 @@ export class UI {
     })() : '';
     const items = s.bag.map(it => {
       const [w, h] = itemSize(it), r = isGem(it) ? 'gem' : 'r' + it.r;
-      return `<button class="bi ${r} ${it.id === this.selBag ? 'sel' : ''}" style="--x:${it.bx};--y:${it.by};--w:${w};--h:${h}${isGem(it) ? `;--gc:${gemColor(it.gem)}` : ''}" data-act="bagsel:${it.id}" aria-label="${esc(sim.itemName(it))}">${itemPic(it)}</button>`;
+      const picked = this.sellMode && this.sellSel.has(it.id);
+      return `<button class="bi ${r} ${it.id === this.selBag ? 'sel' : ''} ${picked ? 'picked' : ''}" style="--x:${it.bx};--y:${it.by};--w:${w};--h:${h}${isGem(it) ? `;--gc:${gemColor(it.gem)}` : ''}" data-act="bagsel:${it.id}" aria-label="${esc(sim.itemName(it))}" ${this.sellMode ? `aria-pressed="${picked}"` : ''}>${itemPic(it, 'pic', true)}</button>`;
     }).join('');
     let tip = '';
-    if (sel) {
+    if (this.sellMode) tip = '';
+    else if (sel) {
       const learned = Object.keys(s.skills);
       if (isGem(sel)) {
         const quick = learned.filter(k => !isPassive(k) && gemFits(sel.gem, k)).flatMap(k => {
           const i = sim.socketsOf(k).findIndex((g, j) => !g && sim.socketOpen(k, j));
           if (i < 0 || sim.socketsOf(k).some(g => g?.gem === sel.gem)) return [];
-          return [`<button class="btn sm primary" data-act="sock:${k}:${i}:${sel.id}">Socket into ${esc(SKILLS[k].name)}</button>`];
+          return [`<button class="btn primary" data-act="sock:${k}:${i}:${sel.id}">Socket into ${esc(SKILLS[k].name)}</button>`];
         }).join('');
-        tip = itemTooltip(sel, null, `${quick}<button class="btn sm" data-act="move">${this.moveMode ? 'Cancel move' : 'Move'}</button><button class="btn sm" data-act="sell:${sel.id}">Sell · ${sellValue(sel)}g</button>`, { learned });
+        tip = itemTooltip(sel, null, `${quick}<button class="btn" data-act="move">${this.moveMode ? 'Cancel move' : 'Move'}</button><button class="btn" data-act="sell:${sel.id}">${ic('sell')}Sell · ${sellValue(sel)}g</button>`, { learned });
       } else {
-        tip = itemTooltip(sel, s.equip[sel.slot], `<button class="btn sm primary" data-act="equip:${sel.id}">Equip</button><button class="btn sm" data-act="move">${this.moveMode ? 'Cancel move' : 'Move'}</button><button class="btn sm" data-act="sell:${sel.id}">Sell · ${sellValue(sel)}g</button>`, { compare: true });
+        tip = itemTooltip(sel, s.equip[sel.slot], `<button class="btn primary" data-act="equip:${sel.id}">Equip</button><button class="btn" data-act="move">${this.moveMode ? 'Cancel move' : 'Move'}</button><button class="btn" data-act="sell:${sel.id}">${ic('sell')}Sell · ${sellValue(sel)}g</button>`, { compare: true });
       }
     } else if (this.selEq && s.equip[this.selEq]) {
-      tip = itemTooltip(s.equip[this.selEq]!, null, `<button class="btn sm" data-act="unequip:${this.selEq}">Take off</button>`);
+      tip = itemTooltip(s.equip[this.selEq]!, null, `<button class="btn" data-act="unequip:${this.selEq}">Take off</button>`);
     }
+    this.showTip(tip);
     const used = s.bag.reduce((n, it) => { const [w, h] = itemSize(it); return n + w * h; }, 0);
+    const sellSum = [...this.sellSel].reduce((n, id) => { const it = s.bag.find(i => i.id === id); return n + (it ? sellValue(it) : 0); }, 0);
+    const filterOpts = ITEMS.filterNames.map((n, i) => [String(i), n] as [string, string]);
+    const tools = this.sellMode
+      ? `<div class="sellbar"><span>${this.sellSel.size ? `<b>${this.sellSel.size}</b> selected · <span class="gold">${fmt(sellSum)}</span>` : 'Tap items to select them'}</span>
+          <span class="updn"><button class="btn" data-act="sellpick:low">Select Normal & Magic</button><button class="btn" data-act="sellmode">Cancel</button>
+          <button class="btn primary" data-act="sellsel" ${this.sellSel.size ? '' : 'disabled'}>${ic('sell')}Sell ${this.sellSel.size || ''}</button></span></div>`
+      : `<div class="row"><span class="hint">${used} / ${BAG_W * BAG_H} cells${this.moveMode ? ' · tap a green spot to place the item' : ' · tap an item for details'}</span>
+          <span class="updn"><button class="btn" data-act="sortbag">${ic('sort')}Sort</button><button class="btn" data-act="sellmode" ${s.bag.length ? '' : 'disabled'}>${ic('sell')}Sell…</button></span></div>`;
     $('#p-bag').innerHTML = `
-      <div class="row"><h2>Inventory</h2><span class="gold">${fmt(s.gold)} gold</span></div>
+      ${phead('Inventory', `${ic('gold', 'Gold')}<span class="gold">${fmt(s.gold)}</span>`)}
       <div class="doll" style="--hero:url('${spriteUrl('hero-idle.png')}')">${eqSlot('weapon')}${eqSlot('helm')}${eqSlot('armor')}${eqSlot('amulet')}${eqSlot('ring')}</div>
-      <div class="row"><span class="hint">${used} / ${BAG_W * BAG_H} cells${this.moveMode ? ' · tap a green spot to place the item' : ' · tap an item for details'}</span>
-        <span class="updn"><button class="btn sm" data-act="sortbag">Sort</button><button class="btn sm" data-act="sellLow" ${s.bag.some(i => !isGem(i) && i.r < 2) ? '' : 'disabled'}>Sell Normal & Magic</button></span></div>
-      <div class="bag" style="--cols:${BAG_W};--rows:${BAG_H}">${items}${cells}</div>
+      ${tools}
+      <div class="bagwell"><div class="bag ${this.sellMode ? 'selling' : ''}" style="--cols:${BAG_W};--rows:${BAG_H}">${items}${cells}</div></div>
       ${this.bagMsg ? `<p class="hint bad">${esc(this.bagMsg)}</p>` : ''}
-      ${tip || '<p class="hint">Staffs take 1×3 cells, armor 2×3, helms 2×2, amulets, rings and gems 1×1. When the bag is full, the least valuable item is sold.</p>'}
-      <div class="row"><label class="check" for="filter">Pick up:
-        <select class="plain" id="filter">${ITEMS.filterNames.map((n, i) => `<option value="${i}" ${i === s.filter ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
-        <span class="hint">Items below the filter are sold on the spot. Gems are always kept.</span></div>`;
+      <p class="hint">Staffs take 1×3 cells, armor 2×3, helms 2×2, amulets, rings and gems 1×1. When the bag is full, the least valuable item is sold.</p>
+      <div class="row filterrow"><span>Pick up</span>${this.dropdown('filter', 'Pick-up filter', String(s.filter), filterOpts)}</div>
+      <p class="hint">Items below the filter are sold on the spot. Gems are always kept.</p>`;
+    this.placeTip();
+  }
+
+  /** Item tooltip: floats next to the menu on wide screens, card above the tab bar on phones. */
+  private showTip(html: string) {
+    const el = $('#tipfloat');
+    if (!html) { el.hidden = true; el.innerHTML = ''; $('#sheet').classList.remove('tipopen'); return; }
+    el.innerHTML = `<button class="close sm" data-act="tipclose" aria-label="Close details"></button>${html}`;
+    el.hidden = false;
+    $('#sheet').classList.toggle('tipopen', true);
+  }
+  private placeTip() {
+    const el = $('#tipfloat');
+    if (el.hidden) return;
+    const st = $('#stage');
+    if (st.clientWidth < 820) { el.style.top = ''; $('#sheet').style.setProperty('--tiph', el.offsetHeight + 'px'); return; }
+    const anchor = document.querySelector<HTMLElement>('#p-bag .bi.sel, #p-bag .eqslot.sel');
+    const sr = st.getBoundingClientRect(), h = el.offsetHeight;
+    const y = anchor ? anchor.getBoundingClientRect().top - sr.top - 20 : 60;
+    el.style.top = `${Math.max(8, Math.min(st.clientHeight - h - 8, y))}px`;
   }
 
   /* ----- town ----- */
   private pTown() {
     const s = this.s, sim = this.sim, price = potionPrice(s.lvl), rc = respecCost(s.lvl), P = HERO.potions;
-    const diffs = DIFFICULTIES.map((d, i) => `<button class="btn ${i === s.difficulty ? 'primary' : ''}" data-act="diff:${i}" ${s.progress[i] ? '' : 'disabled'}>${d.name}${s.progress[i] ? '' : ' 🔒'}</button>`).join('');
-    const fuse = sim.fusable().map(([g, l, n]) => `<div class="row"><span style="color:${gemColor(g)}">${esc(GEMS[g].name)} Lv ${l} ×${n}</span><button class="btn sm" data-act="fuse:${g}:${l}">Fuse 3 → Lv ${l + 1} · ${sim.fuseCost(l)}g</button></div>`).join('');
+    const diffs = DIFFICULTIES.map((d, i) => `<button class="btn diffbtn ${i === s.difficulty ? 'primary' : ''}" data-act="diff:${i}" ${s.progress[i] ? '' : 'disabled'} aria-pressed="${i === s.difficulty}">${ic(s.progress[i] ? DIFF_ICON[i] : 'lock')}${d.name}</button>`).join('');
+    const fuse = sim.fusable().map(([g, l, n]) => `<div class="row"><span style="color:${gemColor(g)}">${esc(GEMS[g].name)} Lv ${l} ×${n}</span><button class="btn" data-act="fuse:${g}:${l}">Fuse 3 → Lv ${l + 1} · ${sim.fuseCost(l)}g</button></div>`).join('');
     $('#p-town').innerHTML = `
-      <div class="row"><h2>Town</h2><span class="gold"><span id="towngold">${fmt(s.gold)}</span> gold</span></div>
+      ${phead('Town', `${ic('gold', 'Gold')}<span class="gold" id="towngold">${fmt(s.gold)}</span>`)}
       <h3>Difficulty</h3>
       <div class="row" style="justify-content:flex-start">${diffs}</div>
       <p class="hint">${DIFFICULTIES.map(d => `${d.name}: monsters +${d.levelAdd} levels, resistances ${d.resPenalty}%`).join(' · ')}. Beat Mother Vesper to open the next one.</p>
@@ -411,7 +470,7 @@ export class UI {
       <label class="check" for="autoAdvance"><input type="checkbox" id="autoAdvance" ${s.autoAdvance ? 'checked' : ''}> Move to the next area after clearing one</label>
       <label class="check" for="autoReturn"><input type="checkbox" id="autoReturn" ${s.autoReturn ? 'checked' : ''}> After dying, return to the previous area automatically</label>
       <label class="check" for="kite"><input type="checkbox" id="kite" ${s.kite ? 'checked' : ''}> Keep distance from melee enemies (kiting)</label>
-      <h3>Display</h3>
+      <h3>${ic('settings')}Display</h3>
       <label class="check" for="dmgNumbers"><input type="checkbox" id="dmgNumbers" ${s.settings.dmgNumbers ? 'checked' : ''}> Show damage numbers</label>
       <label class="check" for="lootLabels"><input type="checkbox" id="lootLabels" ${s.settings.lootLabels ? 'checked' : ''}> Show loot names on the ground</label>
       <h3>Mystic</h3>
@@ -441,6 +500,8 @@ export class UI {
     $('#stage').classList.toggle('open', !!this.tab);
     document.querySelectorAll('.panel').forEach(x => x.classList.toggle('active', x.id === 'p-' + this.tab));
     this.moveMode = false; this.bagMsg = ''; this.skillMsg = '';
+    this.openDD = null; this.sellMode = false; this.sellSel.clear();
+    if (this.tab !== 'bag') this.showTip('');
     if (this.tab) { this.sim.dirty.add(this.tab); $('#sheet').scrollTop = 0; this.draw(); }
   }
   private townMsg(t: string) { const e = document.getElementById('townmsg'); if (e) e.textContent = t; }
@@ -452,10 +513,31 @@ export class UI {
 
   private onClick(e: MouseEvent) {
     const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-act]');
+    if (this.openDD && !(e.target as HTMLElement).closest('.dd')) { this.openDD = null; this.sim.dirty.add(this.tab ?? 'skills'); if (!b) this.draw(); }
     if (!b || b.disabled) return;
     const [a, x, y, z] = (b.dataset.act || '').split(':');
     const sim = this.sim, s = this.s, D = sim.dirty;
     switch (a) {
+      case 'sview': this.skillView = x as 'tree' | 'prio'; this.openDD = null; D.add('skills'); break;
+      case 'dd': { const key = y != null ? `${x}:${y}` : x; this.openDD = this.openDD === key ? null : key; D.add(this.tab ?? 'skills'); break; }
+      case 'ddpick': {
+        // ddpick:slot:2:fireball · ddpick:cond:2:always · ddpick:filter:3
+        if (x === 'slot') sim.setSlotSkill(+y, z || null);
+        else if (x === 'cond') sim.setSlotCond(+y, z);
+        else if (x === 'filter') s.filter = +y;
+        this.openDD = null; D.add(this.tab ?? 'skills');
+        break;
+      }
+      case 'sellmode': this.sellMode = !this.sellMode; this.sellSel.clear(); this.selBag = null; this.selEq = null; this.moveMode = false; D.add('bag'); break;
+      case 'sellpick': for (const it of s.bag) if (!isGem(it) && it.r < 2) this.sellSel.add(it.id); D.add('bag'); break;
+      case 'sellsel': {
+        let n = 0, g = 0;
+        for (const id of this.sellSel) { const it = s.bag.find(i => i.id === id); if (it) { g += sellValue(it); n++; sim.sell(id); } }
+        if (n) this.addLog(`Sold ${n} item${n > 1 ? 's' : ''} for ${fmt(g)} gold.`, 'good');
+        this.sellSel.clear(); this.sellMode = false; D.add('bag');
+        break;
+      }
+      case 'tipclose': this.selBag = null; this.selEq = null; this.moveMode = false; D.add('bag'); break;
       case 'tab': this.setTab(x as Tab); break;
       case 'close': this.setTab(null); break;
       case 'closesum': $('#summary').hidden = true; break;
@@ -485,7 +567,9 @@ export class UI {
       }
       case 'unsock': { const err = sim.unsocket(x, +y); this.skillMsg = err ?? ''; if (!err) this.pickSocket = null; D.add('skills'); D.add('slots'); break; }
       case 'up': case 'down': sim.moveSlot(+x, a === 'up' ? -1 : 1); break;
-      case 'bagsel': this.selBag = this.selBag === +x ? null : +x; this.selEq = null; this.moveMode = false; this.bagMsg = ''; D.add('bag'); break;
+      case 'bagsel':
+        if (this.sellMode) { if (this.sellSel.has(+x)) this.sellSel.delete(+x); else this.sellSel.add(+x); D.add('bag'); break; }
+        this.selBag = this.selBag === +x ? null : +x; this.selEq = null; this.moveMode = false; this.bagMsg = ''; D.add('bag'); break;
       case 'eqsel': this.selEq = this.selEq === x ? null : (x as Slot); this.selBag = null; this.moveMode = false; this.bagMsg = ''; D.add('bag'); break;
       case 'move': this.moveMode = !this.moveMode; D.add('bag'); break;
       case 'bagcell': if (this.selBag != null) sim.moveItem(this.selBag, +x, +y); this.moveMode = false; D.add('bag'); break;
@@ -512,6 +596,41 @@ export class UI {
         this.game.wipe();
         break;
     }
+    this.draw();
+  }
+
+  /* ----- drag to reorder the cast priority ----- */
+  private onPointerDown(e: PointerEvent) {
+    const g = (e.target as HTMLElement).closest<HTMLElement>('[data-grip]');
+    if (!g) return;
+    e.preventDefault();
+    const from = +g.dataset.grip!;
+    this.drag = { from, to: from, id: e.pointerId, y0: e.clientY };
+    g.setPointerCapture(e.pointerId);
+    document.querySelector(`.pcard[data-slot="${from}"]`)?.classList.add('dragging');
+  }
+  private onPointerMove(e: PointerEvent) {
+    if (!this.drag || e.pointerId !== this.drag.id) return;
+    const cards = [...document.querySelectorAll<HTMLElement>('.pcard')];
+    const src = cards[this.drag.from];
+    if (!src) return;
+    const dy = e.clientY - this.drag.y0, step = src.offsetHeight + 6;
+    const to = Math.max(0, Math.min(cards.length - 1, this.drag.from + Math.round(dy / step)));
+    this.drag.to = to;
+    src.style.transform = `translateY(${dy}px)`;
+    cards.forEach((c, i) => {
+      if (i === this.drag!.from) return;
+      const shift = this.drag!.from < i && i <= to ? -step : to <= i && i < this.drag!.from ? step : 0;
+      c.style.transform = shift ? `translateY(${shift}px)` : '';
+    });
+  }
+  private onPointerUp(e: PointerEvent) { if (this.drag && e.pointerId === this.drag.id) this.endDrag(true); }
+  private endDrag(apply: boolean) {
+    if (!this.drag) return;
+    const { from, to } = this.drag;
+    this.drag = null;
+    if (apply && to !== from) { const d = to > from ? 1 : -1; for (let i = from; i !== to; i += d) this.sim.moveSlot(i, d); }
+    this.sim.dirty.add('skills');
     this.draw();
   }
 

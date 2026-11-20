@@ -164,3 +164,13 @@ Wird beim Schneiden nahtlos gemacht und abgedunkelt.
 - Stäbe als hochkant gedrehte Variante für das 1×3-Feld.
 - Gem-Icons ersetzen die im Code gezeichneten Steine.
 - Die Kugelrahmen (`orbs.png`, Bronze mit Steinen) passen später evtl. nicht mehr ganz; wenn die Konsole steht, entscheiden wir, ob wir die Rahmen schlichter neu generieren.
+
+## 5. Stand
+
+| Sheet | Status |
+|---|---|
+| `ui-frames.png`, `ui-buttons.png`, `ui-sockets.png`, `ui-glyphs.png`, `ui-icons.png` | geschnitten und eingebaut |
+| `skill-icons-2.png`, `gems-element.png` | generiert, Datei fehlt noch im Repo |
+| `gems-general.png`, `ui-hud.png`, `ui-bg-stone.png` | offen (Steintextur bis dahin prozedural erzeugt) |
+
+Neue Sheets einfach mit dem Namen aus der Tabelle in `assets/sheets/` legen und `python3 tools/slice_sheets.py` laufen lassen; fehlende Sheets werden übersprungen.

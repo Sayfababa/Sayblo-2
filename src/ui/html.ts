@@ -11,11 +11,16 @@ export const fmt = (n: number) => (n >= 100000 ? Math.round(n / 1000) + 'k' : n 
 export const richText = (msg: string) => esc(msg).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
 export const skillIcon = (id: string) => spriteUrl(`icon-${id}.png`);
 
-/** Picture of an item: sprite for equipment, a cut gem drawn in CSS for support gems. */
-export function itemPic(it: BagItem, cls = 'pic'): string {
+/** Picture of an item: sprite for equipment, a cut gem drawn in CSS for support gems.
+ *  `tall`: staffs stand upright (for the 1×3 bag cell and the weapon slot). */
+export function itemPic(it: BagItem, cls = 'pic', tall = false): string {
   if (isGem(it)) return `<span class="${cls} gemicon" style="--gc:${gemColor(it.gem)}" title="${esc(GEMS[it.gem].name)}"><i></i><b>${it.lvl}</b></span>`;
-  return `<img class="${cls}" src="${spriteUrl(`item-${BASE_ICON[it.base]}.png`)}" alt="">`;
+  return `<img class="${cls}" src="${spriteUrl(`item-${BASE_ICON[it.base]}${tall && it.slot === 'weapon' ? '-tall' : ''}.png`)}" alt="">`;
 }
+/** Small painted UI icon (public/sprites/ic-*.png). */
+export const ic = (name: string, alt = '', cls = 'ic') => `<img class="${cls}" src="${spriteUrl(`ic-${name}.png`)}" alt="${esc(alt)}">`;
+/** Header plaque of a menu panel. */
+export const phead = (title: string, right = '') => `<div class="phead"><div class="plate"><h2>${title}</h2>${right ? `<span class="pright">${right}</span>` : ''}</div><button class="close" data-act="close" aria-label="Close menu"></button></div>`;
 export const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`;
 export function duration(sec: number): string {
   const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);

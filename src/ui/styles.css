@@ -1,7 +1,7 @@
 /* Layout: isometric scene fills the screen, HUD on top of it, menus open as a sheet over the map. Phone = sheet covers the map; desktop = sheet on the right. Single dark theme by choice. */
 :root{
-  --bg:#130f10; --panel:#1c1718; --panel2:#251f1f; --line:#3b3231; --line2:#55473f;
-  --bone:#e4d8c3; --muted:#9b8e7f; --gold:#c9a557;
+  --bg:#0c0b0b; --panel:#161514; --panel2:#1d1b1a; --line:#2f2c2a; --line2:#4a4541;
+  --bone:#ddd3c1; --muted:#958c80; --gold:#c9a96a;
   --life:#a8232a; --life2:#5c1216; --mana:#3352c2; --mana2:#18245a; --barrier:#a6dcf0; --xp:#c9a557;
   --fire:#ef6c3c; --cold:#74cbee; --light:#b99bff;
   --r0:#d8d0c2; --r1:#7f98ff; --r2:#e8cc5c; --r3:#d08a40;
@@ -100,7 +100,6 @@ h3{font-size:.85rem;text-transform:uppercase;letter-spacing:.12em;color:var(--mu
 .sheet[hidden]{display:none}
 @media (min-width:820px){.sheet{left:auto;width:460px;border-left:1px solid var(--line);box-shadow:-12px 0 30px rgba(0,0,0,.55)}
   .stage.open .hud-top,.stage.open .hud-bottom{right:460px}.stage.open .hud-top{right:468px}}
-.sheet .close{position:sticky;top:0;float:right;z-index:1;background:var(--panel2);border:1px solid var(--line2);border-radius:4px;width:34px;height:34px;color:var(--bone);margin-left:8px}
 .row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
 .panel{display:none;gap:14px}
 .panel.active{display:grid}
@@ -186,8 +185,8 @@ html,body{touch-action:manipulation;-webkit-tap-highlight-color:transparent;user
 .savebox{display:grid;gap:6px}
 
 /* ---------- depth & UI update ---------- */
-:root{--gem:#5fd3a6;--cell:min(40px,calc((100vw - 36px)/10))}
-@media (min-width:820px){:root{--cell:40px}}
+:root{--gem:#5fd3a6;--cell:min(40px,calc((100vw - 84px)/10))}
+@media (min-width:820px){:root{--cell:34px}}
 .log .gem{color:var(--gem)}
 .buffs{display:flex;gap:4px;flex-wrap:wrap;min-height:0}
 .buff{position:relative;display:inline-flex;align-items:center;gap:3px;font-size:.7rem;font-weight:700;color:var(--bone);background:rgba(20,15,16,.82);border:1px solid var(--line2);border-radius:4px;padding:1px 5px 1px 1px;text-shadow:0 1px 2px #000}
@@ -306,5 +305,257 @@ ul.cmp .up{color:var(--good)} ul.cmp .down{color:var(--bad)}
 .tipact{display:flex;gap:6px;flex-wrap:wrap}
 .hud-bottom .sk img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 /* close button floats over the sheet instead of taking a column */
-.sheet .close{float:none;display:block;margin:0 0 -34px auto}
-.panel>.row:first-child{padding-right:44px;min-height:34px}
+
+/* =====================================================================
+   Stone & iron skin (docs/ui-assets.md). Painted pieces from public/sprites/ui-*.png,
+   9-slice values are in pixels of the sliced images.
+   ===================================================================== */
+:root{
+  --stone:url(/sprites/ui-stone.jpg);
+  --ink:#0a0909;
+  --title:#cdb58a;
+  --dim:rgba(0,0,0,.42);
+}
+.ic{width:1.25em;height:1.25em;object-fit:contain;vertical-align:-.28em;margin-right:.3em;flex:none}
+
+/* --- panels: the menu sheet is a slab of stone in a thick carved frame --- */
+.sheet{background:linear-gradient(var(--dim),var(--dim)),var(--stone) 0 0/256px;
+  border:24px solid transparent;border-image:url(/sprites/ui-panel.png) 62 / 24px stretch;padding:10px 10px 24px;
+  scrollbar-width:thin;scrollbar-color:#4a4541 transparent}
+@media (min-width:820px){.sheet{border-left:24px solid transparent;border-image-width:28px;border-width:28px;padding:12px 12px 28px;box-shadow:-14px 0 34px rgba(0,0,0,.7)}}
+/* phone: bottom sheet, the map stays visible above it */
+@media (max-width:819px){
+  .sheet{top:max(14%,86px);border-width:18px 16px 10px;border-image-width:18px 16px 10px;padding:8px 6px calc(16px + var(--tipspace,0px))}
+
+  .sheet.tipopen{--tipspace:var(--tiph,0px)}
+}
+.phead .close{flex:none;width:40px;height:40px;border:0;border-radius:0;background:url(/sprites/ui-close.png) center/100% 100% no-repeat;filter:drop-shadow(0 2px 3px #000);padding:0}
+.phead .close:hover{filter:brightness(1.25) drop-shadow(0 2px 3px #000)}
+.close.sm{position:absolute;top:6px;right:6px;width:30px;height:30px;border:0;background:url(/sprites/ui-close.png) center/100% 100% no-repeat;z-index:1}
+.panel{gap:12px}
+
+/* header plaque */
+.phead{display:flex;align-items:center;gap:6px;position:sticky;top:-10px;z-index:4}
+.plate{flex:1;min-width:0;display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:46px;
+  border:12px solid transparent;border-width:11px 26px;border-image:url(/sprites/ui-header.png) 36 80 fill / 11px 26px stretch;padding:0 2px}
+.phead h2{min-width:0;font-size:.98rem;color:var(--title);text-transform:uppercase;letter-spacing:.12em;text-shadow:0 1px 2px #000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pright{font-size:.82rem;color:var(--muted);white-space:nowrap;display:inline-flex;align-items:center}
+.pright .gold{margin-right:.25em}
+
+/* section titles with an iron bar underneath */
+.panel h3{font-family:var(--f-display);color:var(--title);font-size:.8rem;letter-spacing:.14em;display:flex;align-items:center;gap:2px;margin-top:4px}
+.panel h3::after{content:"";flex:1;height:9px;margin-left:8px;background:url(/sprites/ui-divider.png) center/100% 100% no-repeat;opacity:.85}
+.stree h3::after{display:none}
+
+/* recessed wells and iron-framed cards */
+.well,.grp,.bagwell,.picker{border:14px solid transparent;border-image:url(/sprites/ui-well.png) 40 / 14px stretch;background:rgba(0,0,0,.45);border-radius:0;background-clip:padding-box}
+.grp{padding:2px 10px 8px}
+.grp summary{color:var(--title);text-transform:uppercase;font-size:.82rem;letter-spacing:.1em;list-style:none}
+.grp summary::-webkit-details-marker{display:none}
+.grp summary::before{content:"";display:inline-block;width:12px;height:12px;margin-right:8px;background:url(/sprites/ui-chevron.png) center/100% 100%;transform:rotate(-90deg);transition:transform .15s;vertical-align:-1px}
+.grp[open] summary::before{transform:none}
+.well.attrs{padding:0 8px}
+.attr{border-bottom:1px solid rgba(255,255,255,.06)}
+.attr:last-child{border-bottom:0}
+.kv div{border-bottom:1px solid rgba(255,255,255,.06)}
+.framed,.sdetail,.pcard,.tip,.sumbox,.target{border:10px solid transparent;border-image:url(/sprites/ui-tipframe.png) 30 / 10px stretch;border-radius:0;background-clip:padding-box}
+.sdetail{background:rgba(8,7,7,.78);padding:6px 8px}
+.sdetail h4{color:var(--title)}
+.chip{border-color:#3d3935;color:#a39a8d;border-radius:2px;background:rgba(0,0,0,.3)}
+
+/* --- buttons: dark slate plates with iron rims --- */
+.btn,.hbtn{display:inline-flex;align-items:center;justify-content:center;gap:2px;min-height:36px;padding:2px 6px;border-radius:0;
+  border:9px solid transparent;border-width:8px 14px;border-image:url(/sprites/ui-btn.png) 30 48 fill / 8px 14px stretch;background:none;
+  color:#d6ccbb;font-family:var(--f-display);font-weight:700;font-size:.78rem;letter-spacing:.04em;text-shadow:0 1px 2px #000;white-space:nowrap}
+.btn:hover:not(:disabled),.hbtn:hover{border-image-source:url(/sprites/ui-btn-on.png);border-color:transparent;color:#efe5d2}
+.btn:active:not(:disabled){transform:translateY(1px);filter:brightness(.9)}
+.btn.primary,.btn[aria-pressed="true"],.hbtn[aria-pressed="true"]{border-image-source:url(/sprites/ui-btn-on.png);color:var(--title);border-color:transparent}
+.btn:disabled{border-image-source:url(/sprites/ui-btn-off.png);opacity:.75;color:#6f685f}
+.btn.sm{min-height:30px;font-size:.72rem}
+.btn.sq{width:36px;height:36px;min-height:0;padding:0;border-width:7px;border-image:url(/sprites/ui-btn-sq.png) 30 fill / 7px stretch;font-family:var(--f-body);font-size:.85rem}
+.btn.sq:hover:not(:disabled){border-image-source:url(/sprites/ui-btn-sq.png);filter:brightness(1.3)}
+.btn.sq:disabled{border-image-source:url(/sprites/ui-btn-sq.png);filter:brightness(.6) grayscale(1)}
+.updn{gap:6px;flex-wrap:wrap}
+.updn.vert{gap:4px}
+.attr{grid-template-columns:76px 30px minmax(0,1fr) auto}
+.diffbtn .ic{width:1.5em;height:1.5em}
+.sheet .row{gap:8px}
+
+/* --- tab bar: a stone console with engraved emblems --- */
+.tabs{background:linear-gradient(rgba(0,0,0,.25),rgba(0,0,0,.55)),var(--stone) 0 0/256px;border-top:2px solid #3a3633;box-shadow:0 -2px 0 #0b0a0a,0 -10px 20px rgba(0,0,0,.6);gap:6px;padding:6px 8px}
+.tabs button{display:grid;justify-items:center;gap:1px;min-height:56px;border:8px solid transparent;border-width:7px 12px;border-image:url(/sprites/ui-tab.png) 30 50 fill / 7px 12px stretch;
+  border-radius:0;padding:0;color:#8f877c;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase}
+.tabs button::before{content:"";width:28px;height:24px;background:center/contain no-repeat;opacity:.75;filter:grayscale(.3)}
+.tabs button[data-act="tab:hero"]::before{background-image:url(/sprites/glyph-hero.png)}
+.tabs button[data-act="tab:skills"]::before{background-image:url(/sprites/glyph-skills.png)}
+.tabs button[data-act="tab:bag"]::before{background-image:url(/sprites/glyph-bag.png)}
+.tabs button[data-act="tab:town"]::before{background-image:url(/sprites/glyph-town.png)}
+.tabs button[aria-selected="true"]{border-image-source:url(/sprites/ui-tab-on.png);color:var(--title);background:none}
+.tabs button[aria-selected="true"]::before{opacity:1;filter:none}
+.tabs .dot{top:2px;right:calc(50% - 22px);background:#d9b25a;box-shadow:0 0 6px #d9b25a}
+.subtabs{display:flex;gap:6px}
+.subtabs button{flex:1;min-height:40px;border:8px solid transparent;border-width:7px 12px;border-image:url(/sprites/ui-tab.png) 30 50 fill / 7px 12px stretch;background:none;
+  font-family:var(--f-display);font-weight:700;font-size:.78rem;letter-spacing:.1em;text-transform:uppercase;color:#8f877c;position:relative}
+.subtabs button[aria-selected="true"]{border-image-source:url(/sprites/ui-tab-on.png);color:var(--title)}
+.subtabs .dot{position:absolute;top:2px;right:10px;width:7px;height:7px;border-radius:50%;background:var(--bad)}
+
+/* --- top HUD --- */
+.zonesel{appearance:none;-webkit-appearance:none;border-radius:0;border:10px solid transparent;border-width:8px 22px 8px 16px;
+  border-image:url(/sprites/ui-header.png) 36 80 fill / 8px 16px stretch;background:url(/sprites/ui-chevron.png) right -14px center/14px no-repeat;padding:2px 14px 2px 2px;color:var(--title);letter-spacing:.06em}
+.zonesel option{background:#141312;color:var(--bone)}
+.seg{border:0;gap:2px;border-radius:0}
+.seg button{border:6px solid transparent;border-image:url(/sprites/ui-btn-sq.png) 30 fill / 6px stretch;background:none;min-width:36px;min-height:32px;padding:0 2px;color:#8f877c;font-weight:700}
+.seg button[aria-pressed="true"]{color:var(--title);filter:brightness(1.35)}
+.hbtn{min-height:32px;font-size:.72rem}
+.logbtn::before{content:"";width:18px;height:18px;background:url(/sprites/ic-log.png) center/contain no-repeat;margin-right:3px}
+.coin{display:inline-flex;align-items:center}
+.coin::before{content:"";width:20px;height:16px;background:url(/sprites/ic-gold.png) center/contain no-repeat;margin-right:4px}
+.buff{border-radius:0;border-color:#3a3633;background:rgba(10,9,9,.85)}
+.buff.diff .ic{width:16px;height:16px;margin-right:2px}
+
+/* skill bar slots and skill nodes share the riveted iron frame */
+.sk,.snode{border:0;border-radius:0;background:#080707;overflow:visible}
+.sk::after,.snode::after{content:"";position:absolute;inset:-3px;background:url(/sprites/ui-node.png) center/100% 100% no-repeat;pointer-events:none;z-index:2}
+.snode.passive::after{background-image:url(/sprites/ui-node-round.png)}
+.sk img,.hud-bottom .sk img{inset:8%;width:84%;height:84%;object-fit:cover;transform:scale(1.14)}
+.sk{overflow:hidden}
+.sk.flash::after{filter:brightness(1.6) sepia(.6)}
+.sk.flash{box-shadow:0 0 14px rgba(230,180,90,.55);border:0}
+.sk.empty{opacity:.55}
+.sk.empty .ab{color:#4a4541}
+.skgems{z-index:3;bottom:6px}
+.snode .art{position:absolute;inset:9%;overflow:hidden;display:block}
+.snode.passive,.snode.passive .art{border-radius:50%}
+.snode .art img{width:100%;height:100%;object-fit:cover;transform:scale(1.16);border-radius:0;filter:grayscale(.85) brightness(.5)}
+.snode.learned .art img{filter:none}
+.snode.passive .art img{border-radius:50%}
+.snode{width:54px;height:54px;border:0}
+.snode.can::after{filter:brightness(1.5) sepia(.9) saturate(1.6)}
+.snode.can{box-shadow:0 0 12px rgba(220,170,80,.45);border:0}
+.snode.passive.can{border-radius:50%}
+.snode.sel{outline:0}
+.snode.sel::before{content:"";position:absolute;inset:-7px;border:2px solid var(--title);box-shadow:0 0 8px rgba(205,181,138,.6);pointer-events:none}
+.snode.passive.sel::before{border-radius:50%}
+.snode .lv{z-index:3;right:-8px;bottom:-8px;min-width:22px;height:22px;line-height:22px;border:0;border-radius:50%;background:url(/sprites/ui-badge.png) center/100% 100%;font-size:.68rem;font-weight:700;text-shadow:0 1px 2px #000}
+.snode .req{z-index:3}
+.snode.mini{display:inline-block;position:relative;width:40px;height:40px;flex:none}
+.snode.mini.empty .art{background:#0b0a0a}
+.stree{border:12px solid transparent;border-image:url(/sprites/ui-well.png) 40 / 12px stretch;border-radius:0;padding:2px 0 6px;background:rgba(0,0,0,.45);background-clip:padding-box}
+.stree.t-fire,.stree.t-cold,.stree.t-light{border-color:transparent}
+.stree.t-fire{background:radial-gradient(ellipse at 50% 0,rgba(239,108,60,.10),transparent 70%),rgba(0,0,0,.45)}
+.stree.t-cold{background:radial-gradient(ellipse at 50% 0,rgba(116,203,238,.09),transparent 70%),rgba(0,0,0,.45)}
+.stree.t-light{background:radial-gradient(ellipse at 50% 0,rgba(185,155,255,.10),transparent 70%),rgba(0,0,0,.45)}
+.stree,.stree.t-fire,.stree.t-cold,.stree.t-light{background-clip:padding-box}
+.stree h3{letter-spacing:.14em}
+.srow{gap:10px;min-height:58px}
+.sline{width:4px;height:12px;background:linear-gradient(90deg,#1b1918,#5a544e,#1b1918)}
+.strees{gap:4px}
+.sdname{gap:10px}
+.sdname small{font-size:.75rem}
+
+/* gem sockets */
+.sock,.gemopt{border:10px solid transparent;border-image:url(/sprites/ui-tipframe.png) 30 / 10px stretch;border-radius:0;background:rgba(0,0,0,.4);background-clip:padding-box;padding:2px 4px;min-height:52px}
+.sock.full,.gemopt{border-color:transparent;box-shadow:inset 0 0 18px color-mix(in srgb,var(--gc) 18%,transparent)}
+.sock.sel{outline:0;box-shadow:inset 0 0 0 2px var(--title)}
+.sock.closed{opacity:.7}
+.sock .hole{width:38px;height:38px;border:0;border-radius:0;background:url(/sprites/ui-socket.png) center/100% 100% no-repeat;display:grid;place-items:center;flex:none}
+.sock.closed .hole{background-image:url(/sprites/ui-socket-locked.png)}
+.sock .hole .sockpic{width:24px;height:24px}
+
+/* custom dropdown */
+.dd{position:relative;min-width:0}
+.ddbtn{width:100%;display:flex;align-items:center;gap:6px;min-height:38px;padding:0 4px;text-align:left;border:8px solid transparent;border-width:6px 8px;
+  border-image:url(/sprites/ui-tipframe.png) 30 / 6px 8px stretch;background:rgba(0,0,0,.55);background-clip:padding-box;font-size:.88rem;color:var(--bone)}
+.ddbtn span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ddbtn img,.ddlist img{width:22px;height:22px;object-fit:cover}
+.ddbtn .chev{width:22px;height:22px;flex:none;background:url(/sprites/ui-chevron.png) center/100% 100%;transition:transform .15s}
+.dd.open .chev{transform:rotate(180deg)}
+.ddlist{position:absolute;left:0;right:0;top:100%;z-index:6;display:grid;max-height:260px;overflow:auto;border:10px solid transparent;
+  border-image:url(/sprites/ui-tipframe.png) 30 / 10px stretch;background:#0e0d0c;background-clip:padding-box;box-shadow:0 10px 24px rgba(0,0,0,.8)}
+.ddlist button{display:flex;align-items:center;gap:8px;min-height:44px;padding:4px 8px;border:0;background:none;text-align:left;color:var(--bone);font-size:.9rem;border-bottom:1px solid rgba(255,255,255,.05)}
+.ddlist button:hover{background:rgba(205,181,138,.08)}
+.ddlist button[aria-selected="true"]{color:var(--title);background:rgba(205,181,138,.12)}
+.filterrow{justify-content:flex-start}
+.filterrow>span{font-family:var(--f-display);font-size:.8rem;color:var(--title);letter-spacing:.08em}
+.filterrow .dd{flex:1;max-width:240px}
+
+/* cast priority cards with a drag handle */
+.pcard{grid-template-columns:30px 40px minmax(0,1fr) auto;background:rgba(10,9,9,.8);padding:4px;transition:transform .12s;position:relative}
+.pcard.dragging{transition:none;z-index:5;box-shadow:0 10px 26px rgba(0,0,0,.85);filter:brightness(1.15)}
+.grip{align-self:stretch;display:grid;place-items:center;cursor:grab;touch-action:none;
+  background:repeating-linear-gradient(0deg,transparent 0 4px,rgba(255,255,255,.07) 4px 6px);border-right:1px solid rgba(255,255,255,.05)}
+.grip b{font-family:var(--f-display);color:var(--title);font-size:1rem;background:#0b0a0a;padding:0 3px}
+.psel{gap:6px}
+
+/* --- paperdoll: equipment sits in deep stone wells, empty ones show a carved silhouette --- */
+.doll{border:14px solid transparent;border-image:url(/sprites/ui-well.png) 40 / 14px stretch;border-radius:0;
+  background:radial-gradient(ellipse at 50% 55%,rgba(120,110,100,.10),transparent 70%),rgba(0,0,0,.4);background-clip:padding-box;gap:10px}
+.doll::before{opacity:.07;filter:grayscale(1)}
+.eqslot{border:12px solid transparent;border-image:url(/sprites/ui-eqslot.png) 40 fill / 12px stretch;border-radius:0;background:none;padding:0}
+.eqslot .glyph{max-width:70%;max-height:70%;opacity:.28;filter:grayscale(1) brightness(1.2)}
+.eqslot.r0,.eqslot.r1,.eqslot.r2,.eqslot.r3{border-color:transparent}
+.eqslot.r1{background:radial-gradient(rgba(60,80,190,.32),rgba(30,40,110,.22));}
+.eqslot.r2{background:radial-gradient(rgba(190,160,40,.28),rgba(110,90,20,.2))}
+.eqslot.r3{background:radial-gradient(rgba(210,120,40,.32),rgba(120,60,20,.22))}
+.eqslot.r1,.eqslot.r2,.eqslot.r3{background-clip:padding-box}
+.eqslot.sel{outline:0;box-shadow:0 0 0 2px var(--title),0 0 12px rgba(205,181,138,.5)}
+.eqslot img.pic{filter:drop-shadow(0 3px 4px #000)}
+
+/* bag grid: black cells with fine iron lines, items tinted by rarity */
+.bagwell{padding:0;display:flex;justify-content:center}
+.bag{border:0;border-radius:0;background-color:#060505;
+  background-image:linear-gradient(to right,rgba(150,140,130,.13) 1px,transparent 1px),linear-gradient(to bottom,rgba(150,140,130,.13) 1px,transparent 1px);
+  box-shadow:inset 0 0 18px #000}
+.bi{border:1px solid rgba(255,255,255,.05);border-radius:0;background:rgba(255,255,255,.025);padding:1px}
+.bi img.pic{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 2px 2px #000)}
+.bi.r1{background:rgba(50,70,180,.30);border-color:rgba(90,110,220,.35)}
+.bi.r2{background:rgba(170,140,30,.26);border-color:rgba(210,180,70,.35)}
+.bi.r3{background:rgba(190,100,30,.32);border-color:rgba(230,140,60,.4)}
+.bi.gem{background:color-mix(in srgb,var(--gc) 16%,transparent);border-color:color-mix(in srgb,var(--gc) 35%,transparent)}
+.bi.sel{outline:2px solid var(--title);outline-offset:-1px;box-shadow:0 0 10px rgba(205,181,138,.6)}
+.bag.selling .bi{filter:brightness(.6)}
+.bag.selling .bi.picked{filter:none;outline:2px solid var(--bad);outline-offset:-2px;box-shadow:inset 0 0 12px rgba(227,98,91,.5)}
+.bag.selling .bi.picked::after{content:"";position:absolute;right:1px;top:1px;width:14px;height:14px;background:url(/sprites/ic-sell.png) center/contain no-repeat}
+.cell{background:rgba(134,196,111,.18);box-shadow:inset 0 0 0 1px rgba(134,196,111,.35)}
+.sellbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:space-between;font-size:.85rem;padding:4px 6px;border:1px solid rgba(227,98,91,.35);background:rgba(60,10,10,.25)}
+
+/* --- tooltip: iron frame over near-black --- */
+.tip{background:rgba(7,6,6,.95);padding:8px 10px;gap:6px;box-shadow:none}
+.tipname{text-shadow:0 1px 2px #000;letter-spacing:.03em}
+.tippic{background:rgba(255,255,255,.03);border-radius:0}
+.mods li{color:#8a9cf2}
+.mods li.imp{border-bottom-color:rgba(255,255,255,.08)}
+.tier{border-radius:0;border-color:#3d3935}
+.tipact{gap:6px}
+.tipfloat{position:absolute;z-index:5;filter:drop-shadow(0 10px 22px rgba(0,0,0,.85))}
+.tipfloat[hidden]{display:none}
+.tipfloat .tip{padding-right:34px}
+@media (min-width:820px){.tipfloat{right:470px;width:330px;top:60px;max-height:calc(100% - 20px);overflow:auto}}
+@media (max-width:819px){
+  .tipfloat{left:6px;right:6px;bottom:6px;max-height:52%;overflow:auto}
+  .tipfloat .tipact .btn{flex:1 1 auto;min-height:44px}
+}
+
+/* --- misc boxes --- */
+.sumbox{background:linear-gradient(var(--dim),var(--dim)),var(--stone) 0 0/256px;background-clip:padding-box;border-width:14px;border-image:url(/sprites/ui-panel.png) 62 / 22px stretch}
+.sumbox h2{color:var(--title);text-transform:uppercase;letter-spacing:.12em}
+.overlay h2{font-family:var(--f-display);letter-spacing:.14em;text-transform:uppercase}
+.target{background:rgba(6,5,5,.88);padding:0 6px 2px}
+.target i{background:#2a0b0d;box-shadow:inset 0 0 0 1px #000}
+.pot{border-radius:0;background:#0d0c0b;border-color:#3a3633}
+.code,select.plain{border-radius:0;background:#0b0a0a;border-color:#3a3633}
+.check input,.range input{accent-color:#a38a5c}
+.log{border-radius:0;border:10px solid transparent;border-image:url(/sprites/ui-tipframe.png) 30 / 10px stretch;background:rgba(6,5,5,.9);background-clip:padding-box}
+.loading{background:#070606}
+.loading h1{color:var(--title)}
+
+/* phone sizes (kept last so they win over the defaults above) */
+@media (max-width:819px){
+  .stree{border-width:6px;border-image-width:6px}
+  .snode{width:42px;height:42px}
+  .snode.mini{width:38px;height:38px}
+  .srow{gap:6px;min-height:46px}
+  .snode .lv{min-width:19px;height:19px;line-height:19px;right:-6px;bottom:-6px;font-size:.62rem}
+  .eqslot{border-width:7px;border-image-width:7px}
+  .doll{border-width:10px;border-image-width:10px}
+}

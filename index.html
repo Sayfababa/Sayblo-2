@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#130f10">
+  <meta name="theme-color" content="#0c0b0b">
   <meta name="description" content="Grimlight – a dark fantasy idle action RPG. The sorceress fights on her own.">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
@@ -27,11 +27,11 @@
         <div class="buffs" id="buffs"></div>
       </div>
       <div class="tr">
-        <span class="gold" id="hgold">0 gold</span>
+        <span class="gold coin" id="hgold">0</span>
         <div class="seg" role="group" aria-label="Game speed" id="speedseg">
           <button data-act="speed:1">1×</button><button data-act="speed:2">2×</button><button data-act="speed:4">4×</button>
         </div>
-        <button class="hbtn" data-act="log" id="logbtn" aria-pressed="false">Log</button>
+        <button class="hbtn logbtn" data-act="log" id="logbtn" aria-pressed="false">Log</button>
       </div>
     </div>
 
@@ -59,12 +59,13 @@
     </div>
 
     <section class="sheet" id="sheet" hidden aria-label="Menu">
-      <button class="close" data-act="close" aria-label="Close menu">✕</button>
       <div class="panel" id="p-hero"></div>
       <div class="panel" id="p-skills"></div>
       <div class="panel" id="p-bag"></div>
       <div class="panel" id="p-town"></div>
     </section>
+
+    <aside class="tipfloat" id="tipfloat" hidden aria-label="Item details"></aside>
 
     <div class="summary" id="summary" hidden></div>
 
@@ -72,10 +73,10 @@
   </div>
 
   <nav class="tabs" role="tablist">
-    <button role="tab" data-act="tab:hero">Hero<i class="dot" id="dot-hero" hidden></i></button>
-    <button role="tab" data-act="tab:skills">Skills<i class="dot" id="dot-skills" hidden></i></button>
-    <button role="tab" data-act="tab:bag">Bag</button>
-    <button role="tab" data-act="tab:town">Town</button>
+    <button role="tab" data-act="tab:hero"><span>Hero</span><i class="dot" id="dot-hero" hidden></i></button>
+    <button role="tab" data-act="tab:skills"><span>Skills</span><i class="dot" id="dot-skills" hidden></i></button>
+    <button role="tab" data-act="tab:bag"><span>Bag</span></button>
+    <button role="tab" data-act="tab:town"><span>Town</span></button>
   </nav>
 </div>
 <script type="module" src="/src/main.ts"></script>
