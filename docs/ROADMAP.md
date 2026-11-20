@@ -2,9 +2,7 @@
 
 Arbeitstitel: **Grimlight** (Platzhalter). Diablo-artiges Semi-Idle-ARPG, eigene Dark-Fantasy-Welt, Browser/PWA für Handy und PC.
 
-Stand heute: spielbare Demo in `prototype/combat-demo.html` mit isometrischer Szene, eigener Grafik für Akt I, Auto-Kampf mit Prioritätenliste, 6 Skills, Loot mit Seltenheiten, Tod, Tränken und 6 Gebieten.
-
-Die Demo ist eine einzelne Datei. Sie hat ihren Zweck erfüllt (Gefühl und Grafik testen), trägt aber keine großen Systeme mehr. Deshalb beginnt der Plan mit dem Umbau.
+Stand heute: Phase 0 ist umgesetzt (Vite + TypeScript + PixiJS, PWA). Das Spiel liegt in `src/` und kann alles, was die alte Demo konnte: isometrische Szene, eigene Grafik für Akt I, Auto-Kampf mit Prioritätenliste, 6 Skills, Loot mit Seltenheiten, Tod, Tränke, 6 Gebiete – dazu Spielstand-Code zum Export/Import. Die alte Demo `prototype/combat-demo.html` bleibt als Referenz liegen.
 
 ---
 
@@ -28,12 +26,12 @@ Jede Phase endet mit einer spielbaren Version.
 
 **Ziel:** Die Demo als echtes Projekt, gleicher Funktionsumfang, aber erweiterbar.
 
-- [ ] Projekt aufsetzen: Vite, TypeScript, PixiJS (WebGL-Darstellung), installierbar als PWA
-- [ ] **Simulation und Darstellung trennen.** Die Spiellogik läuft in festen Schritten ohne Grafik. Dadurch geht Offline-Fortschritt mit derselben Logik, und Balancing lässt sich automatisch durchrechnen.
-- [ ] **Inhalte als Daten** statt im Code: Skills, Monster, Gebiete, Affixe, Uniques, Gems in eigenen Dateien. Neue Inhalte = neue Einträge, kein neuer Code.
-- [ ] Spielstand mit Versionsnummer und Migration, Export/Import als Text-Code
-- [ ] Grafik-Pipeline: `tools/slice_sheets.py` erzeugt Sprites direkt ins Projekt
-- [ ] Tests für die Formeln (Schaden, Resistenzen, Drops)
+- [x] Projekt aufsetzen: Vite, TypeScript, PixiJS (WebGL-Darstellung), installierbar als PWA
+- [x] **Simulation und Darstellung trennen.** Die Spiellogik läuft in festen Schritten ohne Grafik. Dadurch geht Offline-Fortschritt mit derselben Logik, und Balancing lässt sich automatisch durchrechnen.
+- [x] **Inhalte als Daten** statt im Code: Skills, Monster, Gebiete, Affixe, Uniques in `src/content/*.json` (Gems folgen in Phase 1). Neue Inhalte = neue Einträge, kein neuer Code.
+- [x] Spielstand mit Versionsnummer und Migration, Export/Import als Text-Code
+- [x] Grafik-Pipeline: `tools/slice_sheets.py` erzeugt Sprites direkt ins Projekt
+- [x] Tests für die Formeln (Schaden, Resistenzen, Drops)
 
 **Fertig, wenn:** Das neue Projekt kann alles, was die Demo kann, auf Handy und PC.
 

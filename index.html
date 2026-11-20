@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#130f10">
+  <meta name="description" content="Grimlight – a dark fantasy idle action RPG. The sorceress fights on her own.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <title>Grimlight</title>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="stage" id="stage">
+    <canvas id="world" aria-label="Game world: the sorceress fights on her own"></canvas>
+
+    <div class="target" id="target" hidden><b id="tname"></b><i><span id="tbar"></span></i><small id="tsub"></small></div>
+
+    <div class="hud-top">
+      <div class="zinfo">
+        <select class="zonesel" id="zonesel" aria-label="Area"></select>
+        <div class="meta" id="zmeta"></div>
+        <div class="prog"><i id="zprog"></i></div>
+      </div>
+      <div class="tr">
+        <span class="gold" id="hgold">0 gold</span>
+        <div class="seg" role="group" aria-label="Game speed" id="speedseg">
+          <button data-act="speed:1">1×</button><button data-act="speed:2">2×</button><button data-act="speed:4">4×</button>
+        </div>
+        <button class="hbtn" data-act="log" id="logbtn" aria-pressed="false">Log</button>
+      </div>
+    </div>
+
+    <ul class="log" id="log" hidden></ul>
+
+    <div class="hud-bottom">
+      <div class="orbwrap l">
+        <div class="orb life" id="lifeorb"><div class="globe"><i id="lifebar"></i><b class="ring" id="barring"></b><b class="glass"></b></div><span class="frame"></span><span class="v"><span class="bv" id="bartxt"></span><span id="lifetxt"></span></span></div>
+        <span class="pot" id="hppot"></span>
+      </div>
+      <div class="center">
+        <div class="lvlrow"><span>Sorceress · Lv <b id="hlvl">1</b></span><span id="xptxt"></span></div>
+        <div class="xp"><i id="xpbar"></i></div>
+        <div class="skillbar" id="skillbar"></div>
+      </div>
+      <div class="orbwrap r">
+        <div class="orb mana"><div class="globe"><i id="manabar"></i><b class="glass"></b></div><span class="frame"></span><span class="v" id="manatxt"></span></div>
+        <span class="pot" id="mppot"></span>
+      </div>
+    </div>
+
+    <div class="overlay" id="overlay" hidden>
+      <h2>You have died</h2><p id="towntxt"></p>
+      <button class="btn primary" data-act="return" id="returnbtn">Return</button>
+    </div>
+
+    <section class="sheet" id="sheet" hidden aria-label="Menu">
+      <button class="close" data-act="close" aria-label="Close menu">✕</button>
+      <div class="panel" id="p-hero"></div>
+      <div class="panel" id="p-skills"></div>
+      <div class="panel" id="p-bag"></div>
+      <div class="panel" id="p-town"></div>
+    </section>
+
+    <div class="loading" id="loading"><h1>Grimlight</h1><p id="loadtxt">Loading…</p></div>
+  </div>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-act="tab:hero">Hero<i class="dot" id="dot-hero" hidden></i></button>
+    <button role="tab" data-act="tab:skills">Skills<i class="dot" id="dot-skills" hidden></i></button>
+    <button role="tab" data-act="tab:bag">Bag</button>
+    <button role="tab" data-act="tab:town">Town</button>
+  </nav>
+</div>
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>
