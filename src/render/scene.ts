@@ -125,7 +125,6 @@ export class Scene {
   private darkView = new Sprite();
   /** set when the darkness layer fails on this device; the game then runs without it */
   private darkOff = false;
-  private grade = { ground: new ColorMatrixFilter(), world: new ColorMatrixFilter() };
   private lightL = new Layer();
   private fxL = new Layer();
   private labels = new Layer();
@@ -149,11 +148,8 @@ export class Scene {
     this.app = app;
     this.darkFill.tint = 0x050304;
     this.darkC.addChild(this.darkFill);
-    // colour grading: the painted ground and props are greener and brighter than the mood wants
-    this.grade.ground.saturate(-0.25); this.grade.ground.brightness(0.85, true); this.grade.ground.contrast(-0.1, true);
-    this.grade.world.saturate(-0.2); this.grade.world.brightness(0.9, true);
-    this.groundC.filters = [this.grade.ground];
-    this.world.c.filters = [this.grade.world];
+    // No full-screen colour filters: Pixi renders filtered containers at resolution 1, which blurs the
+    // whole map on high-density phones. The mood comes from the darkness layer and the art itself.
     app.stage.addChild(this.groundC, this.world.c, this.darkView, this.lightL.c, this.fxL.c, this.labels.c);
   }
 
@@ -257,7 +253,7 @@ export class Scene {
     const a2 = o.flash && o.flash > 0 ? Math.min(1, o.flash) * (o.fs ?? 0.45) : 0, a1 = o.chill ?? 0;
     if (a1 || a2) {
       let f = this.filters.get(id);
-      if (!f) { f = new ColorMatrixFilter(); this.filters.set(id, f); }
+      if (!f) { f = new ColorMatrixFilter({ resolution: this.app.renderer.resolution }); this.filters.set(id, f); }
       const c = rgb('#7fd0ff'), k = (1 - a1) * (1 - a2), off = (i: number) => a1 * (1 - a2) * c[i] + a2;
       f.matrix = [k, 0, 0, 0, off(0), 0, k, 0, 0, off(1), 0, 0, k, 0, off(2), 0, 0, 0, 1, 0];
       s.filters = [f];
