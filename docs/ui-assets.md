@@ -248,8 +248,46 @@ Die Laterne bewusst **nicht** leuchtend generieren, das Licht kommt aus dem Code
 - Farbfilter auf Boden/Welt entfernt (Pixi rendert gefilterte Container mit Auflösung 1 → unscharf auf Handys). Keine Vollbild-Filter mehr einbauen.
 - Zoom `ZOOM = 0.75`.
 - Nächste Schritte (vom Owner abgesegnet als Reihenfolge):
-  1. Ember Imp und Bog Wraith realistisch (Prompts schreiben, Owner generiert). Monster-Sheets auf Grün, außer der Wraith ist grünlich → dann Magenta.
+  1. Ember Imp und Bog Wraith realistisch – Prompts stehen in Abschnitt 9, Owner generiert. Schneider ist vorbereitet (`MONSTER_POSES`).
   2. Restliche Akt-I-Karten nach dem Gallows-Muster (Boden, Weg, Props, Decals, Monster), dann Boss Mother Vesper.
   3. Fehlende Dateien vom Owner: `skill-icons-2.png`, `gems-element.png`. Optional neue Zauber-Pose (Stab nach vorn).
   4. Spielgefühl: Treffer-, Sterbe- und Zauber-Effekte im realistischen Look.
 - Veröffentlichen: nach `node scripts/build-artifact.mjs` alle neu benannten Dateien in `dist-artifact/assets/` und geänderte Sprites hochladen, alte JS-Chunks mit `null` entfernen.
+
+## 9. Monster realistisch: Ember Imp und Bog Wraith
+
+Gleicher Look wie die Heldin (`assets/sheets/hero.png`): fotorealistisch, gerenderte 3D-Figur, echte Haut-, Leder- und Stoffstruktur, gedeckte Farben, kaltes Mondlicht von oben links. Wenn das Tool es kann, **die Heldin als Stil-Referenz** mitgeben.
+
+### Format (beide Sheets gleich)
+
+- **Ein Sheet pro Monster, 2 Posen nebeneinander** (2 Spalten × 1 Zeile), Querformat **3:2**, z. B. 1536 × 1024.
+- Links Pose 1 = Grundpose (Stehen/Schweben), rechts Pose 2 = Angriff. **Gleiche Kreatur, gleiche Größe, gleiche Bodenlinie**, ganzer Körper, mittig in der Hälfte, viel Rand, nichts berührt die Bildmitte oder den Rand.
+- Blick nach **rechts unten** (Dreiviertelansicht, Kamera ca. 30° von oben), wie die Heldin. Links wird im Code gespiegelt.
+- Kein Boden, kein Schlagschatten, kein Text. **Kein Feuer, kein Rauch, kein Nebel, keine fliegenden Funken, kein Leuchten in den Hintergrund** – Partikel, Licht, Schweben und Durchscheinen macht der Code. Die Figur selbst ist **komplett deckend**.
+- Speichern als `assets/sheets/mon-imp.png` und `assets/sheets/mon-wraith.png`. `tools/slice_sheets.py` (`MONSTER_POSES`) schneidet sie mit gemeinsamem Fußpunkt zu `imp.png` / `imp-attack.png` und `wraith.png` / `wraith-attack.png`.
+
+### Hintergrund
+
+- **Ember Imp: Grün `#00FF00`.** Der Imp ist schwarz, rot und glutorange – nichts davon ist grün. Wichtig: kein orangefarbener Schein auf dem Grün, sonst gibt es gelbe Ränder.
+- **Bog Wraith: Magenta `#FF00FF`.** Moos, Moorwasser und Algen am Wraith sind grünlich und würden auf Grün mit ausgeschnitten. Dafür darf am Wraith **nichts Rosa, Violett oder Lila** sein (Haut fahl grau-blau, nicht rosig), sonst schneidet der Magenta-Key es weg.
+
+Gemeinsamer Stil-Satz (Figuren):
+
+> photorealistic pre-rendered 3D character, gritty dark medieval fantasy, physically realistic skin, flesh, cloth and leather, cold moonlit night, soft light from top-left, low saturation, muted tones, high detail, cinematic but calm, no stylization
+
+Negativ-Prompt (falls möglich): `cartoon, painterly, stylized, cel shading, outlines, cute, chibi, saturated colors, fire, flames, smoke, fog, mist, sparks, particles, glow on background, transparency, ground, floor, cast shadow, text, frame, cropped, cut off`
+
+### Sheet A – `mon-imp.png` (Grün)
+
+> [Stil-Satz], character sheet with exactly 2 poses of the same creature side by side, 2 columns x 1 row, same size, same scale, feet on the same baseline, each pose full body and centered in its half with wide empty margins, three-quarter view from about 30 degrees above, facing bottom-right. An Ember Imp: a small knee-high fire demon, wiry and hunched, long thin arms with black claws, short curved horns, thin whip tail, skin like charred black volcanic rock with thin glowing orange ember cracks running through it, small burning orange eyes, ragged pointed ears, emaciated ribs. Left pose: crouched and ready, claws spread, tail curled. Right pose: lunging attack to the bottom-right, one claw slashing forward, mouth open with jagged teeth. The ember glow stays inside the cracks, no flames, no smoke, no sparks. Flat pure chroma green #00FF00 background, evenly lit, no orange light on the background, no ground, no shadow, no text
+
+### Sheet B – `mon-wraith.png` (Magenta)
+
+> [Stil-Satz], character sheet with exactly 2 poses of the same creature side by side, 2 columns x 1 row, same size, same scale, lowest point on the same baseline, each pose full body and centered in its half with wide empty margins, three-quarter view from about 30 degrees above, facing bottom-right. A Bog Wraith: the floating drowned corpse of a woman from a cold moor, gaunt and tall, grey-blue waterlogged skin, sunken face with pale icy white eyes, long wet black hair hanging in strands, draped in rotten dark wet rags with clumps of moss, peat and bog weed, thin white frost crusting the hems and fingertips, long bony fingers. No legs: below the waist the body ends in long tattered rags and dripping strands of weed hanging down to a point, hovering above the ground. Left pose: hovering upright, arms hanging, head slightly tilted. Right pose: lunging forward to the bottom-right, both clawed hands reaching out, mouth open in a scream, rags trailing behind. Fully opaque, no transparency, no mist, no glow. Colours only grey-blue, dark brown, black and dull olive, nothing pink, purple or violet. Flat pure magenta #FF00FF background, evenly lit, no ground, no shadow, no text
+
+### Danach (meine Seite)
+
+- `python3 tools/slice_sheets.py` schneiden, Größe und Fußpunkt prüfen (Wraith schwebt, `flying` hebt ihn im Code an).
+- Angriffspose im Renderer einbinden (bei `monAttack` für ~0,35 s `imp-attack` / `wraith-attack` zeigen), Texturen dafür in `textures.ts` laden.
+- Wraith im Code leicht durchscheinend + kalter Nebel unten, Imp mit Glutpartikeln und kleinem warmem Licht.
+- Falls das Tool keine zwei gleichen Posen schafft: nur die linke Pose generieren und das Bild zweimal nebeneinander setzen – dann gibt es eben keine eigene Angriffspose.

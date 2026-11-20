@@ -238,6 +238,42 @@ def slice_hero():
         print(n, out.size, "staff tip (x, height) in canvas heights:", tip)
 
 
+# Realistic monsters (docs/ui-assets.md section 9): one sheet per monster, 2 poses in a row
+# (idle, attack). Key by colour so nothing of the creature is cut out; height in px after scaling.
+MONSTER_POSES = {
+    "mon-imp": ("green", ["imp", "imp-attack"], 288),
+    "mon-wraith": ("magenta", ["wraith", "wraith-attack"], 320),
+}
+
+
+def slice_monsters():
+    """Like slice_hero: both poses share one scale and one foot point, so the swap does not jump.
+    Overwrites the old painted sprite of the same name (cut from monsters.png before)."""
+    for sheet, (key, names, height) in MONSTER_POSES.items():
+        src = ROOT / "assets" / "sheets" / f"{sheet}.png"
+        if not src.exists():
+            continue
+        img = Image.open(src)
+        img = key_green(img) if key == "green" else key_magenta_strong(img)
+        cells = dict(cut_cells(img, len(names), 1, names))
+        if not cells:
+            continue
+        feet = {}
+        for n, c in cells.items():
+            a = np.asarray(c)[..., 3] > 128
+            band = a[int(c.height * 0.3):]
+            feet[n] = float(np.median(np.where(band)[1])) if band.any() else c.width / 2
+        hmax = max(c.height for c in cells.values())
+        half = max(max(feet[n], c.width - feet[n]) for n, c in cells.items())
+        W = int(np.ceil(half * 2))
+        for n, c in cells.items():
+            canvas = Image.new("RGBA", (W, hmax), (0, 0, 0, 0))
+            canvas.paste(c, (round(W / 2 - feet[n]), hmax - c.height), c)
+            out = canvas.resize((max(1, round(W * height / hmax)), height), Image.LANCZOS)
+            out.save(OUT / f"{n}.png", optimize=True)
+            print(n, out.size)
+
+
 def make_tall_weapons():
     """Staffs lie diagonally in their icon. For the 1x3 bag cell and the weapon slot they are turned upright."""
     cols, rows, names = SHEETS["items"]
@@ -360,6 +396,7 @@ def main():
             Image.fromarray((np.asarray(g).astype(np.float32) * sh).clip(0, 255).astype(np.uint8)).save(OUT / f"{name}.jpg", quality=86)
     make_app_icons()
     slice_hero()
+    slice_monsters()
     slice_ui()
     make_tall_weapons()
     make_stone_texture()
