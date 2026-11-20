@@ -481,7 +481,7 @@ export class Scene {
 
   /** Staff crystal of every hero pose: x from the feet and height, in sprite heights (printed by tools/slice_sheets.py). */
   private static readonly STAFF_TIP: Record<string, [number, number]> = {
-    'hero-idle': [-0.11, 0.81], 'hero-cast': [0.005, 0.95], 'hero-walk1': [0.21, 0.73], 'hero-walk2': [0.22, 0.66],
+    'hero-idle': [-0.159, 0.841], 'hero-cast': [0.068, 0.978], 'hero-walk1': [-0.119, 0.82], 'hero-walk2': [-0.112, 0.81],
   };
 
   private drawHero(sim: Sim, px: number, py: number) {

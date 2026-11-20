@@ -222,7 +222,7 @@ def slice_hero():
     hmax = max(c.height for c in cells.values())
     half = max(max(feet[n], c.width - feet[n]) for n, c in cells.items())
     W = int(np.ceil(half * 2))
-    f = 256 / hmax
+    f = 384 / hmax  # realistic hero: more pixels stay sharp on phones
     for n, c in cells.items():
         canvas = Image.new("RGBA", (W, hmax), (0, 0, 0, 0))
         canvas.paste(c, (round(W / 2 - feet[n]), hmax - c.height), c)
@@ -233,7 +233,7 @@ def slice_hero():
         ys, xs = np.where(m)
         top = ys < ys.min() + hmax * 0.08 if len(ys) else None
         tip = (round((xs[top].mean() - W / 2) / hmax, 3), round(1 - ys[top].mean() / hmax, 3)) if len(ys) else None
-        out = canvas.resize((round(W * f), 256), Image.LANCZOS)
+        out = canvas.resize((round(W * f), 384), Image.LANCZOS)
         out.save(OUT / f"{n}.png", optimize=True)
         print(n, out.size, "staff tip (x, height) in canvas heights:", tip)
 
