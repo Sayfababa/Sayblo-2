@@ -31,6 +31,8 @@ const AMBIENT_DARK = 0.66;
 const HERO_LIGHT = { core: 3.6, outer: 7.5 };
 /** Darkness is drawn at a lower resolution, it is only soft gradients. */
 const DARK_RES = 0.5;
+/** Map tiles covered by one ground texture; larger = coarser, calmer ground. */
+const GROUND_TILES = 9;
 /** Props that grow in groups instead of evenly. */
 const CLUSTERED = new Set(['tree', 'rock', 'grave', 'reed', 'pillar', 'crystal']);
 
@@ -141,7 +143,7 @@ export class Scene {
     this.darkFill.tint = 0x050304;
     this.darkC.addChild(this.darkFill);
     // colour grading: the painted ground and props are greener and brighter than the mood wants
-    this.grade.ground.saturate(-0.35); this.grade.ground.brightness(0.82, true);
+    this.grade.ground.saturate(-0.35); this.grade.ground.brightness(0.82, true); this.grade.ground.contrast(-0.25, true);
     this.grade.world.saturate(-0.2); this.grade.world.brightness(0.9, true);
     this.groundC.filters = [this.grade.ground];
     this.world.c.filters = [this.grade.world];
@@ -365,6 +367,8 @@ export class Scene {
       this.groundZone = sim.s.zone;
       this.groundC.removeChildren().forEach(c => c.destroy());
       const t = tex(area.ground);
+      // mipmaps keep the zoomed-out ground from shimmering into fine grain
+      t.source.autoGenerateMipmaps = true; t.source.updateMipmaps?.();
       this.groundTile = new TilingSprite({ texture: t, width: 1, height: 1 });
       this.groundC.addChild(this.groundTile);
       this.groundPulse = null;
@@ -379,7 +383,7 @@ export class Scene {
       if (!g) continue;
       const size = g.texture.width || 512;
       g.position.set(x0, y0); g.width = x1 - x0 + 1; g.height = y1 - y0 + 1;
-      g.tileScale.set(5 / size); g.tilePosition.set(-x0, -y0);
+      g.tileScale.set(GROUND_TILES / size); g.tilePosition.set(-x0, -y0);
     }
     if (this.groundPulse) this.groundPulse.alpha = 0.1 + Math.sin(this.time * 1.7) * 0.07;
   }
