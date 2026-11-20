@@ -180,6 +180,6 @@ Neue Sheets einfach mit dem Namen aus der Tabelle in `assets/sheets/` legen und 
 Stand auf Branch `claude/ui-assets` (Testversion https://claude.ai/artifact/LBgXfG93fk3jLj1qnTwc7k):
 - Oberfläche aus Stein/Eisen fertig, neue düstere Heldin, Zoom ~0.62 (`ZOOM` in `src/render/scene.ts`), Dunkelheit mit Lichtradius (`AMBIENT_DARK`, `HERO_LIGHT`), Deko in Gruppen.
 - Absicherung: fällt die Dunkelheit auf einem Gerät aus, läuft das Spiel ohne sie weiter; Offline-Aufholen rechnet höchstens 8 s.
-- Offen: Owner meldete „hängt im Ladebildschirm“ in der Testversion; lokal nicht nachstellbar. Mit der Absicherung erneut testen lassen.
+- Ladebildschirm-Hänger behoben: Ursache war ein unvollständiges Hochladen der Testversion (geänderter Pixi-Chunk `RenderTargetSystem-*.js` fehlte). **Beim Veröffentlichen immer alle Dateien aus `dist-artifact/assets/` mit neuen Namen hochladen, nicht nur `index/init/browserAll/webworkerAll`.**
 - Fehlende Dateien vom Owner: `skill-icons-2.png`, `gems-element.png`.
 - Als Nächstes geplant: Gallows Field ausbauen mit `props-gallows.png` (hängende Laternen, Käfig, Zäune, Vogelscheuche …), `ground-decals.png`, dunklerem Boden; Laternen-Licht, Zaun-/Laternenreihen als Weg, kleine Szenen auf Lichtungen. Danach Monster im düsteren Stil. Prompts siehe letzter Chat bzw. hier ergänzen.
