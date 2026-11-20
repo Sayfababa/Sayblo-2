@@ -92,5 +92,8 @@ Dateinamen klein, mit Bindestrichen, ohne Leerzeichen.
 - [ ] Conductivity (passiv: violette Funken springen zwischen Punkten)
 - [ ] Storm Mastery (passiv: Blitz-Rune)
 
+### Oberfläche, Gem-Icons, neue Skill-Icons
+Fertige Prompts und Sheet-Aufteilung: siehe `docs/ui-assets.md`.
+
 ### Support-Gem-Icons (optional, derzeit in Code gezeichnet)
 - [ ] 17 geschliffene Steine, 64 × 64, Farbe nach Element (rot, eisblau, violett, grün für allgemeine)
