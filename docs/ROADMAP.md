@@ -100,6 +100,8 @@ Beispiele für den Start (ca. 15):
 
 Jedes Gem kostet zusätzlich Mana (Multiplikator). Dadurch bleiben Mana, Spirit und Mana-Items wichtig.
 
+**Gem-Plätze sitzen im Skill selbst** (entschieden): Jeder aktive Skill hat bis zu 3 Plätze. Platz 1 gibt es ab Skill-Level 1, Platz 2 ab Level 5, Platz 3 ab Level 10.
+
 ### 1.5 Skill-Bäume erweitern
 
 - [ ] Drei Bäume mit je ca. 8 Skills: aktive Skills, passive Skills (z. B. „Feuer-Meisterschaft“) und Synergien
@@ -150,10 +152,9 @@ Ziel für Akt I und II: ca. 20 Uniques, dazu später eigene Icons.
 - [ ] Truhe in der Stadt mit Reitern
 - [ ] Auto-Zerlegen statt nur Auto-Verkaufen
 
-### 2.6 Offene Entscheidung: Ausrüstungsplätze
+### 2.6 Ausrüstungsplätze
 
-Aktuell 5 Plätze. Mehr Plätze bedeuten mehr Build-Tiefe:
-- **Empfehlung: 8 Plätze** (Waffe, Fokus/Schild, Helm, Rüstung, Handschuhe, Stiefel, Amulett, 2 Ringe)
+**5 Plätze bleiben** (entschieden): Waffe, Helm, Rüstung, Amulett, Ring. Weil es wenige Plätze sind, muss jedes Teil mehr leisten: Uniques und Tag-Affixe tragen die Build-Tiefe, und Seltene Items bekommen eher starke als viele Werte.
 
 **Fertig, wenn:** Ein guter Drop eine echte Entscheidung ist und das Zerlegen sich lohnt.
 
@@ -165,10 +166,12 @@ Die jetzigen Menüs sind Listen. Sie sollen wie ein Spiel aussehen.
 
 ### 3.1 Inventar
 
-- [ ] **Raster mit Item-Icons**, Rahmen in der Seltenheitsfarbe
+- [ ] **Raster im Diablo-Stil mit unterschiedlichen Größen** (entschieden): Stab 1×3, Rüstung 2×3, Helm 2×2, Amulett und Ring 1×1, Trank 1×1, Gem 1×1
+- [ ] Damit es auf dem Handy nicht fummelig wird: Antippen statt Ziehen, freie Plätze werden beim Ablegen hervorgehoben, ein **Sortieren-Knopf** packt alles automatisch zusammen
+- [ ] Rahmen und Hintergrund der Felder in der Seltenheitsfarbe
 - [ ] Antippen öffnet einen **Tooltip** im Diablo-Stil: farbiger Name, Grundtyp, Werte, darunter der Vergleich mit dem angelegten Item (grün/rot)
 - [ ] Anlegen per Knopf im Tooltip oder durch Ziehen auf den Platz
-- [ ] Sortieren-Knopf, Mehrfachauswahl zum Zerlegen
+- [ ] Mehrfachauswahl zum Zerlegen
 
 ### 3.2 Charakter
 
@@ -232,11 +235,11 @@ Benötigt neue Bilder (Prompts folgen, wenn es so weit ist):
 
 ---
 
-## Offene Entscheidungen
+## Entscheidungen
 
-| Frage | Optionen | Empfehlung |
-|---|---|---|
-| Wo sitzen Support-Gems? | im Skill selbst / in Sockeln von Items | **im Skill.** Plätze schalten sich mit dem Skill-Level frei. Übersichtlicher und gut fürs Handy. |
-| Inventar | gleich große Felder / Items unterschiedlich groß wie in Diablo 2 | **gleich große Felder.** Auf dem Handy viel angenehmer. |
-| Ausrüstungsplätze | 5 wie jetzt / 8 | **8**, für mehr Build-Tiefe |
-| Name des Spiels | Platzhalter „Grimlight“ | später |
+| Frage | Entscheidung |
+|---|---|
+| Wo sitzen Support-Gems? | **im Skill selbst**, Plätze schalten sich mit dem Skill-Level frei |
+| Inventar | **unterschiedliche Größen wie in Diablo 2**, mit Antippen und Auto-Sortieren fürs Handy |
+| Ausrüstungsplätze | **5** (Waffe, Helm, Rüstung, Amulett, Ring) |
+| Name des Spiels | offen, vorerst „Grimlight“ |
