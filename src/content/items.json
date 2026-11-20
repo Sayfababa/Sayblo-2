@@ -27,9 +27,9 @@
   "uniques": {
     "lantern":   { "slot": "weapon", "base": "Ritual Staff", "name": "Vesper's Lantern", "mods": ["spellDmg", "fireDmg", "castSpeed", "manaRegen"],
                    "effect": "Fireball fires 2 additional projectiles. Fireball costs 50% more mana." },
-    "cinders":   { "slot": "helm", "base": "Circlet", "name": "Crown of Cinders", "mods": ["barrier", "fireRes", "fireDmg", "power"],
+    "cinders":   { "slot": "helm", "base": "Circlet", "name": "Crown of Cinders", "mods": ["barrier", "fireRes", "life", "spirit"],
                    "effect": "Burning enemies explode when they die, dealing 20% of their life as fire damage nearby." },
-    "saint":     { "slot": "armor", "base": "Shroud", "name": "Shroud of the Drowned Saint", "mods": ["life", "coldRes", "allRes", "coldDmg"],
+    "saint":     { "slot": "armor", "base": "Shroud", "name": "Shroud of the Drowned Saint", "mods": ["life", "coldRes", "allRes", "barrier"],
                    "effect": "When your barrier breaks, enemies within 3 tiles are frozen. 5s cooldown." },
     "bell":      { "slot": "amulet", "base": "Locket", "name": "The Tolling Bell", "mods": ["lightDmg", "crit", "spirit", "mana"],
                    "effect": "Chain Lightning chains 3 more times but deals 30% less damage." },

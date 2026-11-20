@@ -1,4 +1,4 @@
-import { AFFIXES, AFFIX_ROLL, AFFIX_TIERS, GEMS, GEM_MAX_LEVEL, ITEMS, RARITIES, SLOTS, UNIQUES, type Slot } from '../content/index.ts';
+import { AFFIXES, AFFIX_ROLL, AFFIX_TIERS, GEMS, SLOT_KINDS, GEM_MAX_LEVEL, ITEMS, RARITIES, SLOTS, UNIQUES, type Slot } from '../content/index.ts';
 import { affixValue } from './formulas.ts';
 import type { Rng } from './rng.ts';
 import type { GemItem, Item, Mod } from './types.ts';
@@ -20,9 +20,15 @@ function weighted<T>(rng: Rng, list: T[], w: (x: T) => number): T {
 /** Tiers an item level can roll (T5 = weakest). */
 export const tiersFor = (L: number) => AFFIX_TIERS.filter(t => t.level <= L);
 
+/** Can this affix roll on this slot? */
+export const affixFits = (k: string, slot: Slot) => {
+  const a = AFFIXES[k];
+  return SLOT_KINDS[slot].includes(a.kind) && (!a.slots || a.slots.includes(slot));
+};
+
 /** Roll one affix of a group that the item does not have yet. */
 function rollAffix(rng: Rng, slot: Slot, L: number, group: 'prefix' | 'suffix', taken: Set<string>): Mod | null {
-  const pool = Object.entries(AFFIXES).filter(([k, a]) => a.group === group && !taken.has(k) && (!a.slots || a.slots.includes(slot)) && (a.minLevel ?? 0) <= L);
+  const pool = Object.entries(AFFIXES).filter(([k, a]) => a.group === group && !taken.has(k) && affixFits(k, slot) && (a.minLevel ?? 0) <= L);
   if (!pool.length) return null;
   const [k] = weighted(rng, pool, ([, a]) => a.rare ?? 1);
   const tier = weighted(rng, tiersFor(L), t => t.weight);

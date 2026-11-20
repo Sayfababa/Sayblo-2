@@ -55,7 +55,8 @@ export interface AreaDef { id: string; name: string; level: number; waves: numbe
   path?: string; pathDecor?: [string, number][]; decals?: [string, number][] }
 export interface PropDef { variants: [string, number][]; noFlip?: boolean; light?: { x?: number; y: number; radius: number; color: string; alpha: number; flicker?: number } }
 
-export interface AffixDef { group: 'prefix' | 'suffix'; name: string; text: string; percent: boolean; base: number; perLevel: number; weight: number; decimals?: number; slots?: Slot[]; minLevel?: number; rare?: number }
+export type AffixKind = 'offense' | 'defense' | 'mana';
+export interface AffixDef { group: 'prefix' | 'suffix'; kind: AffixKind; name: string; text: string; percent: boolean; base: number; perLevel: number; weight: number; decimals?: number; slots?: Slot[]; minLevel?: number; rare?: number }
 export type Slot = 'weapon' | 'helm' | 'armor' | 'amulet' | 'ring';
 export interface RarityDef { name: string; color: string; weight: number; bossWeight: number; affixes?: [number, number]; prefixes?: number; suffixes?: number }
 export interface UniqueDef { slot: Slot; base: string; name: string; mods: string[]; effect: string }
@@ -101,10 +102,12 @@ export const AREAS = ar.areas;
 export const PROPS = ar.props;
 export const UNLOCKED_AT_START = ar.unlockedAtStart;
 
-const af = affixesJson as unknown as { tiers: { tier: number; level: number; weight: number }[]; roll: [number, number]; affixes: Record<string, AffixDef> };
+const af = affixesJson as unknown as { tiers: { tier: number; level: number; weight: number }[]; roll: [number, number]; slotKinds: Record<Slot, AffixKind[]>; affixes: Record<string, AffixDef> };
 export const AFFIXES = af.affixes;
 export const AFFIX_TIERS = af.tiers;
 export const AFFIX_ROLL = af.roll;
+/** Weapons roll damage, helm and armor roll defense, jewellery rolls both; mana fits everywhere. */
+export const SLOT_KINDS = af.slotKinds;
 
 const it = itemsJson as unknown as {
   slots: Slot[]; slotNames: Record<Slot, string>; bases: Record<Slot, { name: string; icon: string }[]>;
