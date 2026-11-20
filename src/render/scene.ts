@@ -114,6 +114,8 @@ export class Scene {
   private darkHoles: Sprite[] = [];
   private darkRT: RenderTexture | null = null;
   private darkView = new Sprite();
+  /** set when the darkness layer fails on this device; the game then runs without it */
+  private darkOff = false;
   private grade = { ground: new ColorMatrixFilter(), world: new ColorMatrixFilter() };
   private lightL = new Layer();
   private fxL = new Layer();
@@ -338,7 +340,10 @@ export class Scene {
 
     // darkness with a light radius around the hero and holes at every light
     const [dhx, dhy] = this.iso(hx, hy);
-    this.drawDarkness(w, h, town ? [] : [[dhx, dhy - 20 * k]]);
+    if (!this.darkOff) {
+      try { this.drawDarkness(w, h, town ? [] : [[dhx, dhy - 20 * k]]); }
+      catch (err) { console.warn('Darkness disabled:', err); this.darkOff = true; this.darkView.visible = false; }
+    }
 
     // lights and spells (additive)
     for (const L of this.lights) this.glow(this.lightL, L.x, L.y, L.r, L.c, L.a, L.flat);

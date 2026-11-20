@@ -174,3 +174,12 @@ Wird beim Schneiden nahtlos gemacht und abgedunkelt.
 | `skill-icons-2.png`, `gems-element.png` | generiert, Datei fehlt noch im Repo; bis dahin Platzhalter-Icons bzw. CSS-Steine. Danach in `src/ui/gemcolor.ts` (`GEM_ART`) die 6 Element-Gems ergänzen |
 
 Neue Sheets einfach mit dem Namen aus der Tabelle in `assets/sheets/` legen und `python3 tools/slice_sheets.py` laufen lassen; fehlende Sheets werden übersprungen.
+
+## 6. Übergabe an die nächste Sitzung
+
+Stand auf Branch `claude/ui-assets` (Testversion https://claude.ai/artifact/LBgXfG93fk3jLj1qnTwc7k):
+- Oberfläche aus Stein/Eisen fertig, neue düstere Heldin, Zoom ~0.62 (`ZOOM` in `src/render/scene.ts`), Dunkelheit mit Lichtradius (`AMBIENT_DARK`, `HERO_LIGHT`), Deko in Gruppen.
+- Absicherung: fällt die Dunkelheit auf einem Gerät aus, läuft das Spiel ohne sie weiter; Offline-Aufholen rechnet höchstens 8 s.
+- Offen: Owner meldete „hängt im Ladebildschirm“ in der Testversion; lokal nicht nachstellbar. Mit der Absicherung erneut testen lassen.
+- Fehlende Dateien vom Owner: `skill-icons-2.png`, `gems-element.png`.
+- Als Nächstes geplant: Gallows Field ausbauen mit `props-gallows.png` (hängende Laternen, Käfig, Zäune, Vogelscheuche …), `ground-decals.png`, dunklerem Boden; Laternen-Licht, Zaun-/Laternenreihen als Weg, kleine Szenen auf Lichtungen. Danach Monster im düsteren Stil. Prompts siehe letzter Chat bzw. hier ergänzen.

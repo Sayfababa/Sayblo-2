@@ -62,18 +62,21 @@ async function boot() {
    */
   async function catchUp(awaySec: number) {
     if (awaySec < OFFLINE.minSeconds) return;
-    const counted = Math.min(awaySec, OFFLINE.maxHours * 3600) * OFFLINE.rate;
+    let counted = Math.min(awaySec, OFFLINE.maxHours * 3600) * OFFLINE.rate;
     const before = { lvl: sim.s.lvl };
     sim.collectEvents = false;
     sim.resetRun();
     let left = counted;
-    while (left > 0) {
+    // slow phones: never compute longer than a few seconds, the rest of the time away is dropped
+    const t0 = performance.now();
+    while (left > 0 && performance.now() - t0 < 8000) {
       const step = Math.min(left, 600);
       sim.advance(step);
       left -= step;
       loadTxt.textContent = `Catching up… ${Math.round((1 - left / counted) * 100)}%`;
       await new Promise(r => setTimeout(r, 0));
     }
+    counted -= Math.max(0, left);
     sim.collectEvents = true;
     sim.events = [];
     const run = sim.resetRun();
