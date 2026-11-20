@@ -241,3 +241,15 @@ Die Laterne bewusst **nicht** leuchtend generieren, das Licht kommt aus dem Code
 - Laternen bekommen flackerndes Licht im Dunkel.
 
 **Stand:** eingebaut. `props-gallows` wird über feste Bereiche geschnitten (Reihen ungleich hoch), Magenta-Key nach Farbton (`key_magenta_strong`, `despill_red`). Weg = Rauschlinie (`pathD`/`pathW` in `scene.ts`) mit weicher Maske, Laternen/Zäune am Wegrand (`pathDecor`), Decals flach im Boden (`decals`). Zoom 0.75.
+
+## 8. Übergabe (Stand nach Gallows-Field-Umbau)
+
+- Gallows Field realistisch fertig: `ground-gallows-base/path`, `props-gallows` (gf-*), `ground-decals` (decal-*), Laternenlicht, gewundener Weg. Neue realistische Heldin (`assets/sheets/hero.png`, 4 Posen, Sprites 384 px hoch, `STAFF_TIP` in `scene.ts` aus der Ausgabe von `slice_sheets.py`).
+- Farbfilter auf Boden/Welt entfernt (Pixi rendert gefilterte Container mit Auflösung 1 → unscharf auf Handys). Keine Vollbild-Filter mehr einbauen.
+- Zoom `ZOOM = 0.75`.
+- Nächste Schritte (vom Owner abgesegnet als Reihenfolge):
+  1. Ember Imp und Bog Wraith realistisch (Prompts schreiben, Owner generiert). Monster-Sheets auf Grün, außer der Wraith ist grünlich → dann Magenta.
+  2. Restliche Akt-I-Karten nach dem Gallows-Muster (Boden, Weg, Props, Decals, Monster), dann Boss Mother Vesper.
+  3. Fehlende Dateien vom Owner: `skill-icons-2.png`, `gems-element.png`. Optional neue Zauber-Pose (Stab nach vorn).
+  4. Spielgefühl: Treffer-, Sterbe- und Zauber-Effekte im realistischen Look.
+- Veröffentlichen: nach `node scripts/build-artifact.mjs` alle neu benannten Dateien in `dist-artifact/assets/` und geänderte Sprites hochladen, alte JS-Chunks mit `null` entfernen.
