@@ -37,6 +37,16 @@ Jede Phase endet mit einer spielbaren Version.
 
 ---
 
+## Stand nach dem zweiten Ausbau (Testversion)
+
+Umgesetzt und spielbar:
+- **Phase 1:** Skill-Tags, Schadensformel in Ebenen (Zusatz → erhöht → mehr → Krit → Resistenz − Durchdringung), Brennen/Verlangsamt/Gefroren/Geschockt, 17 Support-Gems mit Sockeln (Skill-Level 1/5/10), Gem-Drops und Gem-Schleifer (3 → 1 höheres Level), 15 Skills (9 aktiv, 6 passiv), neue Bedingungen.
+- **Phase 2 (Teil):** Affix-Stufen T1–T5, Präfix/Suffix, Tag-Affixe (+Skill-Level, Durchdringung, Projektil-/Flächenschaden, Zusatzschaden), 7 Uniques mit Spezialeffekt.
+- **Phase 3 (Teil):** Inventar-Raster mit Item-Größen, Verschieben, Sortieren, Paperdoll, Tooltips mit Vergleich, Skill-Baum als Grafik mit Gem-Sockeln, Prioritäten als Karten, Buff-Leiste, Anzeige-Einstellungen.
+- **Phase 4 (Teil):** Albtraum und Hölle, Offline-Fortschritt (50 %, bis 8 Stunden) mit Zusammenfassung, EP-Abzug bei Überlevel.
+
+Offen: Sets, Crafting, Loot-Filter mit Regeln, Truhe, echte Boss-Mechaniken mit Warnkreisen, Rifts, echte Icons für die neuen Skills.
+
 ## Phase 1 – Kampfsystem-Tiefe
 
 ### 1.1 Skill-Tags

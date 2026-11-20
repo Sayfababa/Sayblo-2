@@ -6,13 +6,14 @@ The owner writes in **German**; answer in German. In-game text is **English**.
 ## Where things are
 
 - `docs/ROADMAP.md` – the plan (phases 0–6) and all design decisions. Read it first.
-- `src/content/*.json` – all game content (skills, monsters, areas, affixes, items, hero balance). Typed in `src/content/index.ts`.
+- `src/content/*.json` – all game content (skills incl. passives and tags, gems, monsters, areas, affixes with tiers, items and uniques, difficulties, hero balance). Typed in `src/content/index.ts`.
 - `src/sim/` – simulation: fixed ticks (`TICK`), seeded RNG, no DOM, no rendering. Emits `SimEvent`s for renderer/UI. `save.ts` = versioned save + migrations + export/import code.
 - `src/render/` – PixiJS renderer (reads sim state + events, interpolates between ticks).
 - `src/ui/` – DOM HUD and menus (`ui.ts`, `styles.css`).
 - `tests/` – vitest (`npm test`). `scripts/simulate.ts` – headless balancing run (`npm run sim -- 60 1`).
 - `public/sprites/` – sprites used by the game (written by `tools/slice_sheets.py`, mirrored to `prototype/sprites/`).
 - `docs/assets.md` – art rules for AI-generated images.
+- Playtest build: `node scripts/build-artifact.mjs` → `dist-artifact/`, published as artifact https://claude.ai/artifact/LBgXfG93fk3jLj1qnTwc7k (republish after changes so the owner can test).
 - `prototype/combat-demo.html` – old single-file demo, kept as reference (reference for feel, numbers and rendering). Published as artifact https://claude.ai/artifact/XcpRjWihoFu52av5PEiG2R
 - `prototype/sprites/` – cut sprites used by the demo.
 - `assets/sheets/` – original sprite sheets from the owner (green screen; effects on black).

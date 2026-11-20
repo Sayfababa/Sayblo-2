@@ -79,3 +79,18 @@ Tipp: Wenn das Tool es kann, ein fertiges Bild (z. B. die Heldin) als **Stil-Ref
 
 Bilder einfach im Repo unter `assets/` ablegen, z. B. `assets/monsters/ember-imp.png`.
 Dateinamen klein, mit Bindestrichen, ohne Leerzeichen.
+
+### Skill-Icons (neu, bisher Platzhalter aus Effekt-Sprites)
+128 × 128, gleicher Stil wie die vorhandenen Skill-Icons (Bronzerahmen):
+- [ ] Searing Burst (Flammenring bricht aus dem Boden)
+- [ ] Pyromancy (passiv: Flamme in offener Hand)
+- [ ] Kindling (passiv: glimmende Glut, Funken)
+- [ ] Ice Nova (Eiskristalle in alle Richtungen)
+- [ ] Cold Mastery (passiv: Eiskristall-Rune)
+- [ ] Permafrost (passiv: gefrorener Boden mit Rissen)
+- [ ] Thunderstrike (violetter Blitz von oben)
+- [ ] Conductivity (passiv: violette Funken springen zwischen Punkten)
+- [ ] Storm Mastery (passiv: Blitz-Rune)
+
+### Support-Gem-Icons (optional, derzeit in Code gezeichnet)
+- [ ] 17 geschliffene Steine, 64 × 64, Farbe nach Element (rot, eisblau, violett, grün für allgemeine)

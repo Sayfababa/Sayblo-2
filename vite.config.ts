@@ -1,11 +1,13 @@
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   // relative paths: the build works from any folder (GitHub Pages, itch.io, a sub-path, ...)
   base: './',
   build: { target: 'es2022', chunkSizeWarningLimit: 1200 },
-  plugins: [
+  // "artifact" mode: build for the claude.ai artifact page (no service worker there)
+  resolve: mode === 'artifact' ? { alias: { 'virtual:pwa-register': '/src/pwa-stub.ts' } } : {},
+  plugins: mode === 'artifact' ? [] : [
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icons/*.png', 'sprites/*'],
@@ -32,4 +34,4 @@ export default defineConfig({
       },
     }),
   ],
-});
+}));
