@@ -2,7 +2,7 @@
 import { BASE_ICON, GEMS } from '../content/index.ts';
 import { spriteUrl } from '../render/textures.ts';
 import { isGem, type BagItem } from '../sim/types.ts';
-import { gemColor } from './gemcolor.ts';
+import { GEM_ART, gemColor } from './gemcolor.ts';
 
 export const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector(s) as T;
 export const esc = (s: unknown) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -14,7 +14,10 @@ export const skillIcon = (id: string) => spriteUrl(`icon-${id}.png`);
 /** Picture of an item: sprite for equipment, a cut gem drawn in CSS for support gems.
  *  `tall`: staffs stand upright (for the 1×3 bag cell and the weapon slot). */
 export function itemPic(it: BagItem, cls = 'pic', tall = false): string {
-  if (isGem(it)) return `<span class="${cls} gemicon" style="--gc:${gemColor(it.gem)}" title="${esc(GEMS[it.gem].name)}"><i></i><b>${it.lvl}</b></span>`;
+  if (isGem(it)) {
+    const art = GEM_ART.has(it.gem) ? `<img src="${spriteUrl(`gem-${it.gem}.png`)}" alt="">` : '<i></i>';
+    return `<span class="${cls} gemicon ${GEM_ART.has(it.gem) ? 'art' : ''}" style="--gc:${gemColor(it.gem)}" title="${esc(GEMS[it.gem].name)}">${art}<b>${it.lvl}</b></span>`;
+  }
   return `<img class="${cls}" src="${spriteUrl(`item-${BASE_ICON[it.base]}${tall && it.slot === 'weapon' ? '-tall' : ''}.png`)}" alt="">`;
 }
 /** Small painted UI icon (public/sprites/ic-*.png). */

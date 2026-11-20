@@ -54,8 +54,13 @@ UI_SHEETS = {
                             "gem-spread", "gem-echo", "gem-quick", "gem-efficiency", "gem-lingering", None]),
 }
 MAGENTA = {"gems-general"}
+# Sheets whose pieces do not sit on an even grid: name -> [(sprite, (x0, y0, x1, y1) as fractions of the sheet)]
+UI_BOXES = {
+    "ui-hud": [("ui-console", (0, 0, .65, .5)), ("ui-orbmount", (.65, 0, 1, .5)),
+               ("ui-trough", (0, .5, .65, 1)), ("ui-arch", (.65, .5, 1, 1))],
+}
 # longest side after trimming; anything not listed keeps at most 320 px
-UI_SIDE = {"ui-panel": 360, "ui-well": 300, "ui-tipframe": 300, "ui-eqslot": 240, "ui-header": 400, "ui-divider": 400,
+UI_SIDE = {"ui-console": 640, "ui-trough": 520, "ui-orbmount": 256, "ui-arch": 320, "ui-panel": 360, "ui-well": 300, "ui-tipframe": 300, "ui-eqslot": 240, "ui-header": 400, "ui-divider": 400,
            "ui-close": 128, "ui-btn-sq": 128, "ui-node": 192, "ui-node-round": 192, "ui-socket": 160, "ui-socket-locked": 160,
            "ui-badge": 96, "ui-chevron": 128, "ui-corner": 192}
 UI_SMALL = ("glyph-", "ic-", "gem-")  # 96 px icons
@@ -119,7 +124,24 @@ def fit(cell, side):
     return cell.resize((max(1, round(cell.width * f)), max(1, round(cell.height * f))), Image.LANCZOS)
 
 
+def cut_boxes(img, boxes):
+    for name, (x0, y0, x1, y1) in boxes:
+        cell = img.crop((round(x0 * img.width), round(y0 * img.height), round(x1 * img.width), round(y1 * img.height)))
+        solid = np.asarray(cell)[..., 3] > 24
+        xs, ys = np.where(solid.sum(0) >= 3)[0], np.where(solid.sum(1) >= 3)[0]
+        yield name, cell.crop((xs.min(), ys.min(), xs.max() + 1, ys.max() + 1))
+
+
 def slice_ui():
+    for sheet, boxes in UI_BOXES.items():
+        src = ROOT / "assets" / "sheets" / f"{sheet}.png"
+        if not src.exists():
+            print("missing sheet (skipped):", src.name)
+            continue
+        for name, cell in cut_boxes(key_green(Image.open(src)), boxes):
+            cell = fit(cell, UI_SIDE.get(name, 320))
+            cell.save(OUT / f"{name}.png", optimize=True)
+            print(name, cell.size)
     for sheet, (cols, rows, names) in UI_SHEETS.items():
         src = ROOT / "assets" / "sheets" / f"{sheet}.png"
         if not src.exists():
@@ -165,7 +187,10 @@ def make_stone_texture():
     """Panel background. Uses the painted texture when the owner has generated it, otherwise procedural granite."""
     src = ROOT / "assets" / "sheets" / "ui-bg-stone.png"
     if src.exists():
-        save_seamless(Image.open(src).convert("RGB").resize((512, 512), Image.LANCZOS), OUT / "ui-stone.jpg", 0.55)
+        im = Image.open(src).convert("RGB")
+        side = min(im.size)
+        im = im.crop(((im.width - side) // 2, (im.height - side) // 2, (im.width + side) // 2, (im.height + side) // 2))
+        save_seamless(im.resize((512, 512), Image.LANCZOS), OUT / "ui-stone.jpg", 0.85)
         return
     rng = np.random.default_rng(7)
     n, acc = 512, np.zeros((512, 512), np.float32)

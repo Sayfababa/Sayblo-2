@@ -559,3 +559,27 @@ ul.cmp .up{color:var(--good)} ul.cmp .down{color:var(--bad)}
   .eqslot{border-width:7px;border-image-width:7px}
   .doll{border-width:10px;border-image-width:10px}
 }
+
+/* --- painted gems --- */
+.gemicon.art img{width:86%;height:86%;object-fit:contain;filter:drop-shadow(0 1px 3px #000)}
+.gemicon.art b{z-index:1}
+
+/* --- bottom HUD: a carved stone console between the orbs, the orbs rest on crescent pillars --- */
+.hud-bottom{background:linear-gradient(to top,rgba(5,4,4,.85),rgba(5,4,4,0));padding-bottom:0;gap:4px;align-items:flex-end}
+.center{border:20px solid transparent;border-width:22px 18px 12px;border-image:url(/sprites/ui-console.png) 66 52 36 52 fill / 22px 18px 12px stretch;
+  padding:0 4px 4px;gap:3px;margin-bottom:4px;filter:drop-shadow(0 -2px 6px rgba(0,0,0,.6))}
+.lvlrow{opacity:1;color:#b9ae9c}
+.xp{height:14px;border-radius:0;background:none;border:8px solid transparent;border-width:4px 12px;border-image:url(/sprites/ui-trough.png) 20 60 fill / 4px 12px stretch;overflow:visible;position:relative}
+.xp i{position:absolute;inset:-1px -4px;width:0;max-width:calc(100% + 8px);background:linear-gradient(#e2c27a,#9c7a3a);box-shadow:0 0 6px rgba(226,194,122,.45)}
+.orbwrap{padding-bottom:6px}
+.orbwrap::before{content:"";position:absolute;left:50%;transform:translateX(-50%);top:calc(var(--ow,100px)*.2);width:calc(var(--ow,100px)*1.2);aspect-ratio:148/256;
+  background:url(/sprites/ui-orbmount.png) center top/100% 100% no-repeat;z-index:-1;filter:drop-shadow(0 4px 8px #000)}
+.orbwrap{--ow:100px;z-index:0}
+@media (max-width:420px){.orbwrap{--ow:90px}}
+@media (min-width:800px){.orbwrap{--ow:124px}}
+
+/* --- gothic arch behind the death message and the title screen --- */
+.overlay,.loading{isolation:isolate}
+.arch{position:absolute;left:50%;top:50%;width:min(300px,70vw);aspect-ratio:312/320;transform:translate(-50%,-56%);
+  background:url(/sprites/ui-arch.png) center/contain no-repeat;opacity:.5;z-index:-1;pointer-events:none}
+.loading .arch{opacity:.35}

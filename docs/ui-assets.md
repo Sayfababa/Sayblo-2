@@ -169,8 +169,8 @@ Wird beim Schneiden nahtlos gemacht und abgedunkelt.
 
 | Sheet | Status |
 |---|---|
-| `ui-frames.png`, `ui-buttons.png`, `ui-sockets.png`, `ui-glyphs.png`, `ui-icons.png` | geschnitten und eingebaut |
-| `skill-icons-2.png`, `gems-element.png` | generiert, Datei fehlt noch im Repo |
-| `gems-general.png`, `ui-hud.png`, `ui-bg-stone.png` | offen (Steintextur bis dahin prozedural erzeugt) |
+| `ui-frames`, `ui-buttons`, `ui-sockets`, `ui-glyphs`, `ui-icons` | eingebaut |
+| `gems-general` (Magenta), `ui-hud` (Konsole, Kugel-Säulen, EP-Rinne, Bogenfenster), `ui-bg-stone` | eingebaut (`ui-hud` wird über feste Bereiche statt Raster geschnitten, siehe `UI_BOXES`) |
+| `skill-icons-2.png`, `gems-element.png` | generiert, Datei fehlt noch im Repo; bis dahin Platzhalter-Icons bzw. CSS-Steine. Danach in `src/ui/gemcolor.ts` (`GEM_ART`) die 6 Element-Gems ergänzen |
 
 Neue Sheets einfach mit dem Namen aus der Tabelle in `assets/sheets/` legen und `python3 tools/slice_sheets.py` laufen lassen; fehlende Sheets werden übersprungen.
