@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AFFIXES, AREAS, AUTO_ORDER, CONDITIONS, ITEMS, MONSTERS, PROPS, RARITIES, SKILLS, SLOTS, TREES } from '../src/content/index.ts';
+import { AFFIXES, AREAS, AUTO_ORDER, CONDITIONS, GEMS, ITEMS, MONSTERS, PROPS, RARITIES, SKILLS, SLOTS, TREES, UNIQUES } from '../src/content/index.ts';
 import { existsSync } from 'node:fs';
 
 const sprite = (n: string) => existsSync(new URL(`../public/sprites/${n}`, import.meta.url));
@@ -9,7 +9,8 @@ describe('content data is consistent', () => {
     for (const [id, s] of Object.entries(SKILLS)) {
       expect(TREES[s.tree], id).toBeTruthy();
       expect(sprite(`icon-${id}.png`), id).toBe(true);
-      if (s.type !== 'buff') expect(s.max! >= s.min!, id).toBe(true);
+      if (s.kind === 'passive') { expect(s.stats, id).toBeTruthy(); for (const k of Object.keys(s.stats!)) expect(AFFIXES[k] || ['burnDmg', 'chillEffect', 'shockEffect'].includes(k), k).toBeTruthy(); }
+      else if (s.type !== 'buff') expect(s.max! >= s.min!, id).toBe(true);
     }
     for (const [id, c] of AUTO_ORDER) { expect(SKILLS[id]).toBeTruthy(); expect(CONDITIONS[c]).toBeTruthy(); }
   });
@@ -28,10 +29,18 @@ describe('content data is consistent', () => {
   it('items reference affixes and icons', () => {
     for (const slot of SLOTS) {
       for (const b of ITEMS.bases[slot]) expect(sprite(`item-${b.icon}.png`), b.icon).toBe(true);
-      for (const k of ITEMS.uniques[slot].mods) expect(AFFIXES[k], k).toBeTruthy();
       const imp = ITEMS.implicits[slot];
       if (imp) expect(AFFIXES[imp.affix]).toBeTruthy();
     }
+    for (const u of Object.values(UNIQUES)) {
+      expect(SLOTS.includes(u.slot)).toBe(true);
+      expect(ITEMS.bases[u.slot].some(b => b.name === u.base), u.name).toBe(true);
+      for (const k of u.mods) expect(AFFIXES[k], k).toBeTruthy();
+    }
     expect(RARITIES.length).toBe(4);
+  });
+  it('gems use known tags', () => {
+    const tags = new Set(Object.values(SKILLS).flatMap(s => s.tags || []));
+    for (const [id, g] of Object.entries(GEMS)) for (const t of g.requires) expect(tags.has(t), `${id}: ${t}`).toBe(true);
   });
 });

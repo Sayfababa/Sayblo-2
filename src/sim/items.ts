@@ -1,7 +1,7 @@
-import { AFFIXES, ITEMS, RARITIES, SLOTS } from '../content/index.ts';
+import { AFFIXES, AFFIX_ROLL, AFFIX_TIERS, GEMS, GEM_MAX_LEVEL, ITEMS, RARITIES, SLOTS, UNIQUES, type Slot } from '../content/index.ts';
 import { affixValue } from './formulas.ts';
 import type { Rng } from './rng.ts';
-import type { Item, Mod } from './types.ts';
+import type { GemItem, Item, Mod } from './types.ts';
 
 /** Roll a rarity index from weights. Boss drops use bossWeight. */
 export function rollRarity(rng: Rng, boss: boolean): number {
@@ -11,8 +11,28 @@ export function rollRarity(rng: Rng, boss: boolean): number {
   return r;
 }
 
+function weighted<T>(rng: Rng, list: T[], w: (x: T) => number): T {
+  let t = rng.next() * list.reduce((a, x) => a + w(x), 0);
+  for (const x of list) { t -= w(x); if (t < 0) return x; }
+  return list[list.length - 1];
+}
+
+/** Tiers an item level can roll (T5 = weakest). */
+export const tiersFor = (L: number) => AFFIX_TIERS.filter(t => t.level <= L);
+
+/** Roll one affix of a group that the item does not have yet. */
+function rollAffix(rng: Rng, slot: Slot, L: number, group: 'prefix' | 'suffix', taken: Set<string>): Mod | null {
+  const pool = Object.entries(AFFIXES).filter(([k, a]) => a.group === group && !taken.has(k) && (!a.slots || a.slots.includes(slot)) && (a.minLevel ?? 0) <= L);
+  if (!pool.length) return null;
+  const [k] = weighted(rng, pool, ([, a]) => a.rare ?? 1);
+  const tier = weighted(rng, tiersFor(L), t => t.weight);
+  taken.add(k);
+  return [k, affixValue(k, tier.level, rng.range(AFFIX_ROLL[0], AFFIX_ROLL[1])), tier.tier];
+}
+
 export function genItem(rng: Rng, id: number, L: number, minR: number, boss: boolean): Item {
   const r = Math.max(rollRarity(rng, boss), minR);
+  if (r === 3) return genUnique(rng, id, L, rng.pick(Object.keys(UNIQUES)));
   const slot = rng.pick(SLOTS), base = rng.pick(ITEMS.bases[slot]).name, mods: Mod[] = [];
   let imp = 0;
   const impl = ITEMS.implicits[slot];
@@ -22,16 +42,39 @@ export function genItem(rng: Rng, id: number, L: number, minR: number, boss: boo
     imp = 1;
   }
   let name = base;
-  const rar = RARITIES[r];
-  if (r === 3) {
-    const u = ITEMS.uniques[slot];
-    name = u.name;
-    for (const k of u.mods) mods.push([k, affixValue(k, L, rng.range(rar.roll![0], rar.roll![1]))]);
-  } else if (r > 0) {
-    const [lo, hi] = rar.affixes!;
-    const keys = rng.shuffle(Object.keys(AFFIXES)).slice(0, rng.int(lo, hi));
-    for (const k of keys) mods.push([k, affixValue(k, L, rng.range(rar.roll![0], rar.roll![1]))]);
-    name = r === 1 ? `${base} of ${AFFIXES[keys[0]].suffix}` : `${rng.pick(ITEMS.rareNames.first)} ${rng.pick(ITEMS.rareNames.second)}`;
+  if (r > 0) {
+    const rar = RARITIES[r], [lo, hi] = rar.affixes!;
+    const n = rng.int(lo, hi), taken = new Set<string>();
+    let np = 0, ns = 0;
+    const pre: Mod[] = [], suf: Mod[] = [];
+    for (let i = 0; i < n; i++) {
+      let group: 'prefix' | 'suffix' = rng.chance(0.5) ? 'prefix' : 'suffix';
+      if (group === 'prefix' && np >= rar.prefixes!) group = 'suffix';
+      if (group === 'suffix' && ns >= rar.suffixes!) group = 'prefix';
+      if ((group === 'prefix' ? np : ns) >= (group === 'prefix' ? rar.prefixes! : rar.suffixes!)) break;
+      const m = rollAffix(rng, slot, L, group, taken);
+      if (!m) continue;
+      if (group === 'prefix') { pre.push(m); np++; } else { suf.push(m); ns++; }
+    }
+    mods.push(...pre, ...suf);
+    name = r === 1
+      ? [pre[0] && AFFIXES[pre[0][0]].name, base, suf[0] && `of ${AFFIXES[suf[0][0]].name}`].filter(Boolean).join(' ')
+      : `${rng.pick(ITEMS.rareNames.first)} ${rng.pick(ITEMS.rareNames.second)}`;
   }
   return { id, slot, base, name, r, L, imp, mods };
+}
+
+export function genUnique(rng: Rng, id: number, L: number, u: string): Item {
+  const U = UNIQUES[u], mods: Mod[] = [];
+  const impl = ITEMS.implicits[U.slot];
+  let imp = 0;
+  if (impl) { mods.push([impl.affix, Math.round((impl.base + impl.perLevel * L) * ITEMS.implicitRoll[1])]); imp = 1; }
+  for (const k of U.mods) mods.push([k, affixValue(k, L, rng.range(ITEMS.uniqueRoll[0], ITEMS.uniqueRoll[1]))]);
+  return { id, slot: U.slot, base: U.base, name: U.name, r: 3, L, imp, mods, u };
+}
+
+/** Random support gem; higher item level allows higher gem levels, low levels stay more common. */
+export function genGem(rng: Rng, id: number, L: number): GemItem {
+  const max = Math.max(1, Math.min(GEM_MAX_LEVEL, 1 + Math.floor(L / 6)));
+  return { id, kind: 'gem', gem: rng.pick(Object.keys(GEMS)), lvl: 1 + Math.floor(rng.next() ** 2 * max) };
 }

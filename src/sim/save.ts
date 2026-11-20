@@ -4,9 +4,10 @@
  * Code format: "GL<version>." + base64url(deflate-raw(JSON)) + "." + checksum.
  * If the browser has no CompressionStream, the payload is stored uncompressed with prefix "GLU<version>.".
  */
-import { AREAS, ATTRS, BAG_SIZE, SKILLS, SLOTS } from '../content/index.ts';
+import { AREAS, ATTRS, DIFFICULTIES, GEMS, GEM_MAX_LEVEL, SKILLS, SLOTS, UNIQUES, isPassive } from '../content/index.ts';
+import { placeMissing } from './bag.ts';
 import { SAVE_VERSION, newSaveState } from './state.ts';
-import type { Item, SaveState } from './types.ts';
+import type { BagItem, GemItem, Item, SaveState } from './types.ts';
 
 export const STORAGE_KEY = 'grimlight-save';
 
@@ -20,6 +21,17 @@ const MIGRATIONS: Record<number, (s: Raw) => Raw> = {
   2: s => {
     const items = [...((s.bag as Item[]) || []), ...Object.values((s.equip as Record<string, Item | null>) || {}).filter((x): x is Item => !!x)];
     return { ...s, v: 3, kite: s.kite !== false, nextId: 1 + Math.max(0, ...items.map(i => i.id || 0)), savedAt: 0 };
+  },
+  // v4: difficulties, support gems, bag grid, unique effects
+  3: s => {
+    const byName = new Map(Object.entries(UNIQUES).map(([id, u]) => [u.name, id]));
+    const fix = (it: Item) => (it && it.r === 3 && byName.has(it.name) ? { ...it, u: byName.get(it.name) } : it);
+    const equip = Object.fromEntries(Object.entries((s.equip as Record<string, Item | null>) || {}).map(([k, v]) => [k, v ? fix(v) : null]));
+    return {
+      ...s, v: 4, difficulty: 0, progress: [typeof s.unlocked === 'number' ? s.unlocked : 1, 0, 0], sockets: {},
+      settings: { dmgNumbers: true, lootLabels: true },
+      bag: ((s.bag as Item[]) || []).map(fix), equip,
+    };
   },
 };
 
@@ -61,29 +73,47 @@ function sanitize(s: Raw): SaveState {
   out.slots = d.slots.map((def, i) => {
     const sl = slots[i];
     if (!sl) return i === 0 ? def : { id: null, cond: 'always' };
-    const id = typeof sl.id === 'string' && SKILLS[sl.id] && out.skills[sl.id] ? sl.id : null;
+    const id = typeof sl.id === 'string' && SKILLS[sl.id] && !isPassive(sl.id) && out.skills[sl.id] ? sl.id : null;
     return { id, cond: typeof sl.cond === 'string' ? sl.cond : 'always' };
   });
   const validItem = (x: unknown): x is Item => {
     const i = x as Item;
-    return !!i && typeof i.id === 'number' && SLOTS.includes(i.slot) && typeof i.name === 'string' && Array.isArray(i.mods);
+    return !!i && i.kind !== ('gem' as unknown) && typeof i.id === 'number' && SLOTS.includes(i.slot) && typeof i.name === 'string' && Array.isArray(i.mods)
+      && (!i.u || !!UNIQUES[i.u]);
   };
+  const validGem = (x: unknown): x is GemItem => {
+    const g = x as GemItem;
+    return !!g && g.kind === 'gem' && typeof g.id === 'number' && !!GEMS[g.gem] && Number.isInteger(g.lvl) && g.lvl >= 1 && g.lvl <= GEM_MAX_LEVEL;
+  };
+  const sockets = (s.sockets || {}) as Record<string, unknown>;
+  out.sockets = {};
+  for (const [k, arr] of Object.entries(sockets)) {
+    if (!SKILLS[k] || isPassive(k) || !Array.isArray(arr)) continue;
+    out.sockets[k] = [0, 1, 2].map(i => (validGem(arr[i]) ? arr[i] as GemItem : null));
+  }
   const equip = (s.equip || {}) as Raw;
   out.equip = { weapon: null, helm: null, armor: null, amulet: null, ring: null };
   for (const k of SLOTS) { const it = equip[k]; if (validItem(it) && it.slot === k) out.equip[k] = it; }
-  out.bag = (Array.isArray(s.bag) ? s.bag : []).filter(validItem).slice(0, BAG_SIZE);
+  out.bag = (Array.isArray(s.bag) ? s.bag : []).filter((x): x is BagItem => validItem(x) || validGem(x));
+  placeMissing(out.bag);
   out.filter = Math.floor(num(s.filter, 0, 0, 3));
   out.hpPot = Math.floor(num(s.hpPot, d.hpPot, 0)); out.mpPot = Math.floor(num(s.mpPot, d.mpPot, 0));
   out.hpTh = num(s.hpTh, d.hpTh, 0, 100); out.mpTh = num(s.mpTh, d.mpTh, 0, 100);
-  out.unlocked = Math.floor(num(s.unlocked, d.unlocked, 1, AREAS.length));
-  out.zone = Math.floor(num(s.zone, 0, 0, out.unlocked - 1));
+  const prog = Array.isArray(s.progress) ? s.progress : [];
+  out.progress = DIFFICULTIES.map((_, i) => Math.floor(num(prog[i], i ? 0 : 1, i ? 0 : 1, AREAS.length)));
+  out.difficulty = Math.floor(num(s.difficulty, 0, 0, DIFFICULTIES.length - 1));
+  if (!out.progress[out.difficulty]) out.difficulty = 0;
+  out.zone = Math.floor(num(s.zone, 0, 0, out.progress[out.difficulty] - 1));
+  const set = (s.settings || {}) as Raw;
+  out.settings = { dmgNumbers: bool(set.dmgNumbers, true), lootLabels: bool(set.lootLabels, true) };
   out.autoAdvance = bool(s.autoAdvance, true); out.autoReturn = bool(s.autoReturn, true); out.kite = bool(s.kite, true);
   out.speed = [1, 2, 4].includes(s.speed as number) ? (s.speed as number) : 1;
   out.life = s.life == null ? null : num(s.life, 0);
   out.mana = s.mana == null ? null : num(s.mana, 0, 0);
   out.barrier = num(s.barrier, 0, 0);
   out.kills = Math.floor(num(s.kills, 0, 0)); out.deaths = Math.floor(num(s.deaths, 0, 0));
-  const maxId = Math.max(0, ...out.bag.map(i => i.id), ...Object.values(out.equip).filter((i): i is Item => !!i).map(i => i.id));
+  const maxId = Math.max(0, ...out.bag.map(i => i.id), ...Object.values(out.equip).filter((i): i is Item => !!i).map(i => i.id),
+    ...Object.values(out.sockets).flat().filter((g): g is GemItem => !!g).map(g => g.id));
   out.nextId = Math.max(Math.floor(num(s.nextId, 1, 1)), maxId + 1);
   out.savedAt = num(s.savedAt, 0, 0);
   out.v = SAVE_VERSION;

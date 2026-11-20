@@ -1,0 +1,8 @@
+{
+  "difficulties": [
+    { "name": "Normal",    "levelAdd": 0,  "resPenalty": 0,   "hpMult": 1,   "dmgMult": 1,   "xpMult": 1,   "goldMult": 1 },
+    { "name": "Nightmare", "levelAdd": 18, "resPenalty": -40, "hpMult": 1.4, "dmgMult": 1.2, "xpMult": 1.5, "goldMult": 1.5 },
+    { "name": "Hell",      "levelAdd": 36, "resPenalty": -80, "hpMult": 1.9, "dmgMult": 1.4, "xpMult": 2,   "goldMult": 2 }
+  ],
+  "offline": { "rate": 0.5, "maxHours": 8, "minSeconds": 60 }
+}

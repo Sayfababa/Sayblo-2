@@ -130,9 +130,40 @@ def main():
     g = Image.open(ROOT / "assets" / "sheets" / "ground-gallows-field.png").convert("RGB").resize((512, 512), Image.LANCZOS)
     g.save(OUT / "ground-gallows-field.jpg", quality=85)
     make_app_icons()
+    make_placeholder_skill_icons()
     MIRROR.mkdir(parents=True, exist_ok=True)
     for f in OUT.iterdir():
         shutil.copy2(f, MIRROR / f.name)
+
+
+# Skills without painted icons yet: built from effect sprites until the owner generates real ones.
+PLACEHOLDER_ICONS = {
+    "searing": "fx-fire-ring", "pyromancy": "fx-flames", "kindling": "fx-fire-burst",
+    "icenova": "fx-ice-burst", "coldmastery": "fx-iceshard", "permafrost": "fx-frost-aura",
+    "thunder": "fx-shock", "conductivity": "fx-orb", "stormmastery": "fx-shock-ring",
+}
+
+
+def make_placeholder_skill_icons():
+    size = 128
+    yy, xx = np.mgrid[0:size, 0:size].astype(np.float32)
+    r = np.hypot(xx - size / 2, yy - size / 2) / (size / 2)
+    bg = np.dstack([18 + 22 * (1 - r).clip(0, 1), 14 + 14 * (1 - r).clip(0, 1), 16 + 18 * (1 - r).clip(0, 1)])
+    for skill, fx in PLACEHOLDER_ICONS.items():
+        out = OUT / f"icon-{skill}.png"
+        src = Image.open(OUT / f"{fx}.jpg").convert("RGB")
+        f = size * 0.92 / max(src.size)
+        src = src.resize((max(1, round(src.width * f)), max(1, round(src.height * f))), Image.LANCZOS)
+        layer = np.zeros((size, size, 3), np.float32)
+        ox, oy = (size - src.width) // 2, (size - src.height) // 2
+        layer[oy:oy + src.height, ox:ox + src.width] = np.asarray(src, np.float32)
+        img = np.clip(bg + layer, 0, 255)
+        # bronze frame
+        frame = (np.maximum(np.abs(xx - size / 2), np.abs(yy - size / 2)) > size / 2 - 5)
+        img[frame] = img[frame] * 0.2 + np.array([120, 92, 52]) * 0.8
+        inner = (np.maximum(np.abs(xx - size / 2), np.abs(yy - size / 2)) > size / 2 - 7) & ~frame
+        img[inner] = img[inner] * 0.4
+        Image.fromarray(img.astype(np.uint8)).save(out, optimize=True)
 
 
 def make_app_icons():

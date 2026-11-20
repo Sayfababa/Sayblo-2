@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  afterHeroRes, afterMonsterRes, affixValue, calcStats, castTime, damageRange, itemScore, manaCost, monsterDmg, monsterHp,
-  monsterXp, sellValue, skillMult, xpNeeded,
+  afterHeroRes, afterRes, affixValue, calcStats, castTime, damageRange, gemFits, gemValue, hitDamage, itemScore, monsterDmg, monsterHp,
+  monsterXp, sellValue, skillCtx, total, xpFactor, xpNeeded,
 } from '../src/sim/formulas.ts';
 import { newSaveState } from '../src/sim/state.ts';
 import type { Item } from '../src/sim/types.ts';
@@ -56,29 +56,90 @@ describe('hero stats', () => {
   });
 });
 
+const ctx = (skills: Record<string, number>, id: string, mutate?: (s: ReturnType<typeof newSaveState>) => void) => {
+  const s = newSaveState();
+  s.skills = skills;
+  mutate?.(s);
+  return skillCtx(s, calcStats(s), id);
+};
+
 describe('damage', () => {
-  it('skill level and synergy', () => {
-    expect(skillMult({ fireball: 1 }, 'fireball')).toBeCloseTo(1);
-    expect(skillMult({ fireball: 3 }, 'fireball')).toBeCloseTo(1.44);
-    expect(skillMult({ fireball: 1, meteor: 2 }, 'fireball')).toBeCloseTo(1.16);
-    // other trees do not give synergy
-    expect(skillMult({ fireball: 1, chain: 5 }, 'fireball')).toBeCloseTo(1);
+  it('skill level raises base damage, same-tree points add increased damage', () => {
+    expect(ctx({ fireball: 1 }, 'fireball').levelMult).toBeCloseTo(1);
+    expect(ctx({ fireball: 3 }, 'fireball').levelMult).toBeCloseTo(1.44);
+    // power 5 = +5% spell damage, 2 points in meteor = +16%
+    expect(ctx({ fireball: 1, meteor: 2 }, 'fireball').inc.fire).toBe(5 + 16);
+    expect(ctx({ fireball: 1, chain: 5 }, 'fireball').inc.fire).toBe(5);
   });
-  it('damage range uses spell and element damage', () => {
-    const s = newSaveState();
-    s.equip.weapon = item([['spellDmg', 15], ['fireDmg', 80]], { slot: 'weapon' });
-    const st = calcStats(s);
-    expect(damageRange(s.skills, st, 'fireball')).toEqual([Math.round(6 * 2), Math.round(11 * 2)]);
+  it('increased damage adds up, more damage multiplies', () => {
+    const c = ctx({ fireball: 1 }, 'fireball', s => {
+      s.equip.weapon = item([['spellDmg', 15], ['fireDmg', 80]], { slot: 'weapon' });
+      s.sockets.fireball = [{ id: 9, kind: 'gem', gem: 'concentrated', lvl: 1 }, { id: 10, kind: 'gem', gem: 'multi', lvl: 1 }, null];
+    });
+    expect(c.inc.fire).toBe(5 + 15 + 80);
+    // concentrated power only fits area skills, multiple projectiles: 30% less
+    expect(c.more).toBeCloseTo(0.7);
+    expect(c.projectiles).toBe(3);
+    const lo = total(hitDamage({ ...c, critChance: -1 }, () => 0).dmg);
+    expect(lo).toBeCloseTo(6 * 2 * 0.7);
   });
-  it('mana cost grows with level', () => {
-    expect(manaCost({ fireball: 1 }, 'fireball')).toBe(5);
-    expect(manaCost({ meteor: 11 }, 'meteor')).toBe(Math.round(16 * 1.6));
+  it('added damage of another element keeps its own element', () => {
+    const c = ctx({ fireball: 1 }, 'fireball', s => { s.sockets.fireball = [{ id: 9, kind: 'gem', gem: 'addedcold', lvl: 1 }, null, null]; });
+    const d = hitDamage({ ...c, critChance: -1 }, () => 0.5).dmg;
+    expect(d.cold).toBeGreaterThan(0);
+    expect(d.fire).toBeGreaterThan(0);
   });
-  it('resistance reduces damage', () => {
-    expect(afterMonsterRes(100, 0.25)).toBe(75);
-    expect(afterMonsterRes(0.2, 0.5)).toBe(1);
+  it('crits use the crit multiplier', () => {
+    const c = ctx({ fireball: 1 }, 'fireball');
+    const a = total(hitDamage({ ...c, critChance: -1 }, () => 0).dmg), b = total(hitDamage({ ...c, critChance: 101 }, () => 0).dmg);
+    expect(b / a).toBeCloseTo(1.5);
+  });
+  it('resistance, penetration and shock', () => {
+    const d = { fire: 100, cold: 0, light: 0 };
+    expect(afterRes(d, { fire: 0.25, cold: 0, light: 0 }, { fire: 0, cold: 0, light: 0 }).fire).toBeCloseTo(75);
+    expect(afterRes(d, { fire: 0.25, cold: 0, light: 0 }, { fire: 10, cold: 0, light: 0 }).fire).toBeCloseTo(85);
+    expect(afterRes(d, { fire: 0, cold: 0, light: 0 }, { fire: 0, cold: 0, light: 0 }, 1.2).fire).toBeCloseTo(120);
     expect(afterHeroRes(100, 75)).toBe(25);
     expect(afterHeroRes(100, -40)).toBe(140);
+  });
+  it('mana cost grows with level and gems', () => {
+    expect(ctx({ fireball: 1 }, 'fireball').mana).toBe(5);
+    expect(ctx({ meteor: 11 }, 'meteor').mana).toBe(Math.round(16 * 1.6));
+    expect(ctx({ fireball: 1 }, 'fireball', s => { s.sockets.fireball = [{ id: 9, kind: 'gem', gem: 'efficiency', lvl: 1 }, null, null]; }).mana).toBe(4);
+  });
+  it('+skill items raise skill and passive levels', () => {
+    const c = ctx({ fireball: 1, pyromancy: 1 }, 'fireball', s => { s.equip.amulet = item([['plusEmber', 2]], { slot: 'amulet' }); });
+    expect(c.lvl).toBe(3);
+    expect(c.inc.fire).toBe(5 + 8 + 3 * 8);
+  });
+  it('damage range in the tooltip', () => {
+    const [a, b] = damageRange(ctx({ fireball: 1 }, 'fireball'));
+    expect(a).toBe(Math.round(6 * 1.05));
+    expect(b).toBe(Math.round(11 * 0.999 * 1.05 + 0.5 * 0) || b);
+  });
+});
+
+describe('gems', () => {
+  it('only fit skills with the right tags', () => {
+    expect(gemFits('multi', 'fireball')).toBe(true);
+    expect(gemFits('multi', 'nova')).toBe(false);
+    expect(gemFits('wider', 'nova')).toBe(true);
+    expect(gemFits('addedfire', 'frostarmor')).toBe(false);
+    expect(gemFits('efficiency', 'frostarmor')).toBe(true);
+    expect(gemFits('efficiency', 'pyromancy')).toBe(false);
+  });
+  it('scale with gem level', () => {
+    expect(gemValue('wider', 'radius', 1)).toBe(30);
+    expect(gemValue('wider', 'radius', 6)).toBe(40);
+  });
+});
+
+describe('experience penalty', () => {
+  it('kicks in above two levels over the monster', () => {
+    expect(xpFactor(5, 5)).toBe(1);
+    expect(xpFactor(7, 5)).toBe(1);
+    expect(xpFactor(10, 5)).toBeCloseTo(0.7);
+    expect(xpFactor(50, 1)).toBe(0.1);
   });
 });
 

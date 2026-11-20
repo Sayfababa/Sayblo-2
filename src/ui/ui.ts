@@ -1,25 +1,22 @@
 /**
- * DOM part of the game: HUD (orbs, skill bar, area, target frame), log and the four menus.
+ * DOM part of the game: HUD (orbs, skill bar, area, buffs, target frame), log and the four menus.
  * Talks to the simulation only through its public state and action methods.
  */
 import {
-  ACT_NAME, AREAS, ATTRS, BASE_ICON, CONDITIONS, ELEMENT_NAMES, HERO, ITEMS, RANKS, RARITIES, SKILLS, SLOTS, SLOT_NAMES, TREES, BAG_SIZE,
-  type Attr, type Slot,
+  ACT_NAME, AREAS, ATTRS, BAG_H, BAG_W, CONDITIONS, DIFFICULTIES, GEMS, HERO, ITEMS, RANKS, SKILLS, SLOT_NAMES,
+  SOCKET_LEVELS, TREES, isPassive, skillMaxLevel, type Attr, type Slot,
 } from '../content/index.ts';
-import { damageRange, formatMod, frostArmorBarrier, itemScore, manaCost, potionPrice, respecCost, sellValue, xpNeeded } from '../sim/formulas.ts';
+import { itemSize, canPlace } from '../sim/bag.ts';
+import { damageRange, formatMod, frostArmorBarrier, gemFits, gemText, potionPrice, respecCost, sellValue, skillCtx, calcStats, xpNeeded, type SkillCtx } from '../sim/formulas.ts';
 import { SaveError, exportCode, importCode } from '../sim/save.ts';
-import type { Sim } from '../sim/sim.ts';
-import type { Item, Monster, SaveState, SimEvent } from '../sim/types.ts';
+import type { RunStats, Sim } from '../sim/sim.ts';
+import { isGem, type Monster, type SaveState, type SimEvent } from '../sim/types.ts';
 import { spriteUrl } from '../render/textures.ts';
+import { $, duration, esc, fmt, itemPic, richText, skillIcon } from './html.ts';
+import { itemTooltip } from './tooltip.ts';
+import { gemColor } from './gemcolor.ts';
 
-const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector(s) as T;
-const esc = (s: unknown) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
-const fmt = (n: number) => (n >= 100000 ? Math.round(n / 1000) + 'k' : n >= 10000 ? (n / 1000).toFixed(1) + 'k' : String(Math.round(n)));
-/** Log messages mark names with **bold**; everything else is escaped. */
-const richText = (msg: string) => esc(msg).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
-const iconSrc = (it: Item) => spriteUrl(`item-${BASE_ICON[it.base]}.png`);
 const SHEET_W = 460;
-
 type Tab = 'hero' | 'skills' | 'bag' | 'town';
 
 export interface GameHooks {
@@ -36,11 +33,20 @@ export class UI {
   private showLog = false;
   private uiT = 0;
   private lastPot = '';
+  private lastBuffs = '';
   private resetArm = false;
   private importArm = false;
   private exportText = '';
   private importDraft = '';
   private importMsg: { text: string; cls: string } = { text: '', cls: '' };
+  // menu selections
+  private selBag: number | null = null;
+  private selEq: Slot | null = null;
+  private moveMode = false;
+  private bagMsg = '';
+  private selSkill = 'fireball';
+  private pickSocket: number | null = null;
+  private skillMsg = '';
 
   constructor(game: GameHooks) {
     this.game = game;
@@ -59,7 +65,7 @@ export class UI {
   }
   addLog(html: string, cls = '') {
     this.log.unshift({ html, cls });
-    if (this.log.length > 60) this.log.length = 60;
+    if (this.log.length > 80) this.log.length = 80;
     this.logDirty = true;
   }
   clearLog() { this.log = []; this.logDirty = true; }
@@ -73,8 +79,22 @@ export class UI {
 
   refreshAll() {
     for (const k of ['hero', 'skills', 'bag', 'town', 'slots', 'zones'] as const) this.sim.dirty.add(k);
-    this.lastPot = '';
+    this.lastPot = ''; this.lastBuffs = '';
+    this.selBag = null; this.selEq = null; this.moveMode = false;
     this.draw();
+  }
+
+  /** Popup after offline progress or after coming back to the tab. */
+  showSummary(away: number, counted: number, r: RunStats, before: { lvl: number }) {
+    const el = $('#summary');
+    const line = (v: number, t: string) => (v ? `<li><b>${fmt(v)}</b> ${t}</li>` : '');
+    el.innerHTML = `<div class="sumbox"><h2>While you were away</h2>
+      <p class="hint">Away for ${duration(away)}. Offline time counts at ${Math.round((counted / Math.max(1, away)) * 100)}%: ${duration(counted)} of fighting.</p>
+      <ul class="sumlist">${line(r.kills, 'monsters slain')}${line(r.xp, 'experience')}${r.levels ? `<li><b>+${r.levels}</b> level${r.levels > 1 ? 's' : ''} (now ${before.lvl + r.levels})</li>` : ''}
+        ${line(r.gold, 'gold')}${line(r.items, 'items picked up')}${line(r.gems, 'support gems found')}${r.deaths ? `<li class="bad"><b>${r.deaths}</b> death${r.deaths > 1 ? 's' : ''}</li>` : ''}</ul>
+      ${r.kills ? '' : '<p class="hint">Nothing happened. Maybe the hero was waiting in town.</p>'}
+      <button class="btn primary" data-act="closesum">Continue</button></div>`;
+    el.hidden = false;
   }
 
   /* ---------- HUD ---------- */
@@ -86,27 +106,39 @@ export class UI {
     const cw = w - this.sheetW(), bw = Math.min(cw - 32, 240 * k);
     el.hidden = false;
     el.style.setProperty('--k', String(k));
-    el.style.left = `${cw / 2 - bw / 2}px`; el.style.width = `${bw}px`; el.style.top = `${cw < 760 ? 84 : 10}px`;
+    el.style.left = `${cw / 2 - bw / 2}px`; el.style.width = `${bw}px`; el.style.top = `${cw < 760 ? 92 : 10}px`;
     const name = $('#tname');
     if (name.textContent !== tg.name) name.textContent = tg.name;
     name.style.color = RANKS[tg.rank].color;
+    const states = [tg.frozen > 0 ? 'Frozen' : tg.chill > 0 ? 'Chilled' : '', tg.burn > 0 ? 'Burning' : '', tg.shock > 0 ? 'Shocked' : ''].filter(Boolean).join(' · ');
+    const subTxt = [tg.sub, states].filter(Boolean).join(' — ');
     const sub = $('#tsub');
-    if (sub.textContent !== tg.sub) sub.textContent = tg.sub;
+    if (sub.textContent !== subTxt) sub.textContent = subTxt;
     $('#tbar').style.width = `${Math.max(0, tg.hp / tg.maxHp) * 100}%`;
   }
 
   private renderSkillbar() {
     $('#skillbar').innerHTML = this.s.slots.map((sl, i) => {
       const sk = sl.id && SKILLS[sl.id];
-      if (!sk) return `<div class="sk empty"><div class="ab">–</div><div class="nm">Empty</div></div>`;
-      return `<div class="sk" id="sk${i}" title="${esc(sk.name)}"><div class="ab ${sk.element}">${sk.abbr}</div><img src="${spriteUrl(`icon-${sl.id}.png`)}" alt="${esc(sk.name)}"><div class="cdv"></div></div>`;
+      if (!sk) return `<div class="sk empty"><div class="ab">–</div></div>`;
+      const gems = this.sim.socketsOf(sl.id!).filter(Boolean).map(g => `<i style="--gc:${gemColor(g!.gem)}"></i>`).join('');
+      return `<button class="sk" id="sk${i}" title="${esc(sk.name)}: ${esc(CONDITIONS[sl.cond])}" data-act="skillsel:${sl.id}"><img src="${skillIcon(sl.id!)}" alt="${esc(sk.name)}"><div class="cdv"></div><span class="skgems">${gems}</span></button>`;
     }).join('');
+  }
+
+  private drawBuffs() {
+    const sim = this.sim, b: string[] = [];
+    const fa = sim.buffs.frostarmor ?? 0;
+    if (fa > 0) b.push(`<span class="buff" title="Frost Armor"><img src="${skillIcon('frostarmor')}" alt="Frost Armor"><b>${Math.ceil(fa)}</b></span>`);
+    if (sim.s.difficulty) b.push(`<span class="buff diff d${sim.s.difficulty}">${DIFFICULTIES[sim.s.difficulty].name}</span>`);
+    const key = b.join('');
+    if (key !== this.lastBuffs) { this.lastBuffs = key; $('#buffs').innerHTML = key; }
   }
 
   draw() {
     const sim = this.sim, s = this.s, st = sim.st, z = AREAS[s.zone];
     const wv = sim.phase === 'town' ? 'In town' : sim.bossSpawned ? 'Boss' : sim.wave ? `Wave ${Math.min(sim.wave, z.waves)}/${z.waves}` : 'Exploring';
-    $('#zmeta').textContent = `${ACT_NAME} · monster lv ${z.level} · ${wv}`;
+    $('#zmeta').textContent = `${ACT_NAME} · monster lv ${sim.areaLevel()} · ${wv}`;
     $('#zprog').style.width = (sim.bossSpawned ? 100 : (Math.max(0, sim.wave - (sim.phase === 'fight' ? 1 : 0)) / z.waves) * 100) + '%';
     $('#overlay').hidden = sim.phase !== 'town';
     if (sim.phase === 'town') {
@@ -132,13 +164,15 @@ export class UI {
       $('#hppot').innerHTML = `<img src="${spriteUrl('item-potion-hp.png')}" alt="Health potions">${s.hpPot}`;
       $('#mppot').innerHTML = `<img src="${spriteUrl('item-potion-mp.png')}" alt="Mana potions">${s.mpPot}`;
     }
+    this.drawBuffs();
     if (sim.dirty.has('slots')) { this.renderSkillbar(); sim.dirty.delete('slots'); }
     s.slots.forEach((sl, i) => {
       const e = document.getElementById('sk' + i);
       if (!e || !sl.id) return;
-      const sk = SKILLS[sl.id], cd = sim.cd[sl.id] ?? 0;
-      (e.querySelector('.cdv') as HTMLElement).style.height = (sk.cooldown && cd > 0 ? (cd / sk.cooldown) * 100 : s.skills[sl.id] ? 0 : 100) + '%';
+      const c = sim.ctx(sl.id), cd = sim.cd[sl.id] ?? 0;
+      (e.querySelector('.cdv') as HTMLElement).style.height = (c.cooldown && cd > 0 ? (cd / c.cooldown) * 100 : 0) + '%';
       e.classList.toggle('flash', sim.lastCast === sl.id && sim.lastCastT > 0);
+      e.classList.toggle('nomana', sim.mana < c.mana);
     });
     if (this.logDirty && this.showLog) {
       $('#log').innerHTML = this.log.map(l => `<li class="${l.cls}">${l.html}</li>`).join('');
@@ -146,7 +180,7 @@ export class UI {
     }
     const zs = $<HTMLSelectElement>('#zonesel');
     if (sim.dirty.has('zones')) {
-      zs.innerHTML = AREAS.slice(0, s.unlocked).map((a, i) => `<option value="${i}" ${i === s.zone ? 'selected' : ''}>${esc(a.name)}</option>`).join('');
+      zs.innerHTML = AREAS.slice(0, sim.unlocked).map((a, i) => `<option value="${i}" ${i === s.zone ? 'selected' : ''}>${esc(a.name)}</option>`).join('');
       sim.dirty.delete('zones');
     } else if (+zs.value !== s.zone) zs.value = String(s.zone);
     document.querySelectorAll<HTMLElement>('#speedseg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.act === 'speed:' + s.speed)));
@@ -160,91 +194,216 @@ export class UI {
 
   /* ---------- panels ---------- */
   private renderPanel(p: Tab) {
+    const sheet = $('#sheet'), top = sheet.scrollTop;
     ({ hero: () => this.pHero(), skills: () => this.pSkills(), bag: () => this.pBag(), town: () => this.pTown() })[p]();
+    sheet.scrollTop = top;
   }
 
   private pHero() {
-    const s = this.s, st = this.sim.st;
-    const eq = SLOTS.map(sl => {
-      const it = s.equip[sl];
-      return `<div class="eqs"><span class="s">${SLOT_NAMES[sl]}</span>${it
-        ? `<span class="rn${it.r}"><img class="eicon" src="${iconSrc(it)}" alt="">${esc(it.name)}</span><button class="btn sm" data-act="unequip:${sl}">Remove</button>`
-        : `<span style="color:var(--muted)">Empty</span><span></span>`}</div>`;
-    }).join('');
+    const s = this.s, sim = this.sim, st = sim.st, M = st.mods, g = (k: string) => M[k] || 0;
+    const row = (label: string, v: string, cls = '') => `<div><span class="${cls}">${label}</span>${v}</div>`;
+    const res = (e: 'fire' | 'cold' | 'light') => `${st.res[e]}%${st.rawRes[e] + sim.diff.resPenalty > st.res[e] ? ` <small class="over">(${st.rawRes[e] + sim.diff.resPenalty})</small>` : ''}`;
+    const plus = Object.entries(st.plus).filter(([, v]) => v).map(([t, v]) => row(`+ ${TREES[t].name} skills`, `+${v}`)).join('');
     $('#p-hero').innerHTML = `
       <div class="row"><h2>${HERO.className} · Level ${s.lvl}</h2><span>${s.attrPts ? `<b class="gold">${s.attrPts}</b> points to spend` : 'No points left'}</span></div>
-      <div>${ATTRS.map(k => { const A = HERO.attributes[k]; return `<div class="attr"><span>${A.name}</span><span class="v">${st.a[k]}</span><span class="d">${A.description}</span><button class="btn sm" data-act="attr:${k}" ${s.attrPts ? '' : 'disabled'} aria-label="Add point to ${A.name}">+</button></div>`; }).join('')}</div>
-      <h3>Character</h3>
-      <div class="kv">
-        <div><span>Life</span>${st.maxLife}</div><div><span>Mana</span>${st.maxMana}</div>
-        <div><span>Mana / s</span>${st.manaRegen.toFixed(1)}</div><div><span>Life / s</span>${st.lifeRegen.toFixed(1)}</div>
-        <div><span>Cast time</span>${this.sim.castTime().toFixed(2)}s</div><div><span>Crit chance</span>${st.crit.toFixed(1)}%</div>
-        <div><span>Spell damage</span>+${st.spellDmg}%</div><div><span>Barrier (items)</span>${st.barrier}</div>
-        <div><span class="fire">Fire damage</span>+${st.el.fire}%</div><div><span class="fire">Fire resist</span>${st.res.fire}%</div>
-        <div><span class="cold">Cold damage</span>+${st.el.cold}%</div><div><span class="cold">Cold resist</span>${st.res.cold}%</div>
-        <div><span class="light">Lightning damage</span>+${st.el.light}%</div><div><span class="light">Lightning resist</span>${st.res.light}%</div>
-        <div><span>Dodge</span>${st.dodge}%</div><div><span>Kills / deaths</span>${s.kills} / ${s.deaths}</div>
-      </div>
-      <h3>Equipment</h3><div class="eq">${eq}</div>`;
+      <div>${ATTRS.map(k => { const A = HERO.attributes[k]; const dis = s.attrPts ? '' : 'disabled'; return `<div class="attr"><span>${A.name}</span><span class="v">${st.a[k]}</span><span class="d">${A.description}</span>
+        <span class="updn"><button class="btn sm" data-act="attr:${k}:1" ${dis} aria-label="Add point to ${A.name}">+</button><button class="btn sm" data-act="attr:${k}:5" ${s.attrPts >= 5 ? '' : 'disabled'} aria-label="Add 5 points to ${A.name}">+5</button></span></div>`; }).join('')}</div>
+      <details class="grp" open><summary>Offense</summary><div class="kv">
+        ${row('Spell damage', `+${st.spellDmg}%`)}${row('Cast time', `${sim.ctx('fireball').castTime.toFixed(2)}s`)}
+        ${row('Fire damage', `+${st.el.fire}%`, 'fire')}${row('Fire penetration', `${st.pen.fire}%`, 'fire')}
+        ${row('Cold damage', `+${st.el.cold}%`, 'cold')}${row('Cold penetration', `${st.pen.cold}%`, 'cold')}
+        ${row('Lightning damage', `+${st.el.light}%`, 'light')}${row('Lightning pen.', `${st.pen.light}%`, 'light')}
+        ${row('Projectile damage', `+${g('projDmg')}%`)}${row('Area damage', `+${g('areaDmg')}%`)}
+        ${row('Crit chance', `${st.crit.toFixed(1)}%`)}${row('Crit damage', `${st.critMulti}%`)}
+        ${g('addFire') ? row('Added fire', `+${g('addFire')}`, 'fire') : ''}${g('addCold') ? row('Added cold', `+${g('addCold')}`, 'cold') : ''}${g('addLight') ? row('Added lightning', `+${g('addLight')}`, 'light') : ''}
+        ${plus}
+      </div></details>
+      <details class="grp" open><summary>Defense</summary><div class="kv">
+        ${row('Life', String(st.maxLife))}${row('Life / s', st.lifeRegen.toFixed(1))}
+        ${row('Mana', String(st.maxMana))}${row('Mana / s', st.manaRegen.toFixed(1))}
+        ${row('Barrier (items)', String(st.barrier))}${row('Dodge', `${st.dodge}%`)}
+        ${row('Fire resist', res('fire'), 'fire')}${row('Cold resist', res('cold'), 'cold')}
+        ${row('Lightning resist', res('light'), 'light')}${row('Resist cap', `${HERO.caps.res}%`)}
+      </div>${sim.diff.resPenalty ? `<p class="hint">${sim.diff.name}: ${sim.diff.resPenalty}% to all resistances (already included). Small numbers in brackets show resistance above the cap.</p>` : ''}</details>
+      <details class="grp"><summary>Ailments</summary><div class="kv">
+        ${row('Chance to burn', `+${g('burnChance')}%`, 'fire')}${row('Burn damage', `+${g('burnDmg')}%`, 'fire')}
+        ${row('Chance to freeze', `+${g('freezeChance')}%`, 'cold')}${row('Chill effect', `+${g('chillEffect')}%`, 'cold')}
+        ${row('Chance to shock', `+${g('shockChance')}%`, 'light')}${row('Shock effect', `+${g('shockEffect')}%`, 'light')}
+      </div><p class="hint">Burn deals fire damage over time. Chill slows, freeze stops an enemy for a moment (heavy cold hits freeze more often). Shocked enemies take more damage from everything.</p></details>
+      <details class="grp"><summary>Record</summary><div class="kv">
+        ${row('Kills', fmt(s.kills))}${row('Deaths', String(s.deaths))}${row('Difficulty', sim.diff.name)}${row('Gold', fmt(s.gold))}
+      </div></details>`;
+  }
+
+  /* ----- skills ----- */
+  private ctxAt(id: string, add: number): SkillCtx {
+    const s2 = structuredClone(this.s) as SaveState;
+    s2.skills[id] = (s2.skills[id] || 0) + add;
+    return skillCtx(s2, calcStats(s2), id);
+  }
+  private skillInfo(id: string): string {
+    const sk = SKILLS[id], sim = this.sim, lv = this.s.skills[id] || 0;
+    if (isPassive(id)) {
+      const eff = sim.st.plus[sk.tree] || 0, total = lv ? lv + eff : 0;
+      return `<div class="kv one">${total ? `<div><span>Now</span>${esc(this.passiveText(id, total))}</div>` : ''}<div><span>Next level</span>${esc(this.passiveText(id, total ? total + 1 : 1 + eff))}</div></div>`;
+    }
+    const c = lv ? sim.ctx(id) : this.ctxAt(id, 1), rows: string[] = [];
+    const add = (l: string, v: string) => rows.push(`<div><span>${l}</span>${v}</div>`);
+    if (sk.type === 'buff') add('Barrier', String(frostArmorBarrier(c.lvl)));
+    else { const [a, b] = damageRange(c); add('Damage', `${a}–${b}`); }
+    add('Mana', String(c.mana));
+    add('Cast time', `${c.castTime.toFixed(2)}s`);
+    if (c.cooldown) add('Cooldown', `${c.cooldown}s`);
+    if (sk.type === 'buff') add('Duration', `${((sk.duration || 0) * c.durMult).toFixed(0)}s`);
+    if (c.radius) add('Radius', `${c.radius.toFixed(1)} tiles`);
+    if (sk.type === 'projectile') add('Projectiles', String(c.projectiles));
+    if (c.pierce) add('Pierce', String(c.pierce));
+    if (c.fork) add('Fork', `into ${c.fork}`);
+    if (sk.type === 'chain') add('Targets', String(c.chains));
+    if (sk.type !== 'buff') {
+      add('Crit', `${c.critChance.toFixed(0)}% · ${c.critMulti}%`);
+      if (c.inc.fire !== c.inc.cold || sk.element === 'fire') add('Increased', `+${Math.round(c.inc[sk.element])}%`);
+      if (c.more !== 1) add('More / less', `${c.more > 1 ? '+' : ''}${Math.round((c.more - 1) * 100)}%`);
+      add('Burn', `${Math.min(100, c.burnChance).toFixed(0)}%`);
+      if (sk.element === 'cold' || c.freezeChance) add('Freeze', `${c.freezeChance.toFixed(0)}% + heavy hits`);
+      add('Shock', `${Math.min(100, c.shockChance).toFixed(0)}%`);
+    }
+    let next = '';
+    if (lv && lv < skillMaxLevel(id) && sk.type !== 'buff') { const [a, b] = damageRange(this.ctxAt(id, 1)); next = `<p class="hint">Next level: damage ${a}–${b}, mana ${this.ctxAt(id, 1).mana}.</p>`; }
+    if (lv && sk.type === 'buff') next = `<p class="hint">Next level: barrier ${frostArmorBarrier(c.lvl + 1)}.</p>`;
+    return `<div class="kv">${rows.join('')}</div>${next}`;
+  }
+  private passiveText(id: string, n: number) {
+    const names: Record<string, string> = { burnDmg: 'Burn Damage', chillEffect: 'Chill Effect', shockEffect: 'Shock Effect' };
+    return Object.entries(SKILLS[id].stats!).map(([k, v]) => names[k] ? `+${v * n}% ${names[k]}` : formatMod([k, v * n])).join(', ');
   }
 
   private pSkills() {
-    const s = this.s, sim = this.sim;
-    const learned = Object.keys(SKILLS).filter(k => s.skills[k] > 0);
-    const trees = Object.entries(TREES).map(([t, T]) => `<div class="tree"><h3><span class="${T.element}">${T.name}</span><span>${ELEMENT_NAMES[T.element]}</span></h3><p class="hint">${T.description}</p>
-      ${Object.entries(SKILLS).filter(([, sk]) => sk.tree === t).map(([id, sk]) => {
-        const lv = s.skills[id] || 0, can = s.skillPts > 0 && s.lvl >= sk.reqLevel;
-        const info = sk.type === 'buff' ? `Barrier ${frostArmorBarrier(Math.max(1, lv))}` : lv ? (() => { const [a, b] = damageRange(s.skills, sim.st, id); return `Damage ${a}–${b}`; })() : '';
-        return `<div class="skill ${s.lvl < sk.reqLevel ? 'locked' : ''}"><div class="t"><span><img class="sicon" src="${spriteUrl(`icon-${id}.png`)}" alt=""><b class="${sk.element}">${sk.name}</b></span><span>Lv ${lv}</span></div>
-          <div class="d">${sk.description}</div><div class="t"><span class="d">${s.lvl < sk.reqLevel ? 'Needs level ' + sk.reqLevel : `${info}${info ? ' · ' : ''}${manaCost(s.skills, id)} mana`}</span>
-          <button class="btn sm" data-act="learn:${id}" ${can ? '' : 'disabled'} aria-label="Level up ${sk.name}">+</button></div></div>`;
-      }).join('')}</div>`).join('');
-    const opts = (sel: string | null) => `<option value="">Empty</option>` + learned.map(k => `<option value="${k}" ${k === sel ? 'selected' : ''}>${SKILLS[k].name}</option>`).join('');
-    const copts = (sel: string) => Object.entries(CONDITIONS).map(([k, n]) => `<option value="${k}" ${k === sel ? 'selected' : ''}>${n}</option>`).join('');
+    const s = this.s, sim = this.sim, sel = SKILLS[this.selSkill] ? this.selSkill : 'fireball';
+    const trees = Object.entries(TREES).map(([t, T]) => {
+      const ids = Object.keys(SKILLS).filter(id => SKILLS[id].tree === t);
+      const rows = [0, 1, 2, 3].map(r => ids.filter(id => SKILLS[id].row === r));
+      return `<div class="stree t-${T.element}"><h3 class="${T.element}">${T.name}</h3>${rows.map((ids2, r) => `<div class="srow">${ids2.map(id => {
+        const sk = SKILLS[id], lv = s.skills[id] || 0, locked = s.lvl < sk.reqLevel, can = sim.canLearn(id);
+        const eff = lv ? lv + (sim.st.plus[t] || 0) : 0;
+        return `<button class="snode ${isPassive(id) ? 'passive' : ''} ${locked ? 'locked' : ''} ${lv ? 'learned' : ''} ${can ? 'can' : ''} ${id === sel ? 'sel' : ''}" data-act="skillsel:${id}" aria-label="${esc(sk.name)}, level ${lv}">
+          <img src="${skillIcon(id)}" alt=""><b class="lv">${eff > lv ? `<em>${eff}</em>` : lv}</b>${locked ? `<i class="req">${sk.reqLevel}</i>` : ''}</button>`;
+      }).join('')}</div>${r < 3 ? '<div class="sline"></div>' : ''}`).join('')}</div>`;
+    }).join('');
+    const sk = SKILLS[sel], lv = s.skills[sel] || 0, passive = isPassive(sel);
+    const sockets = passive ? '' : `<h4>Support gems</h4><div class="sockets">${SOCKET_LEVELS.map((need, i) => {
+      const g = sim.socketsOf(sel)[i], open = lv >= need;
+      if (g) return `<button class="sock full ${this.pickSocket === i ? 'sel' : ''}" data-act="sockpick:${i}" style="--gc:${gemColor(g.gem)}">${itemPic(g, 'sockpic')}<span><b>${esc(GEMS[g.gem].name)}</b> <small>Lv ${g.lvl}</small><br><small>${esc(gemText(g))}</small></span></button>`;
+      return `<button class="sock ${open ? '' : 'closed'} ${this.pickSocket === i ? 'sel' : ''}" data-act="sockpick:${i}" ${open ? '' : 'disabled'}><span class="hole"></span><span>${open ? 'Empty socket: tap to insert a gem' : `Opens at skill level ${need}`}</span></button>`;
+    }).join('')}</div>${this.pickSocket != null && lv >= SOCKET_LEVELS[this.pickSocket] ? this.gemPicker(sel, this.pickSocket) : ''}`;
+    const learned = Object.keys(SKILLS).filter(k => s.skills[k] > 0 && !isPassive(k));
+    const opts = (cur: string | null) => `<option value="">Empty</option>` + learned.map(k => `<option value="${k}" ${k === cur ? 'selected' : ''}>${SKILLS[k].name}</option>`).join('');
+    const copts = (cur: string) => Object.entries(CONDITIONS).map(([k, n]) => `<option value="${k}" ${k === cur ? 'selected' : ''}>${n}</option>`).join('');
     $('#p-skills').innerHTML = `
       <div class="row"><h2>Skills</h2><span>${s.skillPts ? `<b class="gold">${s.skillPts}</b> skill point${s.skillPts > 1 ? 's' : ''}` : 'No skill points'}</span></div>
-      <div class="trees">${trees}</div>
-      <p class="hint">Each point in a skill also adds 8% damage to the other skills in the same tree.</p>
+      <div class="strees">${trees}</div>
+      <div class="sdetail">
+        <div class="row"><span class="sdname"><img class="sicon" src="${skillIcon(sel)}" alt=""><b class="${sk.element}">${esc(sk.name)}</b> <small>${passive ? 'Passive' : 'Active'} · Lv ${lv}/${skillMaxLevel(sel)}${lv && sim.st.plus[sk.tree] ? ` (+${sim.st.plus[sk.tree]})` : ''}</small></span>
+          <button class="btn primary sm" data-act="learn:${sel}" ${sim.canLearn(sel) ? '' : 'disabled'}>${lv ? 'Level up' : 'Learn'}</button></div>
+        ${sk.tags ? `<div class="chips">${sk.tags.filter(t => t !== 'hit').map(t => `<span class="chip">${t}</span>`).join('')}</div>` : ''}
+        <p class="d">${esc(sk.description)}</p>
+        ${s.lvl < sk.reqLevel ? `<p class="hint bad">Needs character level ${sk.reqLevel}.</p>` : ''}
+        ${this.skillInfo(sel)}
+        ${sockets}
+        ${this.skillMsg ? `<p class="hint bad">${esc(this.skillMsg)}</p>` : ''}
+      </div>
+      <p class="hint">Each point in a skill adds ${8}% increased damage to the other skills of its tree. Passive skills work on their own.</p>
       <h3>Cast priority</h3>
-      <p class="hint">She checks the slots from top to bottom and casts the first skill that is off cooldown, affordable and whose condition is true. If none fits, she uses Staff Spark (free, weak). Put cheap filler skills set to "Always" at the bottom.</p>
-      ${sim.blockedSlots().map(([i, b]) => `<p class="hint" style="color:var(--bad)">Slot ${i + 1} is never cast: slot ${b + 1} is set to "Always" and is always ready.</p>`).join('')}
-      <div class="row" style="justify-content:flex-start"><button class="btn sm" data-act="autoorder">Sort automatically</button></div>
-      <div class="prio">${s.slots.map((sl, i) => `<div class="prow"><span class="ix">${i + 1}</span>
-        <select id="slot${i}" data-slot="${i}" aria-label="Skill in slot ${i + 1}">${opts(sl.id)}</select>
-        <select id="cond${i}" data-cond="${i}" aria-label="Condition for slot ${i + 1}">${copts(sl.cond)}</select>
-        <span class="updn"><button class="btn sm" data-act="up:${i}" ${i ? '' : 'disabled'} aria-label="Move up">↑</button><button class="btn sm" data-act="down:${i}" ${i < 3 ? '' : 'disabled'} aria-label="Move down">↓</button></span></div>`).join('')}</div>`;
+      <p class="hint">She checks the slots from top to bottom and casts the first skill that is ready, affordable and whose condition is true. If none fits, she uses Staff Spark (free, weak).</p>
+      ${sim.blockedSlots().map(([i, b]) => `<p class="hint bad">Slot ${i + 1} is never cast: slot ${b + 1} is set to "Always" and is always ready.</p>`).join('')}
+      <div class="prio">${s.slots.map((sl, i) => `<div class="pcard">
+        <span class="ix">${i + 1}</span>${sl.id ? `<img class="picon" src="${skillIcon(sl.id)}" alt="">` : '<span class="picon empty"></span>'}
+        <span class="psel"><select data-slot="${i}" aria-label="Skill in slot ${i + 1}">${opts(sl.id)}</select>
+        <select data-cond="${i}" aria-label="Condition for slot ${i + 1}">${copts(sl.cond)}</select></span>
+        <span class="updn vert"><button class="btn sm" data-act="up:${i}" ${i ? '' : 'disabled'} aria-label="Move up">↑</button><button class="btn sm" data-act="down:${i}" ${i < 3 ? '' : 'disabled'} aria-label="Move down">↓</button></span></div>`).join('')}</div>
+      <div class="row" style="justify-content:flex-start"><button class="btn sm" data-act="autoorder">Sort automatically</button></div>`;
   }
 
-  private itemCard(it: Item, inBag: boolean) {
-    const cur = this.s.equip[it.slot], d = Math.round(itemScore(it) - itemScore(cur));
-    const cmp = inBag ? (d > 0 ? `<span class="cmp up">▲ ${d} better</span>` : d < 0 ? `<span class="cmp down">▼ ${-d} worse</span>` : '') : '';
-    return `<div class="item r${it.r}"><div class="row"><span class="n rn${it.r}"><img class="iicon" src="${iconSrc(it)}" alt="">${esc(it.name)}</span>${cmp}</div>
-      <div class="b">${RARITIES[it.r].name} ${SLOT_NAMES[it.slot]}${it.r ? ' · ' + esc(it.base) : ''} · item level ${it.L}</div>
-      <ul>${it.mods.map((m, i) => `<li class="${i < it.imp ? 'imp' : ''}">${formatMod(m)}</li>`).join('')}</ul>
-      ${inBag ? `<div class="row" style="justify-content:flex-start"><button class="btn sm primary" data-act="equip:${it.id}">Equip</button><button class="btn sm" data-act="sell:${it.id}">Sell · ${sellValue(it)}g</button></div>` : ''}</div>`;
+  private gemPicker(skill: string, i: number): string {
+    const sim = this.sim, cur = sim.socketsOf(skill)[i];
+    const gems = this.s.bag.filter(isGem).sort((a, b) => Number(gemFits(b.gem, skill)) - Number(gemFits(a.gem, skill)) || b.lvl - a.lvl);
+    const list = gems.map(g => {
+      const fits = gemFits(g.gem, skill), dup = sim.socketsOf(skill).some((o, j) => o && j !== i && o.gem === g.gem);
+      return `<button class="gemopt" data-act="sock:${skill}:${i}:${g.id}" ${fits && !dup ? '' : 'disabled'} style="--gc:${gemColor(g.gem)}">${itemPic(g, 'sockpic')}
+        <span><b>${esc(GEMS[g.gem].name)}</b> <small>Lv ${g.lvl}</small><br><small>${fits ? (dup ? 'Already in this skill.' : esc(gemText(g))) : `Does not fit: needs ${GEMS[g.gem].requires.join(', ')}`}</small></span></button>`;
+    }).join('');
+    return `<div class="picker">${cur ? `<button class="btn sm" data-act="unsock:${skill}:${i}">Take ${esc(GEMS[cur.gem].name)} out</button>` : ''}
+      ${list || '<p class="hint">No support gems in the bag yet. Champions, elites and bosses drop them more often.</p>'}</div>`;
   }
 
+  /* ----- bag ----- */
   private pBag() {
-    const s = this.s;
+    const s = this.s, sim = this.sim;
+    const sel = this.selBag != null ? s.bag.find(i => i.id === this.selBag) ?? null : null;
+    if (!sel) { this.selBag = null; this.moveMode = false; }
+    const eqSlot = (slot: Slot) => {
+      const it = s.equip[slot];
+      return `<button class="eqslot e-${slot} ${it ? 'r' + it.r : 'empty'} ${this.selEq === slot ? 'sel' : ''}" data-act="eqsel:${slot}" aria-label="${SLOT_NAMES[slot]}">
+        ${it ? itemPic(it) : `<span class="slotname">${SLOT_NAMES[slot]}</span>`}</button>`;
+    };
+    const cells = this.moveMode && sel ? (() => {
+      const out: string[] = [];
+      for (let y = 0; y < BAG_H; y++) for (let x = 0; x < BAG_W; x++)
+        if (canPlace(s.bag, sel, x, y)) out.push(`<button class="cell ok" style="--x:${x};--y:${y}" data-act="bagcell:${x}:${y}" aria-label="Place here"></button>`);
+      return out.join('');
+    })() : '';
+    const items = s.bag.map(it => {
+      const [w, h] = itemSize(it), r = isGem(it) ? 'gem' : 'r' + it.r;
+      return `<button class="bi ${r} ${it.id === this.selBag ? 'sel' : ''}" style="--x:${it.bx};--y:${it.by};--w:${w};--h:${h}${isGem(it) ? `;--gc:${gemColor(it.gem)}` : ''}" data-act="bagsel:${it.id}" aria-label="${esc(sim.itemName(it))}">${itemPic(it)}</button>`;
+    }).join('');
+    let tip = '';
+    if (sel) {
+      const learned = Object.keys(s.skills);
+      if (isGem(sel)) {
+        const quick = learned.filter(k => !isPassive(k) && gemFits(sel.gem, k)).flatMap(k => {
+          const i = sim.socketsOf(k).findIndex((g, j) => !g && sim.socketOpen(k, j));
+          if (i < 0 || sim.socketsOf(k).some(g => g?.gem === sel.gem)) return [];
+          return [`<button class="btn sm primary" data-act="sock:${k}:${i}:${sel.id}">Socket into ${esc(SKILLS[k].name)}</button>`];
+        }).join('');
+        tip = itemTooltip(sel, null, `${quick}<button class="btn sm" data-act="move">${this.moveMode ? 'Cancel move' : 'Move'}</button><button class="btn sm" data-act="sell:${sel.id}">Sell · ${sellValue(sel)}g</button>`, { learned });
+      } else {
+        tip = itemTooltip(sel, s.equip[sel.slot], `<button class="btn sm primary" data-act="equip:${sel.id}">Equip</button><button class="btn sm" data-act="move">${this.moveMode ? 'Cancel move' : 'Move'}</button><button class="btn sm" data-act="sell:${sel.id}">Sell · ${sellValue(sel)}g</button>`, { compare: true });
+      }
+    } else if (this.selEq && s.equip[this.selEq]) {
+      tip = itemTooltip(s.equip[this.selEq]!, null, `<button class="btn sm" data-act="unequip:${this.selEq}">Take off</button>`);
+    }
+    const used = s.bag.reduce((n, it) => { const [w, h] = itemSize(it); return n + w * h; }, 0);
     $('#p-bag').innerHTML = `
-      <div class="row"><h2>Bag</h2><span>${s.bag.length} / ${BAG_SIZE}</span></div>
+      <div class="row"><h2>Inventory</h2><span class="gold">${fmt(s.gold)} gold</span></div>
+      <div class="doll" style="--hero:url('${spriteUrl('hero-idle.png')}')">${eqSlot('weapon')}${eqSlot('helm')}${eqSlot('armor')}${eqSlot('amulet')}${eqSlot('ring')}</div>
+      <div class="row"><span class="hint">${used} / ${BAG_W * BAG_H} cells${this.moveMode ? ' · tap a green spot to place the item' : ' · tap an item for details'}</span>
+        <span class="updn"><button class="btn sm" data-act="sortbag">Sort</button><button class="btn sm" data-act="sellLow" ${s.bag.some(i => !isGem(i) && i.r < 2) ? '' : 'disabled'}>Sell Normal & Magic</button></span></div>
+      <div class="bag" style="--cols:${BAG_W};--rows:${BAG_H}">${items}${cells}</div>
+      ${this.bagMsg ? `<p class="hint bad">${esc(this.bagMsg)}</p>` : ''}
+      ${tip || '<p class="hint">Staffs take 1×3 cells, armor 2×3, helms 2×2, amulets, rings and gems 1×1. When the bag is full, the least valuable item is sold.</p>'}
       <div class="row"><label class="check" for="filter">Pick up:
         <select class="plain" id="filter">${ITEMS.filterNames.map((n, i) => `<option value="${i}" ${i === s.filter ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
-        <button class="btn sm" data-act="sellLow" ${s.bag.some(i => i.r < 2) ? '' : 'disabled'}>Sell all Normal & Magic</button></div>
-      <p class="hint">Loot below the filter is sold on the spot and never shows up on the ground. When the bag is full, the weakest item is sold.</p>
-      <div class="items">${s.bag.length ? s.bag.map(it => this.itemCard(it, true)).join('') : '<div class="empty-state">Your bag is empty. The sorceress walks over to loot after each fight; elites and bosses always drop something.</div>'}</div>`;
+        <span class="hint">Items below the filter are sold on the spot. Gems are always kept.</span></div>`;
   }
 
+  /* ----- town ----- */
   private pTown() {
-    const s = this.s, price = potionPrice(s.lvl), rc = respecCost(s.lvl), P = HERO.potions;
+    const s = this.s, sim = this.sim, price = potionPrice(s.lvl), rc = respecCost(s.lvl), P = HERO.potions;
+    const diffs = DIFFICULTIES.map((d, i) => `<button class="btn ${i === s.difficulty ? 'primary' : ''}" data-act="diff:${i}" ${s.progress[i] ? '' : 'disabled'}>${d.name}${s.progress[i] ? '' : ' 🔒'}</button>`).join('');
+    const fuse = sim.fusable().map(([g, l, n]) => `<div class="row"><span style="color:${gemColor(g)}">${esc(GEMS[g].name)} Lv ${l} ×${n}</span><button class="btn sm" data-act="fuse:${g}:${l}">Fuse 3 → Lv ${l + 1} · ${sim.fuseCost(l)}g</button></div>`).join('');
     $('#p-town').innerHTML = `
       <div class="row"><h2>Town</h2><span class="gold"><span id="towngold">${fmt(s.gold)}</span> gold</span></div>
+      <h3>Difficulty</h3>
+      <div class="row" style="justify-content:flex-start">${diffs}</div>
+      <p class="hint">${DIFFICULTIES.map(d => `${d.name}: monsters +${d.levelAdd} levels, resistances ${d.resPenalty}%`).join(' · ')}. Beat Mother Vesper to open the next one.</p>
       <h3>Merchant</h3>
       <div class="kv"><div><span>Health potions</span>${s.hpPot}</div><div><span>Mana potions</span>${s.mpPot}</div></div>
       <div class="row" style="justify-content:flex-start">
         <button class="btn" data-act="buy:hp:5">Buy 5 health · ${price * 5}g</button>
         <button class="btn" data-act="buy:mp:5">Buy 5 mana · ${price * 5}g</button></div>
       <p class="hint" id="townmsg">Health potions restore ${P.life * 100}% life, mana potions ${P.mana * 100}% mana. ${P.cooldown}s cooldown each.</p>
+      <h3>Gem cutter</h3>
+      ${fuse || '<p class="hint">Bring three support gems of the same kind and level to fuse them into one of the next level.</p>'}
       <h3>Potion belt</h3>
       <label class="range" for="hpTh"><span>Drink health potion below</span><b id="hpThv">${s.hpTh}%</b><input type="range" id="hpTh" min="10" max="90" step="5" value="${s.hpTh}"></label>
       <label class="range" for="mpTh"><span>Drink mana potion below</span><b id="mpThv">${s.mpTh}%</b><input type="range" id="mpTh" min="5" max="90" step="5" value="${s.mpTh}"></label>
@@ -252,8 +411,11 @@ export class UI {
       <label class="check" for="autoAdvance"><input type="checkbox" id="autoAdvance" ${s.autoAdvance ? 'checked' : ''}> Move to the next area after clearing one</label>
       <label class="check" for="autoReturn"><input type="checkbox" id="autoReturn" ${s.autoReturn ? 'checked' : ''}> After dying, return to the previous area automatically</label>
       <label class="check" for="kite"><input type="checkbox" id="kite" ${s.kite ? 'checked' : ''}> Keep distance from melee enemies (kiting)</label>
+      <h3>Display</h3>
+      <label class="check" for="dmgNumbers"><input type="checkbox" id="dmgNumbers" ${s.settings.dmgNumbers ? 'checked' : ''}> Show damage numbers</label>
+      <label class="check" for="lootLabels"><input type="checkbox" id="lootLabels" ${s.settings.lootLabels ? 'checked' : ''}> Show loot names on the ground</label>
       <h3>Mystic</h3>
-      <div class="row"><span class="hint">Reset all attribute and skill points.</span><button class="btn" data-act="respec">Respec · ${rc}g</button></div>
+      <div class="row"><span class="hint">Reset all attribute and skill points. Gems go back to the bag.</span><button class="btn" data-act="respec">Respec · ${rc}g</button></div>
       <h3>Save game</h3>
       <div class="savebox">
         <p class="hint">Progress is saved in this browser. To move your hero to another device or keep a backup, copy the save code and load it there.</p>
@@ -266,9 +428,8 @@ export class UI {
           <button class="btn" data-act="import">${this.importArm ? 'Tap again to replace your hero' : 'Load code'}</button></div>
       </div>
       <div class="scope"><h3>About this version</h3>
-        <ul><li>In: isometric world with walking, visible spells, monsters that close in or shoot, loot on the ground, light radius, auto-combat with cast priority, 3 elements, resistances, barrier, champions, elites, a two-phase boss, auto-potions, death penalty, save codes.</li>
-        <li>Not yet: support gems, set items, crafting, Nightmare and Hell, rifts, offline progress. The game pauses while this tab is hidden.</li>
-        <li>Numbers are a first guess for testing the feel, not balanced.</li></ul></div>
+        <ul><li>New: 15 skills incl. passives, burn/chill/freeze/shock, 17 support gems with sockets and gem fusing, affix tiers, +skill items, 7 uniques with special effects, bag grid, Nightmare and Hell, offline progress (50%, up to 8 hours).</li>
+        <li>Not yet: sets, crafting, rifts. Numbers are a first guess for testing, not balanced.</li></ul></div>
       <div class="row"><span class="hint">Start a new hero. This deletes the current one.</span><button class="btn sm" data-act="reset">${this.resetArm ? 'Tap again to wipe' : 'Start over'}</button></div>`;
   }
 
@@ -279,6 +440,7 @@ export class UI {
     $('#sheet').hidden = !this.tab;
     $('#stage').classList.toggle('open', !!this.tab);
     document.querySelectorAll('.panel').forEach(x => x.classList.toggle('active', x.id === 'p-' + this.tab));
+    this.moveMode = false; this.bagMsg = ''; this.skillMsg = '';
     if (this.tab) { this.sim.dirty.add(this.tab); $('#sheet').scrollTop = 0; this.draw(); }
   }
   private townMsg(t: string) { const e = document.getElementById('townmsg'); if (e) e.textContent = t; }
@@ -291,11 +453,12 @@ export class UI {
   private onClick(e: MouseEvent) {
     const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-act]');
     if (!b || b.disabled) return;
-    const [a, x, y] = (b.dataset.act || '').split(':');
-    const sim = this.sim, s = this.s;
+    const [a, x, y, z] = (b.dataset.act || '').split(':');
+    const sim = this.sim, s = this.s, D = sim.dirty;
     switch (a) {
       case 'tab': this.setTab(x as Tab); break;
       case 'close': this.setTab(null); break;
+      case 'closesum': $('#summary').hidden = true; break;
       case 'autoorder': sim.autoOrder(); this.addLog('Cast order sorted automatically.', 'good'); break;
       case 'log':
         this.showLog = !this.showLog;
@@ -304,14 +467,36 @@ export class UI {
         this.logDirty = true;
         break;
       case 'speed': s.speed = +x; break;
-      case 'attr': sim.addAttr(x as Attr); break;
+      case 'attr': sim.addAttr(x as Attr, +(y || 1)); break;
+      case 'skillsel':
+        if (this.selSkill !== x) this.pickSocket = null;
+        this.selSkill = x; this.skillMsg = '';
+        if (this.tab !== 'skills') this.setTab('skills');
+        D.add('skills');
+        break;
       case 'learn': sim.learnSkill(x); break;
+      case 'sockpick': this.pickSocket = this.pickSocket === +x ? null : +x; this.skillMsg = ''; D.add('skills'); break;
+      case 'sock': {
+        const err = sim.socketGem(x, +y, +z);
+        if (this.tab === 'bag') { this.bagMsg = err ?? ''; if (!err) this.selBag = null; D.add('bag'); }
+        else { this.skillMsg = err ?? ''; if (!err) this.pickSocket = null; D.add('skills'); }
+        D.add('slots');
+        break;
+      }
+      case 'unsock': { const err = sim.unsocket(x, +y); this.skillMsg = err ?? ''; if (!err) this.pickSocket = null; D.add('skills'); D.add('slots'); break; }
       case 'up': case 'down': sim.moveSlot(+x, a === 'up' ? -1 : 1); break;
-      case 'equip': sim.equip(+x); break;
-      case 'unequip': sim.unequip(x as Slot); break;
-      case 'sell': sim.sell(+x); break;
+      case 'bagsel': this.selBag = this.selBag === +x ? null : +x; this.selEq = null; this.moveMode = false; this.bagMsg = ''; D.add('bag'); break;
+      case 'eqsel': this.selEq = this.selEq === x ? null : (x as Slot); this.selBag = null; this.moveMode = false; this.bagMsg = ''; D.add('bag'); break;
+      case 'move': this.moveMode = !this.moveMode; D.add('bag'); break;
+      case 'bagcell': if (this.selBag != null) sim.moveItem(this.selBag, +x, +y); this.moveMode = false; D.add('bag'); break;
+      case 'sortbag': sim.sortBag(); break;
+      case 'equip': sim.equip(+x); this.selBag = null; D.add('slots'); break;
+      case 'unequip': if (!sim.unequip(x as Slot)) this.bagMsg = 'No room in the bag.'; else this.selEq = null; D.add('bag'); break;
+      case 'sell': sim.sell(+x); this.selBag = null; break;
       case 'sellLow': sim.sellLow(); break;
       case 'buy': { const err = sim.buyPotions(x as 'hp' | 'mp', +y); if (err) this.townMsg(err); break; }
+      case 'fuse': { const err = sim.fuseGems(x, +y); if (err) this.townMsg(err); D.add('town'); break; }
+      case 'diff': sim.setDifficulty(+x); break;
       case 'respec': { const err = sim.respec(); if (err) this.townMsg(err); break; }
       case 'return': sim.returnFromTown(); break;
       case 'export': void this.doExport(); break;
@@ -319,9 +504,9 @@ export class UI {
       case 'import': void this.doImport(); break;
       case 'reset':
         if (!this.resetArm) {
-          this.resetArm = true; sim.dirty.add('town');
+          this.resetArm = true; D.add('town');
           setTimeout(() => { this.resetArm = false; this.sim.dirty.add('town'); }, 4000);
-          return;
+          break;
         }
         this.resetArm = false;
         this.game.wipe();
@@ -339,6 +524,8 @@ export class UI {
     else if (t.id === 'autoAdvance') s.autoAdvance = t.checked;
     else if (t.id === 'autoReturn') s.autoReturn = t.checked;
     else if (t.id === 'kite') s.kite = t.checked;
+    else if (t.id === 'dmgNumbers') s.settings.dmgNumbers = t.checked;
+    else if (t.id === 'lootLabels') s.settings.lootLabels = t.checked;
     this.draw();
   }
 
@@ -400,3 +587,4 @@ export class UI {
     this.addLog(`Save code loaded: ${HERO.className} level ${save.lvl}.`, 'lvl');
   }
 }
+

@@ -40,16 +40,19 @@ describe('save games', () => {
     expect(s.autoReturn).toBe(false);
     expect(s.equip.weapon?.name).toBe('Bone Wand');
     expect(s.slots[0]).toEqual({ id: 'frostbolt', cond: 'notChilled' });
+    expect(s.progress).toEqual([2, 0, 0]);
+    expect(s.bag[0].bx).toBe(0);
   });
   it('refuses unknown or newer versions and repairs bad values', () => {
     expect(() => migrate({ v: SAVE_VERSION + 1 })).toThrow(SaveError);
     expect(() => migrate({ v: 1 })).toThrow(SaveError);
     expect(() => migrate('x')).toThrow(SaveError);
-    const s = migrate({ v: SAVE_VERSION, lvl: -3, gold: 'lots', zone: 9, unlocked: 2, slots: [{ id: 'nope', cond: 'always' }], speed: 3 });
+    const s = migrate({ v: SAVE_VERSION, lvl: -3, gold: 'lots', zone: 9, progress: [2, 0, 0], difficulty: 2, slots: [{ id: 'nope', cond: 'always' }], speed: 3 });
     expect(s.lvl).toBe(1);
     expect(s.gold).toBe(newSaveState().gold);
     expect(s.zone).toBe(1);
     expect(s.slots[0].id).toBe(null);
     expect(s.speed).toBe(1);
+    expect(s.difficulty).toBe(0);
   });
 });

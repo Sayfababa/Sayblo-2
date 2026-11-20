@@ -4,7 +4,9 @@
  * Positions are interpolated between simulation ticks, so motion stays smooth at any frame rate.
  */
 import { Application, ColorMatrixFilter, Container, Graphics, Matrix, Sprite, Text, TextStyle, Texture, TilingSprite } from 'pixi.js';
-import { AREAS, BASE_ICON, ELEMENT_COLORS, MONSTERS, PROPS, RANKS, RARITIES, SKILLS, type Element } from '../content/index.ts';
+import { AREAS, BASE_ICON, ELEMENT_COLORS, GEMS, MONSTERS, PROPS, RANKS, RARITIES, SKILLS, type Element } from '../content/index.ts';
+import { isGem } from '../sim/types.ts';
+import { GEM_COLOR, gemColor } from '../ui/gemcolor.ts';
 import { TICK, type Sim } from '../sim/sim.ts';
 import type { Monster, SimEvent } from '../sim/types.ts';
 import { darknessTexture, discTexture, glowTexture, tex } from './textures.ts';
@@ -112,6 +114,7 @@ export class Scene {
   private lights: Light[] = [];
   private filters = new Map<number, ColorMatrixFilter>();
   private zone = -1;
+  settings = { dmgNumbers: true, lootLabels: true };
   /** Screen anchor of each monster this frame, for labels and bars. */
   private anchors = new Map<number, { x: number; y: number; top: number }>();
 
@@ -134,7 +137,7 @@ export class Scene {
         case 'burst': this.fx.push({ k: 'burst', t: 0, dur: e.size >= 150 ? 0.5 : 0.35, e, seed: 0 }); break;
         case 'ring': this.fx.push({ k: 'ring', t: 0, dur: e.dur, e, seed: 0 }); break;
         case 'bolt': this.fx.push({ k: 'bolt', t: 0, dur: 0.28, e, seed: Math.random() * 1000 }); break;
-        case 'float': this.floats.push({ x: e.x + (Math.random() - 0.5) * 0.5, y: e.y + (Math.random() - 0.5) * 0.5, text: e.text, col: e.col, big: e.big, t: 0 }); break;
+        case 'float': if (e.dmg && !this.settings.dmgNumbers) break; this.floats.push({ x: e.x + (Math.random() - 0.5) * 0.5, y: e.y + (Math.random() - 0.5) * 0.5, text: e.text, col: e.col, big: e.big, t: 0 }); break;
         case 'cast': this.hero.castA = 0.28; this.hero.orb = e.el; break;
         case 'heroHit': this.hero.hit = 0.15; break;
         case 'monHit': { const v = this.mons.get(e.id); if (v) v.hitT = 0.15; break; }
@@ -174,13 +177,13 @@ export class Scene {
 
   /** Sprite with feet at (px, py) and height H. flash/chill blend the sprite towards white/ice blue. */
   private figure(file: string, px: number, py: number, H: number, id: number,
-    o: { flip?: boolean; rot?: number; sx?: number; sy?: number; alpha?: number; flash?: number; fs?: number; chill?: boolean } = {}) {
+    o: { flip?: boolean; rot?: number; sx?: number; sy?: number; alpha?: number; flash?: number; fs?: number; chill?: number } = {}) {
     const t = tex(file), s = this.world.sprite(t);
     s.anchor.set(0.5, 1); s.position.set(px, py);
     const sc = H / t.height;
     s.scale.set(sc * (o.flip ? -1 : 1) * (o.sx ?? 1), sc * (o.sy ?? 1));
     s.rotation = o.rot ?? 0; s.alpha = o.alpha ?? 1;
-    const a2 = o.flash && o.flash > 0 ? Math.min(1, o.flash) * (o.fs ?? 0.45) : 0, a1 = o.chill ? 0.35 : 0;
+    const a2 = o.flash && o.flash > 0 ? Math.min(1, o.flash) * (o.fs ?? 0.45) : 0, a1 = o.chill ?? 0;
     if (a1 || a2) {
       let f = this.filters.get(id);
       if (!f) { f = new ColorMatrixFilter(); this.filters.set(id, f); }
@@ -195,6 +198,7 @@ export class Scene {
   render(sim: Sim, real: number, alpha: number, view: ViewInfo) {
     const sdt = real * sim.s.speed;
     this.time += sdt;
+    this.settings = sim.s.settings;
     const w = this.app.screen.width, h = this.app.screen.height;
     if (!w || !h) return;
     const k = clamp(Math.min(w / 620, h / 560), 0.9, 1.3), V = this.V;
@@ -225,6 +229,7 @@ export class Scene {
       v.ph += sdt;
       if (v.lunge > 0) v.lunge -= sdt;
       if (v.hitT > 0) v.hitT -= sdt;
+      if (v.m.frozen > 0 && !v.dead) v.ph -= sdt; // frozen monsters keep their pose
       if (!alive.has(id)) { v.dead = true; v.deadT += sdt; if (v.deadT >= 1.5) this.mons.delete(id); }
     }
     for (const f of this.fx) f.t += sdt;
@@ -366,12 +371,16 @@ export class Scene {
     if (m.rank >= 1 && !v.dead) this.world.graphics().ellipse(px, py, 15 * s, 6 * s).stroke({ width: 1.5 * k, color: rk.color, alpha: 0.7 * a });
     this.shadow(px, py, 11 * s, 4.5 * s, 0.45 * a);
     const H = d.height * k * rk.size;
-    const walking = m.walking && !v.dead;
+    const frozen = m.frozen > 0 && !v.dead;
+    const walking = m.walking && !v.dead && !frozen;
     const lift = d.flying ? (6 + Math.sin(t * 2.5) * 4) * k : (walking ? Math.abs(Math.sin(t * 8)) * 3 * k : 0);
     const rot = v.dead ? f * Math.min(1, v.deadT * 3) * 1.2 : (walking && !d.flying ? Math.sin(t * 8) * 0.05 : 0) + (v.lunge > 0 ? 0.14 * f : 0);
     this.figure(d.sprite + '.png', px, py - lift, H, m.id, {
-      flip: f !== (d.facesLeft ? -1 : 1), rot, alpha: a, flash: v.hitT / 0.15, chill: m.chill > 0 && !v.dead, sy: walking ? 1 : 1 + Math.sin(t * 2.2) * 0.015,
+      flip: f !== (d.facesLeft ? -1 : 1), rot, alpha: a, flash: v.hitT / 0.15, chill: frozen ? 0.65 : m.chill > 0 && !v.dead ? 0.35 : 0,
+      sy: walking || frozen ? 1 : 1 + Math.sin(t * 2.2) * 0.015,
     });
+    if (frozen) this.light(px, py - H * 0.5, 40 * k, '#bfeaff', 0.35);
+    if (m.shock > 0 && !v.dead) this.light(px + Math.sin(this.time * 31 + m.id) * 6 * k, py - H * (0.3 + 0.4 * Math.abs(Math.sin(this.time * 17 + m.id))), 28 * k, ELC.light, 0.35 + 0.25 * Math.abs(Math.sin(this.time * 23 + m.id)));
     const eye = ELC[m.el];
     if (d.flying) this.light(px, py - H * 0.5 - lift, 45 * k, eye, 0.14 * a);
     if (m.boss) this.light(px, py - H * 0.6, 130 * k, ELC[m.el], 0.3 * a);
@@ -380,10 +389,18 @@ export class Scene {
   }
 
   private drawDrop(d: Sim['drops'][number], px: number, py: number) {
-    const k = this.V.k, sz = (d.gold ? 22 : 30) * k;
-    const file = d.gold ? 'item-gold.png' : `item-${BASE_ICON[d.item!.base]}.png`;
+    const k = this.V.k, it = d.item;
+    if (isGem(it)) {
+      const g = this.world.graphics(), c = gemColor(it.gem), r = 6 * k, y = py - 8 * k;
+      this.shadow(px, py, 7 * k, 3 * k, 0.45);
+      g.poly([px, y - r * 1.3, px + r, y, px, y + r * 1.1, px - r, y]).fill({ color: c }).stroke({ width: 1.2 * k, color: '#ffffff', alpha: 0.6 });
+      this.light(px, y, 34 * k, c, 0.55 + Math.sin(this.time * 4 + d.id) * 0.15);
+      return;
+    }
+    const sz = (d.gold ? 22 : 30) * k;
+    const file = d.gold ? 'item-gold.png' : `item-${BASE_ICON[it!.base]}.png`;
     this.shadow(px, py, sz * 0.35, sz * 0.14, 0.45);
-    if (d.item) this.light(px, py - sz * 0.4, (18 + d.item.r * 8) * k, RARITIES[d.item.r].color, d.item.r ? 0.45 : 0.15);
+    if (it) this.light(px, py - sz * 0.4, (18 + it.r * 8) * k, RARITIES[it.r].color, it.r ? 0.45 : 0.15);
     const s = this.world.sprite(tex(file));
     s.anchor.set(0.5, 0); s.position.set(px, py - sz * 0.85); s.width = s.height = sz;
   }
@@ -400,9 +417,10 @@ export class Scene {
       if (p.el === 'light') this.fxImg(PROJ.light, px, y, (p.small ? 24 : 34) * k, { rot: this.time * 9 });
       else this.fxImg(PROJ[p.el], px, y, (p.small ? 32 : 58) * k, { rot: ang });
     }
-    for (const mt of sim.meteors) {
+    for (const mt of sim.strikes) {
       const [px, py] = this.iso(mt.x, mt.y), p = Math.min(1, (mt.t + alpha * TICK) / mt.dur);
-      const mx = px + (1 - p) * 110 * k, my = py - (1 - p) * 280 * k, rad = SKILLS[mt.skill].radius || 2.5;
+      if (mt.kind === 'strike') { this.glow(this.fxL, px, py, 50 * k * p, ELC.light, 0.5 * p); continue; }
+      const mx = px + (1 - p) * 110 * k, my = py - (1 - p) * 280 * k, rad = sim.ctx(mt.skill).radius || SKILLS[mt.skill].radius || 2.5;
       this.fxL.graphics(true).ellipse(px, py, Math.max(0.1, rad * V.tw / 2 * p), Math.max(0.1, rad * V.th / 2 * p)).stroke({ width: 1.5 * k, color: '#ff7a3d', alpha: 0.4 });
       this.glow(this.fxL, mx, my, 40 * k, '#ff7a3d', 0.6);
       this.fxImg('fx-meteor.jpg', mx + 14 * k, my - 14 * k, 90 * k);
@@ -442,11 +460,12 @@ export class Scene {
     const k = this.V.k, L = this.labels;
     // loot names on the ground
     const lsz = Math.round(11 * k + 1);
-    for (const d of sim.drops) {
+    for (const d of (sim.s.settings.lootLabels ? sim.drops : [])) {
       const [px, py] = this.iso(d.x, d.y);
-      const txt = d.gold ? d.gold + ' Gold' : d.item!.name;
+      const it = d.item;
+      const txt = d.gold ? d.gold + ' Gold' : isGem(it) ? GEMS[it.gem].name : it!.name;
       const box = L.box();
-      const t = L.text(txt, FONT_BODY, '700', lsz, d.gold ? '#d8d0c2' : RARITIES[d.item!.r].color);
+      const t = L.text(txt, FONT_BODY, '700', lsz, d.gold ? '#d8d0c2' : isGem(it) ? GEM_COLOR : RARITIES[it!.r].color);
       const tw = t.width + 8;
       box.rect(px - tw / 2, py - 22 * k, tw, 14 * k + 2).fill({ color: '#000000', alpha: 0.72 });
       t.position.set(px, py - 15 * k + 1);

@@ -10,6 +10,7 @@ import { Scene } from './render/scene.ts';
 import { loadTextures } from './render/textures.ts';
 import { clearLocal, loadLocal, saveLocal } from './sim/save.ts';
 import { Sim, TICK } from './sim/sim.ts';
+import { OFFLINE } from './content/index.ts';
 import type { SaveState } from './sim/types.ts';
 import { UI } from './ui/ui.ts';
 
@@ -54,7 +55,39 @@ async function boot() {
     ui.refreshAll();
     saveLocal(sim.s);
   }
-  start(loadLocal());
+
+  /**
+   * Offline progress: the time away is played by the same simulation, headless, at a reduced rate
+   * and up to a time limit. Runs in slices so the page stays responsive.
+   */
+  async function catchUp(awaySec: number) {
+    if (awaySec < OFFLINE.minSeconds) return;
+    const counted = Math.min(awaySec, OFFLINE.maxHours * 3600) * OFFLINE.rate;
+    const before = { lvl: sim.s.lvl };
+    sim.collectEvents = false;
+    sim.resetRun();
+    let left = counted;
+    while (left > 0) {
+      const step = Math.min(left, 600);
+      sim.advance(step);
+      left -= step;
+      loadTxt.textContent = `Catching up… ${Math.round((1 - left / counted) * 100)}%`;
+      await new Promise(r => setTimeout(r, 0));
+    }
+    sim.collectEvents = true;
+    sim.events = [];
+    const run = sim.resetRun();
+    scene.reset(sim);
+    ui.refreshAll();
+    ui.showSummary(awaySec, counted, run, before);
+    ui.addLog(`Offline: ${run.kills} kills, ${run.xp} XP, ${run.gold} gold while you were away.`, 'lvl');
+    saveLocal(sim.s);
+  }
+
+  const loaded = loadLocal();
+  const lastSaved = loaded?.savedAt ?? 0;
+  start(loaded);
+  if (lastSaved) await catchUp((Date.now() - lastSaved) / 1000);
   ui.setTab(null);
 
   app.ticker.add(t => {
@@ -71,10 +104,24 @@ async function boot() {
     ui.frame(real, scene.targetMonster(sim));
   });
 
-  const persist = () => saveLocal(sim.s);
+  // While the tab is hidden the game pauses; the time away is played back as offline progress.
+  const persist = () => { if (!document.hidden) saveLocal(sim.s); };
+  let hiddenAt = 0;
   setInterval(persist, 5000);
-  document.addEventListener('visibilitychange', () => { if (document.hidden) persist(); });
-  window.addEventListener('pagehide', persist);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { saveLocal(sim.s); hiddenAt = Date.now(); }
+    else if (hiddenAt) {
+      const away = (Date.now() - hiddenAt) / 1000;
+      hiddenAt = 0;
+      if (away >= OFFLINE.minSeconds) {
+        const ld = document.getElementById('loading')!;
+        ld.hidden = false;
+        app.ticker.stop();
+        void catchUp(away).then(() => { ld.hidden = true; app.ticker.start(); });
+      }
+    }
+  });
+  window.addEventListener('pagehide', () => saveLocal(sim.s));
   document.getElementById('loading')!.hidden = true;
   // debugging and balancing from the browser console
   Object.assign(window, { grimlight: { get sim() { return sim; }, app } });

@@ -1,0 +1,289 @@
+{
+ "maxLevel": 10,
+ "gems": {
+  "multi": {
+   "name": "Multiple Projectiles",
+   "requires": [
+    "projectile"
+   ],
+   "mana": 1.4,
+   "effects": {
+    "projectiles": [
+     2,
+     0
+    ],
+    "more": [
+     -30,
+     1
+    ]
+   },
+   "text": "+{projectiles} projectiles that seek other enemies. {more}% less damage."
+  },
+  "pierce": {
+   "name": "Pierce",
+   "requires": [
+    "projectile"
+   ],
+   "mana": 1.2,
+   "effects": {
+    "pierce": [
+     2,
+     0.2
+    ],
+    "more": [
+     0,
+     1
+    ]
+   },
+   "text": "Projectiles fly on through {pierce} more enemies. {more}% more damage."
+  },
+  "fork": {
+   "name": "Fork",
+   "requires": [
+    "projectile"
+   ],
+   "mana": 1.3,
+   "effects": {
+    "fork": [
+     2,
+     0
+    ],
+    "more": [
+     -10,
+     1
+    ]
+   },
+   "text": "Projectiles split into {fork} on their first hit. {more}% less damage."
+  },
+  "wider": {
+   "name": "Wider Area",
+   "requires": [
+    "area"
+   ],
+   "mana": 1.3,
+   "effects": {
+    "radius": [
+     30,
+     2
+    ]
+   },
+   "text": "{radius}% larger area."
+  },
+  "concentrated": {
+   "name": "Concentrated Power",
+   "requires": [
+    "area"
+   ],
+   "mana": 1.4,
+   "effects": {
+    "radius": [
+     -25,
+     0
+    ],
+    "more": [
+     30,
+     1.5
+    ]
+   },
+   "text": "{radius}% smaller area, {more}% more damage."
+  },
+  "chains": {
+   "name": "Extra Chains",
+   "requires": [
+    "chain"
+   ],
+   "mana": 1.3,
+   "effects": {
+    "chains": [
+     2,
+     0.1
+    ],
+    "more": [
+     -10,
+     1
+    ]
+   },
+   "text": "Chains {chains} more times. {more}% less damage."
+  },
+  "spread": {
+   "name": "Elemental Spread",
+   "requires": [
+    "hit"
+   ],
+   "mana": 1.3,
+   "effects": {
+    "spread": [
+     1,
+     0
+    ],
+    "more": [
+     -10,
+     1
+    ]
+   },
+   "text": "Burn, chill, freeze and shock you apply also hit enemies nearby. {more}% less damage."
+  },
+  "searingburn": {
+   "name": "Searing Burn",
+   "requires": [
+    "fire"
+   ],
+   "mana": 1.2,
+   "effects": {
+    "burnChance": [
+     30,
+     2
+    ],
+    "burnMore": [
+     50,
+     3
+    ],
+    "burnDuration": [
+     1,
+     0
+    ]
+   },
+   "text": "+{burnChance}% chance to burn, {burnMore}% more burn damage, burns last {burnDuration}s longer."
+  },
+  "deepfreeze": {
+   "name": "Deep Freeze",
+   "requires": [
+    "cold"
+   ],
+   "mana": 1.2,
+   "effects": {
+    "freezeChance": [
+     15,
+     1
+    ],
+    "chillEffect": [
+     15,
+     1
+    ]
+   },
+   "text": "+{freezeChance}% chance to freeze, +{chillEffect}% chill effect."
+  },
+  "overcharge": {
+   "name": "Overcharge",
+   "requires": [
+    "lightning"
+   ],
+   "mana": 1.2,
+   "effects": {
+    "shockChance": [
+     25,
+     2
+    ],
+    "shockEffect": [
+     12,
+     1
+    ]
+   },
+   "text": "+{shockChance}% chance to shock, +{shockEffect}% shock effect."
+  },
+  "addedfire": {
+   "name": "Added Fire",
+   "requires": [
+    "spell",
+    "hit"
+   ],
+   "mana": 1.2,
+   "effects": {
+    "addFire": [
+     4,
+     2.6
+    ]
+   },
+   "text": "Adds {addFire} fire damage to each hit."
+  },
+  "addedcold": {
+   "name": "Added Cold",
+   "requires": [
+    "spell",
+    "hit"
+   ],
+   "mana": 1.2,
+   "effects": {
+    "addCold": [
+     4,
+     2.6
+    ]
+   },
+   "text": "Adds {addCold} cold damage to each hit."
+  },
+  "addedlight": {
+   "name": "Added Lightning",
+   "requires": [
+    "spell",
+    "hit"
+   ],
+   "mana": 1.2,
+   "effects": {
+    "addLight": [
+     4,
+     2.6
+    ]
+   },
+   "text": "Adds {addLight} lightning damage to each hit."
+  },
+  "echo": {
+   "name": "Spell Echo",
+   "requires": [
+    "spell",
+    "hit"
+   ],
+   "mana": 1.6,
+   "effects": {
+    "echo": [
+     1,
+     0
+    ],
+    "more": [
+     -15,
+     1
+    ]
+   },
+   "text": "The spell is cast a second time right after. {more}% less damage."
+  },
+  "quick": {
+   "name": "Quick Cast",
+   "requires": [
+    "spell"
+   ],
+   "mana": 1.2,
+   "effects": {
+    "castSpeed": [
+     25,
+     1.5
+    ]
+   },
+   "text": "{castSpeed}% faster casting."
+  },
+  "efficiency": {
+   "name": "Efficiency",
+   "requires": [],
+   "mana": 1,
+   "effects": {
+    "manaLess": [
+     25,
+     1.5
+    ]
+   },
+   "text": "{manaLess}% lower mana cost."
+  },
+  "lingering": {
+   "name": "Lingering",
+   "requires": [
+    "duration"
+   ],
+   "mana": 1.2,
+   "effects": {
+    "duration": [
+     40,
+     4
+    ]
+   },
+   "text": "Buffs, burn, chill and shock from this skill last {duration}% longer."
+  }
+ }
+}
