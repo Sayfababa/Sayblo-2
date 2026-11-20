@@ -10,30 +10,87 @@
     "imp",
     "wraith"
    ],
-   "ground": "ground-gallows-field.jpg",
+   "ground": "ground-gallows-base.jpg",
    "decor": [
     [
-     "grass",
-     0.08
+     "gf-deadtree",
+     0.01
     ],
     [
-     "rock",
+     "gf-thorn",
      0.03
     ],
     [
-     "tree",
-     0.035
-    ],
-    [
-     "grave",
+     "gf-stone",
      0.006
     ],
     [
-     "torch",
+     "gf-cross",
      0.006
     ],
     [
-     "gallows",
+     "gf-bones",
+     0.005
+    ],
+    [
+     "gf-gibbet",
+     0.0009
+    ],
+    [
+     "gf-gallows",
+     0.0009
+    ],
+    [
+     "gf-scarecrow",
+     0.0008
+    ],
+    [
+     "gf-cart",
+     0.0008
+    ],
+    [
+     "gf-well",
+     0.0005
+    ]
+   ],
+   "path": "ground-gallows-path.jpg",
+   "pathDecor": [
+    [
+     "gf-lantern",
+     0.05
+    ],
+    [
+     "gf-fence",
+     0.08
+    ],
+    [
+     "gf-bones",
+     0.01
+    ]
+   ],
+   "decals": [
+    [
+     "decal-grass",
+     0.025
+    ],
+    [
+     "decal-leaves",
+     0.03
+    ],
+    [
+     "decal-puddle",
+     0.012
+    ],
+    [
+     "decal-cracks",
+     0.01
+    ],
+    [
+     "decal-ash",
+     0.005
+    ],
+    [
+     "decal-blood",
      0.003
     ]
    ]
@@ -274,6 +331,110 @@
     [
      "gallows",
      104
+    ]
+   ]
+  },
+  "gf-gallows": {
+   "variants": [
+    [
+     "gf-gallows",
+     150
+    ]
+   ]
+  },
+  "gf-lantern": {
+   "variants": [
+    [
+     "gf-lantern",
+     125
+    ]
+   ],
+   "light": {
+    "x": 0.35,
+    "y": 0.67,
+    "radius": 55,
+    "color": "#ffb060",
+    "alpha": 0.45,
+    "flicker": 0.07
+   }
+  },
+  "gf-gibbet": {
+   "variants": [
+    [
+     "gf-gibbet",
+     140
+    ]
+   ]
+  },
+  "gf-deadtree": {
+   "variants": [
+    [
+     "gf-deadtree",
+     165
+    ]
+   ]
+  },
+  "gf-fence": {
+   "variants": [
+    [
+     "gf-fence",
+     46
+    ]
+   ]
+  },
+  "gf-cross": {
+   "variants": [
+    [
+     "gf-cross",
+     56
+    ]
+   ]
+  },
+  "gf-stone": {
+   "variants": [
+    [
+     "gf-stone",
+     44
+    ]
+   ]
+  },
+  "gf-bones": {
+   "variants": [
+    [
+     "gf-bones",
+     24
+    ]
+   ]
+  },
+  "gf-thorn": {
+   "variants": [
+    [
+     "gf-thorn",
+     48
+    ]
+   ]
+  },
+  "gf-cart": {
+   "variants": [
+    [
+     "gf-cart",
+     50
+    ]
+   ]
+  },
+  "gf-scarecrow": {
+   "variants": [
+    [
+     "gf-scarecrow",
+     92
+    ]
+   ]
+  },
+  "gf-well": {
+   "variants": [
+    [
+     "gf-well",
+     68
     ]
    ]
   }

@@ -51,17 +51,29 @@ UI_SHEETS = {
     "gems-element": (3, 2, ["gem-searingburn", "gem-addedfire", "gem-deepfreeze", "gem-addedcold", "gem-overcharge", "gem-addedlight"]),
     "gems-general": (4, 3, ["gem-multi", "gem-pierce", "gem-fork", "gem-wider", "gem-concentrated", "gem-chains",
                             "gem-spread", "gem-echo", "gem-quick", "gem-efficiency", "gem-lingering", None]),
+    # Gallows Field, realistic set (docs/ui-assets.md section 7)
+    "ground-decals": (3, 2, ["decal-puddle", "decal-ash", "decal-blood", "decal-leaves", "decal-cracks", "decal-grass"]),
 }
-MAGENTA = {"gems-general"}
+MAGENTA = {"gems-general", "props-gallows", "ground-decals"}
+# realistic sheets: brown and grey only, so every trace of magenta can go (no pink fringe on thorns and decal edges)
+MAGENTA_STRONG = {"props-gallows", "ground-decals"}
 # Sheets whose pieces do not sit on an even grid: name -> [(sprite, (x0, y0, x1, y1) as fractions of the sheet)]
 UI_BOXES = {
     "ui-hud": [("ui-console", (0, 0, .65, .5)), ("ui-orbmount", (.65, 0, 1, .5)),
                ("ui-trough", (0, .5, .65, 1)), ("ui-arch", (.65, .5, 1, 1))],
+    # rows are uneven: the first row reaches far down (tree roots, gallows feet)
+    "props-gallows": [(n, (c * .25, y0, c * .25 + .25, y1)) for row, (y0, y1) in enumerate([(0, .395), (.395, .67), (.67, 1)])
+                      for c, n in enumerate([["gf-gallows", "gf-lantern", "gf-gibbet", "gf-deadtree"],
+                                             ["gf-fence", "gf-cross", "gf-stone", "gf-bones"],
+                                             ["gf-thorn", "gf-cart", "gf-scarecrow", "gf-well"]][row])],
 }
 # longest side after trimming; anything not listed keeps at most 320 px
 UI_SIDE = {"ui-console": 640, "ui-trough": 520, "ui-orbmount": 256, "ui-arch": 320, "ui-panel": 360, "ui-well": 300, "ui-tipframe": 300, "ui-eqslot": 240, "ui-header": 400, "ui-divider": 400,
            "ui-close": 128, "ui-btn-sq": 128, "ui-node": 192, "ui-node-round": 192, "ui-socket": 160, "ui-socket-locked": 160,
            "ui-badge": 96, "ui-chevron": 128, "ui-corner": 192}
+UI_SIDE.update({n: 320 for n in ["gf-gallows", "gf-gibbet", "gf-deadtree", "gf-lantern"]})
+UI_SIDE.update({n: 256 for n in ["gf-fence", "gf-cross", "gf-stone", "gf-bones", "gf-thorn", "gf-cart", "gf-scarecrow", "gf-well"]})
+UI_SIDE.update({n: 256 for n in ["decal-puddle", "decal-ash", "decal-blood", "decal-leaves", "decal-cracks", "decal-grass"]})
 UI_SMALL = ("glyph-", "ic-", "gem-")  # 96 px icons
 MAX_H = {"vesper": 384}
 MAX_SIDE = {n: 128 for n in ["icon-fireball", "icon-meteor", "icon-frostbolt", "icon-frostarmor", "icon-chain", "icon-nova", "icon-spark"]}
@@ -92,6 +104,35 @@ def key_magenta(img):
     b2 = np.where(m > g, b - (b - g) * k * 0.6, b)
     out = np.dstack([r2, g, b2, alpha * 255]).clip(0, 255).astype(np.uint8)
     return Image.fromarray(out, "RGBA")
+
+
+def key_magenta_strong(img):
+    """The screen is magenta in every brightness (shaded near objects), so key on hue, not on value.
+    The art is brown and grey: any blue-and-red-over-green is screen."""
+    a = np.asarray(img.convert("RGB")).astype(np.float32)
+    r, g, b = a[..., 0], a[..., 1], a[..., 2]
+    ex = np.clip(np.minimum(r, b) - g, 0, None)          # magenta part of the colour
+    ratio = ex / np.maximum(np.maximum(r, b), 1)
+    alpha = 1 - np.clip((ratio - 0.06) / 0.3, 0, 1)
+    out = np.dstack([r - ex, g, b - ex, alpha * 255]).clip(0, 255).astype(np.uint8)
+    return Image.fromarray(out, "RGBA")
+
+
+def despill_red(cell):
+    """Pink edge pixels on brown art: clamp red and blue to what a brown or grey can have and fade the rest out."""
+    a = np.asarray(cell).astype(np.float32)
+    r, g, b, al = a[..., 0], a[..., 1], a[..., 2], a[..., 3]
+    rmax, bmax = g * 1.45 + 14, g * 1.1 + 10
+    over = np.clip(r - rmax, 0, None) + np.clip(b - bmax, 0, None)
+    al = al * (1 - np.clip(over / 90, 0, 1))
+    out = np.dstack([np.minimum(r, rmax), g, np.minimum(b, bmax), al]).clip(0, 255).astype(np.uint8)
+    return Image.fromarray(out, "RGBA")
+
+
+def key_for(sheet, img):
+    if sheet in MAGENTA_STRONG:
+        return key_magenta_strong(img)
+    return key_magenta(img) if sheet in MAGENTA else key_green(img)
 
 
 def cut_cells(img, cols, rows, names):
@@ -137,7 +178,9 @@ def slice_ui():
         if not src.exists():
             print("missing sheet (skipped):", src.name)
             continue
-        for name, cell in cut_boxes(key_green(Image.open(src)), boxes):
+        for name, cell in cut_boxes(key_for(sheet, Image.open(src)), boxes):
+            if sheet in MAGENTA_STRONG:
+                cell = despill_red(cell)
             cell = fit(cell, UI_SIDE.get(name, 320))
             cell.save(OUT / f"{name}.png", optimize=True)
             print(name, cell.size)
@@ -147,8 +190,10 @@ def slice_ui():
             print("missing sheet (skipped):", src.name)
             continue
         img = Image.open(src)
-        img = key_magenta(img) if sheet in MAGENTA else key_green(img)
+        img = key_for(sheet, img)
         for name, cell in cut_cells(img, cols, rows, names):
+            if sheet in MAGENTA_STRONG and name != "decal-blood":
+                cell = despill_red(cell)
             if name.startswith("icon-"):
                 cell = cell.resize((128, 128), Image.LANCZOS)
             elif name.startswith(UI_SMALL):
@@ -307,8 +352,12 @@ def main():
         m = 14
         tile = sheet.crop((round(c * cw) + m, round(r * ch) + m, round((c + 1) * cw) - m, round((r + 1) * ch) - m)).resize((512, 512), Image.LANCZOS)
         save_seamless(tile, OUT / f"{name}.jpg", shade.get(name, .85))
-    g = Image.open(ROOT / "assets" / "sheets" / "ground-gallows-field.png").convert("RGB").resize((512, 512), Image.LANCZOS)
-    g.save(OUT / "ground-gallows-field.jpg", quality=85)
+    # realistic Gallows Field: painted tiles are already seamless, keep more pixels so mipmaps stay crisp
+    for name, sh in [("ground-gallows-base", .72), ("ground-gallows-path", 1.35)]:
+        src = ROOT / "assets" / "sheets" / f"{name}.png"
+        if src.exists():
+            g = Image.open(src).convert("RGB").resize((1024, 1024), Image.LANCZOS)
+            Image.fromarray((np.asarray(g).astype(np.float32) * sh).clip(0, 255).astype(np.uint8)).save(OUT / f"{name}.jpg", quality=86)
     make_app_icons()
     slice_hero()
     slice_ui()
@@ -318,7 +367,7 @@ def main():
     MIRROR.mkdir(parents=True, exist_ok=True)
     for f in OUT.iterdir():
         # the old demo only needs the scene sprites, not the new interface pieces
-        if f.name.startswith(("ui-", "glyph-", "ic-", "gem-")) or "-tall" in f.name:
+        if f.name.startswith(("ui-", "glyph-", "ic-", "gem-", "gf-", "decal-", "ground-gallows-")) or "-tall" in f.name:
             continue
         shutil.copy2(f, MIRROR / f.name)
 

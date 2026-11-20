@@ -50,8 +50,10 @@ export interface MonsterDef {
 export interface RankDef { name: string; hp: number; dmg: number; xp: number; gold: number; size: number; color: string }
 export interface EliteModDef { attackTime?: number; moveSpeed?: number; wardPct?: number; vampPct?: number; ownResAdd?: number; dmg?: number }
 
-export interface AreaDef { id: string; name: string; level: number; waves: number; pool: string[]; boss?: string; ground: string; groundPulse?: boolean; decor: [string, number][] }
-export interface PropDef { variants: [string, number][]; noFlip?: boolean; light?: { y: number; radius: number; color: string; alpha: number; flicker?: number } }
+export interface AreaDef { id: string; name: string; level: number; waves: number; pool: string[]; boss?: string; ground: string; groundPulse?: boolean; decor: [string, number][];
+  /** optional winding path texture blended over the ground, props along its edges, flat decals lying on the ground */
+  path?: string; pathDecor?: [string, number][]; decals?: [string, number][] }
+export interface PropDef { variants: [string, number][]; noFlip?: boolean; light?: { x?: number; y: number; radius: number; color: string; alpha: number; flicker?: number } }
 
 export interface AffixDef { group: 'prefix' | 'suffix'; name: string; text: string; percent: boolean; base: number; perLevel: number; weight: number; decimals?: number; slots?: Slot[]; minLevel?: number; rare?: number }
 export type Slot = 'weapon' | 'helm' | 'armor' | 'amulet' | 'ring';

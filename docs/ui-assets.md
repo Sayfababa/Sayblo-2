@@ -239,3 +239,5 @@ Die Laterne bewusst **nicht** leuchtend generieren, das Licht kommt aus dem Code
 - Alte Deko der ersten Karte (`rock`, `tree`, `grave`, `torch`, `gallows`, Gras) raus, neue Props mit Gruppen-Logik verteilen: Laternenpfähle als Reihe entlang des Wegs, Galgen und Käfige als kleine Szenen auf Lichtungen, Zäune in Reihen.
 - Weg-Textur über eine weiche Rauschmaske einblenden, Decals einzeln drüberstreuen.
 - Laternen bekommen flackerndes Licht im Dunkel.
+
+**Stand:** eingebaut. `props-gallows` wird über feste Bereiche geschnitten (Reihen ungleich hoch), Magenta-Key nach Farbton (`key_magenta_strong`, `despill_red`). Weg = Rauschlinie (`pathD`/`pathW` in `scene.ts`) mit weicher Maske, Laternen/Zäune am Wegrand (`pathDecor`), Decals flach im Boden (`decals`). Zoom 0.75.

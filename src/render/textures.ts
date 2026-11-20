@@ -15,7 +15,11 @@ export function spriteFiles(): string[] {
   for (const p of Object.values(PROPS)) for (const [n] of p.variants) files.add(n + '.png');
   for (const i of [...Object.values(BASE_ICON), 'gold', 'potion-hp', 'potion-mp']) files.add(`item-${i}.png`);
   for (const f of FX_NAMES) files.add(`fx-${f}.jpg`);
-  for (const a of AREAS) files.add(a.ground);
+  for (const a of AREAS) {
+    files.add(a.ground);
+    if (a.path) files.add(a.path);
+    for (const [d] of a.decals ?? []) files.add(d + '.png');
+  }
   for (const id of Object.keys(SKILLS)) files.add(`icon-${id}.png`);
   for (const f of ['orb-frame-life.png', 'orb-frame-mana.png', 'orb-glass.png', 'orb-globe.png', 'liquid-life.jpg', 'liquid-mana.jpg']) files.add(f);
   return [...files];

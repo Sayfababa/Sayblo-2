@@ -24,7 +24,7 @@ const RING: Record<Element, string> = { fire: 'fx-fire-ring.jpg', cold: 'fx-fros
 const FONT_BODY = '"Alegreya Sans", "Segoe UI", system-ui, sans-serif';
 const FONT_DISPLAY = 'Cinzel, Georgia, serif';
 /** World zoom: < 1 shows more of the map. Text keeps its own size (see V.kt). */
-const ZOOM = 0.62;
+const ZOOM = 0.75;
 /** How dark the map is outside every light (0 = no darkness, 1 = black). */
 const AMBIENT_DARK = 0.66;
 /** Light radius of the hero in tile widths: fully lit core and where the light ends. */
@@ -34,7 +34,7 @@ const DARK_RES = 0.5;
 /** Map tiles covered by one ground texture; larger = coarser, calmer ground. */
 const GROUND_TILES = 9;
 /** Props that grow in groups instead of evenly. */
-const CLUSTERED = new Set(['tree', 'rock', 'grave', 'reed', 'pillar', 'crystal']);
+const CLUSTERED = new Set(['tree', 'rock', 'grave', 'reed', 'pillar', 'crystal', 'gf-deadtree', 'gf-thorn', 'gf-stone', 'gf-cross']);
 
 /** A layer whose children are drawn in the order they are requested each frame. */
 class Layer {
@@ -109,6 +109,13 @@ export class Scene {
   private groundTile: TilingSprite | null = null;
   private groundPulse: TilingSprite | null = null;
   private groundZone = -1;
+  /** winding path: a second ground texture shown through a soft mask (one canvas pixel per half tile) */
+  private pathTile: TilingSprite | null = null;
+  private pathMask: Sprite | null = null;
+  private pathCanvas: HTMLCanvasElement | null = null;
+  private pathKey = '';
+  private decalC = new Container();
+  private decals: Sprite[] = [];
   private world = new Layer();
   /** Darkness: a black layer with soft holes cut out (erase blend) at the hero and every light. */
   private darkC = new Container();
@@ -143,7 +150,7 @@ export class Scene {
     this.darkFill.tint = 0x050304;
     this.darkC.addChild(this.darkFill);
     // colour grading: the painted ground and props are greener and brighter than the mood wants
-    this.grade.ground.saturate(-0.35); this.grade.ground.brightness(0.82, true); this.grade.ground.contrast(-0.25, true);
+    this.grade.ground.saturate(-0.25); this.grade.ground.brightness(0.85, true); this.grade.ground.contrast(-0.1, true);
     this.grade.world.saturate(-0.2); this.grade.world.brightness(0.9, true);
     this.groundC.filters = [this.grade.ground];
     this.world.c.filters = [this.grade.world];
@@ -216,6 +223,11 @@ export class Scene {
     const a = this.hash(ix, iy, s), b = this.hash(ix + 1, iy, s), c = this.hash(ix, iy + 1, s), d = this.hash(ix + 1, iy + 1, s);
     return lerp(lerp(a, b, sx), lerp(c, d, sx), sy);
   }
+
+  /** Distance from the middle of the winding path in noise units: 0 on the path centre line. */
+  private pathD(x: number, y: number) { return Math.abs(this.noise(x, y, 18, 33) - 0.5); }
+  /** 1 on the path, fading to 0 at its edges. */
+  private pathW(x: number, y: number) { const d = this.pathD(x, y); return 1 - clamp((d - 0.028) / 0.035, 0, 1); }
 
   /** Additive light; `flat` < 1 squashes it into an ellipse lying on the ground. */
   private light(x: number, y: number, r: number, c: string, a: number, flat = 1) { this.lights.push({ x, y, r, c, a, flat }); }
@@ -316,8 +328,14 @@ export class Scene {
       const dv = this.hash(tx, ty, 9);
       // groves and clearings: trees, rocks and graves gather where the noise is high
       const grove = this.noise(tx, ty, 8, 21), cluster = 0.05 + 4 * grove * grove * grove;
-      let acc = 0;
-      for (const [type, p] of area.decor) {
+      let acc = 0, decor = area.decor;
+      if (area.path) {
+        // keep the path clear; lanterns and fences line its edges
+        const pd = this.pathD(tx + 0.5, ty + 0.5);
+        if (pd < 0.07) continue;
+        if (pd < 0.088 && area.pathDecor) decor = area.pathDecor;
+      }
+      for (const [type, p] of decor) {
         acc += CLUSTERED.has(type) ? p * cluster : p;
         if (dv < acc) {
           if (type === 'grass') break; // the painted ground already has grass
@@ -363,12 +381,13 @@ export class Scene {
 
   private drawGround(sim: Sim, x0: number, y0: number, x1: number, y1: number) {
     const V = this.V, area = AREAS[sim.s.zone];
+    const mip = (t: Texture) => { t.source.autoGenerateMipmaps = true; t.source.updateMipmaps?.(); return t; };
     if (this.groundZone !== sim.s.zone) {
       this.groundZone = sim.s.zone;
-      this.groundC.removeChildren().forEach(c => c.destroy());
-      const t = tex(area.ground);
+      this.groundC.removeChildren().forEach(c => { if (c !== this.decalC) c.destroy(); });
+      this.decals.forEach(d => d.destroy()); this.decals = [];
       // mipmaps keep the zoomed-out ground from shimmering into fine grain
-      t.source.autoGenerateMipmaps = true; t.source.updateMipmaps?.();
+      const t = mip(tex(area.ground));
       this.groundTile = new TilingSprite({ texture: t, width: 1, height: 1 });
       this.groundC.addChild(this.groundTile);
       this.groundPulse = null;
@@ -377,15 +396,63 @@ export class Scene {
         this.groundPulse.blendMode = 'add';
         this.groundC.addChild(this.groundPulse);
       }
+      this.pathTile = null; this.pathMask = null; this.pathKey = '';
+      if (area.path) {
+        this.pathCanvas ??= document.createElement('canvas');
+        this.pathTile = new TilingSprite({ texture: mip(tex(area.path)), width: 1, height: 1 });
+        this.pathMask = new Sprite(Texture.from(this.pathCanvas));
+        this.pathTile.mask = this.pathMask;
+        this.groundC.addChild(this.pathTile, this.pathMask);
+      }
+      this.groundC.addChild(this.decalC);
     }
     this.groundC.setFromMatrix(new Matrix(V.tw / 2, V.th / 2, -V.tw / 2, V.th / 2, V.ox, V.oy));
-    for (const g of [this.groundTile, this.groundPulse]) {
+    for (const g of [this.groundTile, this.groundPulse, this.pathTile]) {
       if (!g) continue;
       const size = g.texture.width || 512;
       g.position.set(x0, y0); g.width = x1 - x0 + 1; g.height = y1 - y0 + 1;
       g.tileScale.set(GROUND_TILES / size); g.tilePosition.set(-x0, -y0);
     }
     if (this.groundPulse) this.groundPulse.alpha = 0.1 + Math.sin(this.time * 1.7) * 0.07;
+    if (this.pathTile && this.pathMask && this.pathCanvas) {
+      const key = `${x0},${y0},${x1},${y1}`;
+      if (key !== this.pathKey) {
+        this.pathKey = key;
+        const R = 2, cw = (x1 - x0 + 2) * R, ch = (y1 - y0 + 2) * R, cv = this.pathCanvas;
+        if (cv.width !== cw || cv.height !== ch) { cv.width = cw; cv.height = ch; }
+        const ctx = cv.getContext('2d')!, img = ctx.createImageData(cw, ch);
+        for (let j = 0; j < ch; j++) for (let i = 0; i < cw; i++) {
+          const a = Math.round(this.pathW(x0 + (i + 0.5) / R, y0 + (j + 0.5) / R) * 255), o = (j * cw + i) * 4;
+          img.data[o] = img.data[o + 1] = img.data[o + 2] = 255; img.data[o + 3] = a;
+        }
+        ctx.putImageData(img, 0, 0);
+        this.pathMask.texture.source.resize(cw, ch);
+        this.pathMask.texture.source.update();
+        this.pathMask.position.set(x0, y0); this.pathMask.scale.set(1 / R);
+      }
+    }
+    // flat decals (puddles, ash, leaves) lying on the ground, drawn in ground space so they tilt with it
+    let n = 0;
+    const list = area.decals;
+    if (list) {
+      for (let tx = x0; tx <= x1; tx++) for (let ty = y0; ty <= y1; ty++) {
+        const dv = this.hash(tx, ty, 41);
+        let acc = 0;
+        for (const [name, p] of list) {
+          acc += p;
+          if (dv >= acc) continue;
+          const v = this.hash(tx, ty, 42), t = tex(name + '.png');
+          const s = this.decals[n] ?? (this.decals[n] = this.decalC.addChild(new Sprite()));
+          s.texture = t; s.visible = true; s.anchor.set(0.5);
+          const size = 1.4 + v * 1.6;
+          s.position.set(tx + 0.5, ty + 0.5); s.width = size; s.height = size * t.height / t.width;
+          s.rotation = this.hash(tx, ty, 43) * Math.PI * 2; s.alpha = 0.75; s.tint = 0xa8a8a8;
+          n++;
+          break;
+        }
+      }
+    }
+    for (let i = n; i < this.decals.length; i++) this.decals[i].visible = false;
   }
 
   private drawDecor(type: string, px: number, py: number, v: number, front: boolean) {
@@ -394,10 +461,11 @@ export class Scene {
       const [n, hh] = P.variants[Math.floor(v * P.variants.length) % P.variants.length];
       const t = tex(n + '.png');
       const H = hh * k * (0.9 + v * 0.25), w = t.width * H / t.height;
-      this.shadow(px, py, w * 0.42, w * 0.16, 0.4);
+      const sw = Math.min(w, 70 * k);
+      this.shadow(px, py, sw * 0.42, sw * 0.16, 0.35);
       this.figure(n + '.png', px, py, H, -1, { flip: !P.noFlip && v > 0.5, alpha: front ? 0.45 : 1 });
       const L = P.light;
-      if (L) this.light(px, py - H * L.y, L.radius * k, L.color, L.alpha + (L.flicker ? Math.sin(this.time * 13 + v * 9) * L.flicker : 0));
+      if (L) this.light(px + (L.x ?? 0) * w * (!P.noFlip && v > 0.5 ? -1 : 1), py - H * L.y, L.radius * k, L.color, L.alpha + (L.flicker ? Math.sin(this.time * 13 + v * 9) * L.flicker : 0));
       return;
     }
     const g = this.world.graphics();
