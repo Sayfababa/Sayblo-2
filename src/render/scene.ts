@@ -87,7 +87,7 @@ class Layer {
 interface MonView { ph: number; hitT: number; lunge: number; deadT: number; dead: boolean; m: Monster; x: number; y: number }
 interface Fx { k: 'burst' | 'ring' | 'bolt'; t: number; dur: number; e: SimEvent; seed: number }
 interface Float { x: number; y: number; text: string; col: string; big?: boolean; t: number }
-interface Light { x: number; y: number; r: number; c: string; a: number }
+interface Light { x: number; y: number; r: number; c: string; a: number; flat: number }
 
 export interface ViewInfo { /** width covered by the menu sheet on the right (desktop) */ sheetW: number }
 
@@ -159,11 +159,12 @@ export class Scene {
     const v = Math.sin(x * 127.1 + y * 311.7 + s * 74.7 + this.zone * 17.3) * 43758.5453;
     return v - Math.floor(v);
   }
-  private light(x: number, y: number, r: number, c: string, a: number) { this.lights.push({ x, y, r, c, a }); }
+  /** Additive light; `flat` < 1 squashes it into an ellipse lying on the ground. */
+  private light(x: number, y: number, r: number, c: string, a: number, flat = 1) { this.lights.push({ x, y, r, c, a, flat }); }
 
-  private glow(layer: Layer, x: number, y: number, r: number, col: string, a: number) {
+  private glow(layer: Layer, x: number, y: number, r: number, col: string, a: number, flat = 1) {
     const s = layer.sprite(glowTexture(), true);
-    s.position.set(x, y); s.width = s.height = r * 2; s.tint = col; s.alpha = clamp(a, 0, 1);
+    s.position.set(x, y); s.width = r * 2; s.height = r * 2 * flat; s.tint = col; s.alpha = clamp(a, 0, 1);
   }
   private shadow(x: number, y: number, rx: number, ry: number, a: number) {
     const s = this.world.sprite(discTexture());
@@ -287,7 +288,7 @@ export class Scene {
     this.dark.position.set(dhx, dhy - 20 * k); this.dark.width = this.dark.height = half * 2;
 
     // lights and spells (additive)
-    for (const L of this.lights) this.glow(this.lightL, L.x, L.y, L.r, L.c, L.a);
+    for (const L of this.lights) this.glow(this.lightL, L.x, L.y, L.r, L.c, L.a, L.flat);
     this.drawSpells(sim, alpha);
     for (const v of this.mons.values()) {
       const a = this.anchors.get(v.m.id);
@@ -348,17 +349,26 @@ export class Scene {
     }
   }
 
+  /** Staff crystal of every hero pose: x from the feet and height, in sprite heights (printed by tools/slice_sheets.py). */
+  private static readonly STAFF_TIP: Record<string, [number, number]> = {
+    'hero-idle': [-0.11, 0.81], 'hero-cast': [0.005, 0.95], 'hero-walk1': [0.21, 0.73], 'hero-walk2': [0.22, 0.66],
+  };
+
   private drawHero(sim: Sim, px: number, py: number) {
     const k = this.V.k, H0 = sim.hero, hv = this.hero, f = H0.f;
     const bob = H0.walking ? Math.abs(Math.sin(hv.anim * 10)) * 1.5 * k : 0;
     const fr = hv.castA > 0 ? 'hero-cast' : H0.walking ? (Math.floor(hv.anim * 5) % 2 ? 'hero-walk1' : 'hero-walk2') : 'hero-idle';
-    const H = 88 * k, armor = (sim.buffs.frostarmor ?? 0) > 0;
+    // all poses share one canvas that also holds the raised staff, so the body is ~75 % of it
+    const H = 104 * k, armor = (sim.buffs.frostarmor ?? 0) > 0;
     if (armor) this.world.graphics().ellipse(px, py, 18 * k, 8 * k).stroke({ width: 1.5 * k, color: '#a6dcf0', alpha: 0.55 });
     this.shadow(px, py, 15 * k, 6 * k, 0.5);
     this.figure(fr + '.png', px, py - bob * 1.5, H, 0, { flip: f < 0, flash: hv.hit / 0.15, fs: 0.3, sy: H0.walking ? 1 : 1 + Math.sin(hv.anim * 2.2) * 0.012 });
     const casting = hv.castA > 0;
-    this.light(px + f * H * 0.18, py - H * (casting ? 0.95 : 0.72), (casting ? 80 : 40) * k, casting ? ELC[hv.orb] : '#a36bff', casting ? 0.6 : 0.35);
-    if (armor) this.light(px, py - H * 0.5, 45 * k, '#8fd8ff', 0.18);
+    const [tx, ty] = Scene.STAFF_TIP[fr];
+    this.light(px + f * H * tx, py - bob * 1.5 - H * ty, (casting ? 80 : 22) * k, casting ? ELC[hv.orb] : '#a36bff', casting ? 0.6 : 0.3);
+    if (armor) this.light(px, py - H * 0.35, 40 * k, '#8fd8ff', 0.08);
+    // small warm light radius around her feet keeps the dark figure readable on dark ground
+    this.light(px, py + 2 * k, 75 * k, '#ffd9a8', 0.16, 0.45);
   }
 
   private drawMon(v: MonView, px: number, py: number) {

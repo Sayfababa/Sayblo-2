@@ -19,7 +19,6 @@ SHEETS = {
     "monsters": (4, 3, ["imp", "wraith", "beetle", "hound",
                         "cultist", "crow", "husk", "shade",
                         "ghoul", "vesper", None, None]),
-    "hero": (4, 1, ["hero-idle", "hero-cast", "hero-walk1", "hero-walk2"]),
     "props": (4, 3, ["rock", "rocks", "tree", "stump",
                      "torch", "grave", "pillar", "pillar-broken",
                      "candelabra", "reeds", "crystal", "gallows"]),
@@ -162,6 +161,38 @@ def slice_ui():
                 PLACEHOLDER_ICONS.pop(name[5:], None)
 
 
+def slice_hero():
+    """All poses share one scale and one foot point (bottom centre of the canvas), so switching
+    between idle, cast and walk does not make the heroine jump or shrink. Prints the staff tip
+    of every pose (as a fraction of the canvas height, x from the feet) for src/render/scene.ts."""
+    names = ["hero-idle", "hero-cast", "hero-walk1", "hero-walk2"]
+    cells = dict(cut_cells(key_green(Image.open(ROOT / "assets" / "sheets" / "hero.png")), 4, 1, names))
+    feet = {}
+    for n, c in cells.items():
+        a = np.asarray(c)[..., 3] > 128
+        # horizontal centre of the body: median of the opaque pixels between shoulders and ankles
+        # (the robe dominates, the thin staff hardly moves the median)
+        band = a[int(c.height * 0.3):int(c.height * 0.95)]
+        feet[n] = float(np.median(np.where(band)[1]))
+    hmax = max(c.height for c in cells.values())
+    half = max(max(feet[n], c.width - feet[n]) for n, c in cells.items())
+    W = int(np.ceil(half * 2))
+    f = 256 / hmax
+    for n, c in cells.items():
+        canvas = Image.new("RGBA", (W, hmax), (0, 0, 0, 0))
+        canvas.paste(c, (round(W / 2 - feet[n]), hmax - c.height), c)
+        # staff crystal: violet pixels
+        a = np.asarray(canvas).astype(np.float32)
+        r, g, b, al = a[..., 0], a[..., 1], a[..., 2], a[..., 3]
+        m = (al > 128) & (b > g + 25) & (r > g + 10) & (b > 70)
+        ys, xs = np.where(m)
+        top = ys < ys.min() + hmax * 0.08 if len(ys) else None
+        tip = (round((xs[top].mean() - W / 2) / hmax, 3), round(1 - ys[top].mean() / hmax, 3)) if len(ys) else None
+        out = canvas.resize((round(W * f), 256), Image.LANCZOS)
+        out.save(OUT / f"{n}.png", optimize=True)
+        print(n, out.size, "staff tip (x, height) in canvas heights:", tip)
+
+
 def make_tall_weapons():
     """Staffs lie diagonally in their icon. For the 1x3 bag cell and the weapon slot they are turned upright."""
     cols, rows, names = SHEETS["items"]
@@ -279,6 +310,7 @@ def main():
     g = Image.open(ROOT / "assets" / "sheets" / "ground-gallows-field.png").convert("RGB").resize((512, 512), Image.LANCZOS)
     g.save(OUT / "ground-gallows-field.jpg", quality=85)
     make_app_icons()
+    slice_hero()
     slice_ui()
     make_tall_weapons()
     make_stone_texture()
