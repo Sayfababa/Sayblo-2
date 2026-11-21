@@ -24,7 +24,7 @@
       "melee": true,
       "reach": 1.9,
       "furyPerSwing": 3,
-      "sprite": null,
+      "sprite": "warrior",
       "attributes": {
         "power": { "name": "Power", "description": "+1% attack damage" },
         "focus": { "name": "Focus", "description": "+1% attack speed, +0.4% crit" },

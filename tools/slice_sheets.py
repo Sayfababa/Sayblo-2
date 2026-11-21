@@ -193,6 +193,28 @@ def cut_boxes(img, boxes):
         yield name, cell.crop((xs.min(), ys.min(), xs.max() + 1, ys.max() + 1))
 
 
+# Framed square icons on magenta: the key only finds the frame; everything inside the frame is taken
+# from the original picture, fully opaque (violet lightning is close to magenta and would get holes).
+FRAMED = {"skill-icons-3", "skill-icons-cinder", "skill-icons-rime", "skill-icons-thunder"}
+
+
+def cut_framed(src, cols, rows, names):
+    orig = Image.open(src).convert("RGB")
+    keyed = np.asarray(key_magenta(orig))[..., 3] > 128
+    cw, ch = orig.width / cols, orig.height / rows
+    for i, name in enumerate(names):
+        if not name:
+            continue
+        c, r = i % cols, i // cols
+        x0, y0 = round(c * cw), round(r * ch)
+        a = keyed[y0:round((r + 1) * ch), x0:round((c + 1) * cw)]
+        xs, ys = np.where(a.sum(0) >= a.shape[0] * 0.3)[0], np.where(a.sum(1) >= a.shape[1] * 0.3)[0]
+        if not len(xs) or not len(ys):
+            print("empty", name)
+            continue
+        yield name, orig.crop((x0 + xs.min(), y0 + ys.min(), x0 + xs.max() + 1, y0 + ys.max() + 1)).convert("RGBA")
+
+
 def slice_ui():
     for sheet, boxes in UI_BOXES.items():
         src = ROOT / "assets" / "sheets" / f"{sheet}.png"
@@ -210,9 +232,8 @@ def slice_ui():
         if not src.exists():
             print("missing sheet (skipped):", src.name)
             continue
-        img = Image.open(src)
-        img = key_for(sheet, img)
-        for name, cell in cut_cells(img, cols, rows, names):
+        cells = cut_framed(src, cols, rows, names) if sheet in FRAMED else cut_cells(key_for(sheet, Image.open(src)), cols, rows, names)
+        for name, cell in cells:
             if sheet in MAGENTA_STRONG and name != "decal-blood":
                 cell = despill_red(cell)
             if name.startswith("icon-"):
