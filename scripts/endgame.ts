@@ -9,13 +9,48 @@ import { genItemOf } from '../src/sim/items.ts';
 import { Rng } from '../src/sim/rng.ts';
 import { Sim } from '../src/sim/sim.ts';
 import { newSaveState } from '../src/sim/state.ts';
+import { chooseMod, modChoice, modTierOpen, modTiers } from '../src/sim/skillmods.ts';
 import type { Item, SaveState } from '../src/sim/types.ts';
 
 export const PLANS: Record<string, string[]> = {
-  fire: ['fireball', 'pyromancy', 'frostarmor', 'searing', 'meteor', 'fireball', 'pyromancy', 'kindling'],
-  cold: ['frostbolt', 'coldmastery', 'frostarmor', 'icenova', 'frostbolt', 'coldmastery', 'permafrost'],
-  storm: ['chain', 'conductivity', 'frostarmor', 'nova', 'thunder', 'chain', 'stormmastery'],
+  // order = learning order and cast slots (first four actives); a skill listed n times gets n shares of the points
+  fire: ['fireball', 'pyromancy', 'frostarmor', 'meteor', 'ashenhex', 'searing', 'fireball', 'fireball', 'pyromancy', 'meteor', 'kindling', 'smoulder'],
+  lance: ['flamelance', 'pyromancy', 'frostarmor', 'ashenhex', 'fireball', 'flamelance', 'flamelance', 'pyromancy', 'kindling', 'smoulder'],
+  cold: ['frostbolt', 'coldmastery', 'frostarmor', 'hailstorm', 'icenova', 'rimeshell', 'frostbolt', 'frostbolt', 'coldmastery', 'hailstorm', 'permafrost', 'brittlefrost'],
+  storm: ['chain', 'conductivity', 'stormlantern', 'frostarmor', 'nova', 'stormwisp', 'thunder', 'chain', 'chain', 'conductivity', 'stormmastery', 'capacitor'],
+  // the plans from before the skills package (first six skills per element, even spread), for comparison
+  fire0: ['fireball', 'pyromancy', 'frostarmor', 'searing', 'meteor', 'fireball', 'pyromancy', 'kindling'],
+  cold0: ['frostbolt', 'coldmastery', 'frostarmor', 'icenova', 'frostbolt', 'coldmastery', 'permafrost'],
+  storm0: ['chain', 'conductivity', 'frostarmor', 'nova', 'thunder', 'chain', 'stormmastery'],
 };
+/** Modifier choice per tier (0 = first option, 1 = second) the bots pick; skills not listed take option 0. */
+export const MOD_PICKS: Record<string, Record<string, number[]>> = {
+  fire: { fireball: [0, 0, 1, 0], searing: [0, 0, 0, 1], meteor: [0, 1, 0, 0], ashenhex: [0, 1, 0, 0], frostarmor: [0, 0, 0, 0] },
+  lance: { flamelance: [0, 0, 0, 0], ashenhex: [1, 0, 1, 0] },
+  cold: { frostbolt: [0, 1, 0, 1], icenova: [1, 0, 0, 0], hailstorm: [0, 0, 1, 0], rimeshell: [0, 0, 0, 0] },
+  storm: { chain: [0, 0, 0, 0], nova: [0, 0, 0, 1], stormwisp: [0, 0, 1, 0], thunder: [0, 0, 0, 0], stormlantern: [0, 0, 1, 0] },
+};
+/** Next skill to put a point in: unlearned plan skills first, then by weight (times listed in the plan) per level. */
+export function nextSkill(sim: Sim, plan: string[]): string | undefined {
+  const s = sim.s, w = (k: string) => plan.filter(x => x === k).length;
+  return plan.find(k => !s.skills[k] && sim.canLearn(k))
+    ?? [...new Set(plan)].filter(k => sim.canLearn(k)).sort((a, b) => w(b) / ((s.skills[b] || 0) + 1) - w(a) / ((s.skills[a] || 0) + 1))[0];
+}
+/** Cast slots: the first four learned active skills of the plan, sorted automatically. */
+export function planSlots(sim: Sim, plan: string[]) {
+  const s = sim.s, want = [...new Set(plan)].filter(k => s.skills[k] && !SKILLS[k].kind).slice(0, 4);
+  if (!want.length) return;
+  const have = s.slots.map(x => x.id).filter(Boolean);
+  if (want.every(k => have.includes(k)) && have.length === want.length) return;
+  s.slots = [0, 1, 2, 3].map(i => ({ id: want[i] ?? null, cond: 'always' }));
+  sim.autoOrder();
+}
+/** Let the bot pick every open modifier tier of its learned skills. */
+export function pickMods(sim: Sim, build: string) {
+  const s = sim.s;
+  for (const id of Object.keys(s.skills)) for (let i = 0; i < modTiers(id); i++)
+    if (modTierOpen(s, id, i) && modChoice(s, id, i) < 0 && !chooseMod(s, id, i, MOD_PICKS[build]?.[id]?.[i] ?? 0)) sim.recalc();
+}
 const ATTR_SHARE: [Attr, number][] = [['vit', 0.4], ['power', 0.3], ['focus', 0.2], ['spirit', 0.1]];
 const RES = ['fireRes', 'coldRes', 'lightRes'];
 
@@ -47,10 +82,12 @@ export function endgameSave(build = 'fire', lvl = 60, seed = 1, itemLevel = 60, 
   s.skillPts = lvl;
   const plan = PLANS[build];
   while (s.skillPts > 0) {
-    const id = plan.find(k => !s.skills[k] && sim.canLearn(k)) ?? plan.filter(k => sim.canLearn(k)).sort((a, b) => (s.skills[a] || 0) - (s.skills[b] || 0))[0];
+    const id = nextSkill(sim, plan);
     if (!id) break;
     sim.learnSkill(id);
   }
+  planSlots(sim, plan);
+  pickMods(sim, build);
   // gear: the best of many rares per slot
   const res: Record<string, number> = {};
   for (const slot of SLOTS as Slot[]) {

@@ -2,7 +2,7 @@
  * Headless balancing run: lets a hero play on her own and prints progress.
  * The bot spends points by a build plan, equips better items and sockets fitting gems.
  *
- *   node scripts/simulate.ts [minutes=60] [seed=1] [build=fire|cold|storm]
+ *   node scripts/simulate.ts [minutes=60] [seed=1] [build=fire|lance|cold|storm, or fire0|cold0|storm0 = old six-skill plans]
  *
  * Rifts (work package C), with a generated end-game hero (scripts/endgame.ts, level --level, default 60):
  *   node scripts/simulate.ts 60 1 fire --rift 20         auto mode from a tier 20 key for 60 minutes: keys, tiers, clear times
@@ -19,7 +19,7 @@ import { imprintBlock, imprintCost } from '../src/sim/codex.ts';
 import { UNIQUES, TYRANTS } from '../src/content/index.ts';
 import { isEquip, isGem } from '../src/sim/types.ts';
 import { rollKey, riftHpMult, riftDmgMult, riftLevel } from '../src/sim/rift.ts';
-import { PLANS, endgameSave } from './endgame.ts';
+import { PLANS, endgameSave, nextSkill, pickMods, planSlots } from './endgame.ts';
 
 const args = process.argv.slice(2), flag = (k: string) => { const i = args.indexOf(k); if (i < 0) return null; const v = args[i + 1]; args.splice(i, 2); return v; };
 const riftStart = flag('--rift'), sweep = flag('--sweep'), heroLvl = Number(flag('--level') ?? 60), ref = flag('--ref');
@@ -51,10 +51,12 @@ function spend() {
   let i = 0;
   while (s.attrPts > 0) sim.addAttr(attrOrder[i++ % attrOrder.length]);
   while (s.skillPts > 0) {
-    const id = plan.find(k => !s.skills[k] && sim.canLearn(k)) ?? plan.filter(k => sim.canLearn(k)).sort((a, b) => (s.skills[a] || 0) - (s.skills[b] || 0))[0];
+    const id = nextSkill(sim, plan);
     if (!id) break;
     sim.learnSkill(id);
   }
+  planSlots(sim, plan);
+  pickMods(sim, build.replace(/0$/, '-')); // skill modifiers (old plans "fire0" etc. pick option 0)
   // rift runs keep the generated gear (its resistances matter more than the raw item score)
   if (!riftMode) for (const it of s.bag.slice()) if (isEquip(it) && itemScore(it) > itemScore(s.equip[it.slot])) sim.equip(it.id);
   for (const id of Object.keys(s.skills)) {
@@ -142,6 +144,8 @@ const s = sim.s;
 console.log(`After ${minutes} min (seed ${seed}, ${build}): level ${s.lvl}, ${s.kills} kills, ${s.deaths} deaths, ${s.gold} gold`);
 console.log('Unlocked:'); console.log(reached.join('\n'));
 console.log('Skills:', JSON.stringify(s.skills));
+console.log('Mods:', JSON.stringify(s.skillMods));
+console.log('Damage by skill:', Object.entries(sim.spells.dealt).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${Math.round(v / 1000)}k`).join(', '));
 console.log('Gems:', Object.entries(s.sockets).map(([k, a]) => `${k}: ${a.filter(Boolean).map(g => g!.gem + g!.lvl).join(',')}`).join(' | '));
 console.log('Materials:', JSON.stringify(s.mats), 'crafts:', JSON.stringify(crafts));
 console.log('Res:', JSON.stringify(sim.st.res), 'life', sim.st.maxLife);

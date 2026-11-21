@@ -460,6 +460,7 @@ export class Sim {
     this.emit({ t: 'burst', x: m.x, y: m.y, z: 0.9, el, size: small ? 44 : 58 });
     this.float(m.x, m.y, n + (crit ? '!' : ''), ELEMENT_COLORS[el], crit, true);
     this.applyStates(m, fin, c, true, crit);
+    this.spells.dealt[c.id] = (this.spells.dealt[c.id] || 0) + n; // skills: damage meter for balancing
     this.dmgMon(m, n);
   }
 

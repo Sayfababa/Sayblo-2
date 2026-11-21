@@ -43,6 +43,8 @@ export class Spells {
   orbs: Orb[] = [];
   constructs: Construct[] = [];
   shell: Shell | null = null;
+  /** damage dealt per skill (hits only, not burn) since the start: for balancing runs */
+  dealt: Record<string, number> = {};
   private delayed: Delayed[] = [];
   private breakCd = 0;
   private sim: Sim;
