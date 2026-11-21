@@ -33,7 +33,7 @@
   "thunder": {
    "name": "Thunder",
    "element": "light",
-   "description": "Violet thunder: leaps into the pack, hurled hammers that jump, a storm that circles him.",
+   "description": "Violet thunder: leaps into the pack, hurled hammers that jump, a storm that circles her.",
    "class": "warrior"
   }
  },
@@ -1817,7 +1817,7 @@
    "reqLevel": 2,
    "maxLevel": 10,
    "row": 1,
-   "description": "Fire runs in his veins: more fire damage and hotter burns.",
+   "description": "Fire runs in her veins: more fire damage and hotter burns.",
    "stats": {
     "fireDmg": 8,
     "burnDmg": 6
@@ -1844,7 +1844,7 @@
    "width": 0.8,
    "burnChance": 25,
    "row": 1,
-   "description": "He slams the ground: a fissure of fire runs 6 tiles towards the target and hits every enemy on it.",
+   "description": "She slams the ground: a fissure of fire runs 6 tiles towards the target and hits every enemy on it.",
    "mods": [
     [
      {
@@ -1953,7 +1953,7 @@
    "cryMore": 15,
    "cryMorePerLevel": 1,
    "row": 1,
-   "description": "A roar that sets every enemy within 3 tiles alight. For 8s he deals 15% more damage (+1% per level).",
+   "description": "A roar that sets every enemy within 3 tiles alight. For 8s she deals 15% more damage (+1% per level).",
    "mods": [
     [
      {
@@ -2254,7 +2254,7 @@
    "reqLevel": 14,
    "maxLevel": 10,
    "row": 3,
-   "description": "He hits burning foes harder and the heat keeps him standing.",
+   "description": "She hits burning foes harder and the heat keeps her standing.",
    "stats": {
     "vsBurning": 4,
     "lifePct": 1.5
@@ -2402,7 +2402,7 @@
    "radius": 2.6,
    "freeze": 1.2,
    "row": 1,
-   "description": "He raises a shield of ice: barrier worth 25% of life (+1% per level), 30% less damage taken for 5s, and enemies within 2.6 tiles freeze.",
+   "description": "She raises a shield of ice: barrier worth 25% of life (+1% per level), 30% less damage taken for 5s, and enemies within 2.6 tiles freeze.",
    "mods": [
     [
      {
@@ -2426,7 +2426,7 @@
      {
       "id": "burst",
       "name": "Frost Burst",
-      "text": "The shield bursts when raised: cold damage to enemies around him.",
+      "text": "The shield bursts when raised: cold damage to enemies around her.",
       "fx": {
        "wardNova": 100
       }
@@ -2505,7 +2505,7 @@
    "curseTakenPerLevel": 1.5,
    "chill": 3,
    "row": 1,
-   "description": "A freezing challenge: enemies within 3.5 tiles of him are chilled and take 12% more cold damage (+1.5% per level) for 6s.",
+   "description": "A freezing challenge: enemies within 3.5 tiles of her are chilled and take 12% more cold damage (+1.5% per level) for 6s.",
    "mods": [
     [
      {
@@ -2703,7 +2703,7 @@
    "radius": 3,
    "freezeChance": 15,
    "row": 2,
-   "description": "He stomps the ground: a ring of ice hits every enemy within 3 tiles of him. +15% chance to freeze.",
+   "description": "She stomps the ground: a ring of ice hits every enemy within 3 tiles of her. +15% chance to freeze.",
    "mods": [
     [
      {
@@ -2792,7 +2792,7 @@
    "reqLevel": 10,
    "maxLevel": 10,
    "row": 3,
-   "description": "Frost clings to his blows: more freezes, cold penetration.",
+   "description": "Frost clings to her blows: more freezes, cold penetration.",
    "stats": {
     "freezeChance": 3,
     "coldPen": 2
@@ -2924,7 +2924,7 @@
    "reqLevel": 2,
    "maxLevel": 10,
    "row": 1,
-   "description": "Thunder in his blood: more lightning damage, harder crits.",
+   "description": "Thunder in her blood: more lightning damage, harder crits.",
    "stats": {
     "lightDmg": 8,
     "critMulti": 5
@@ -2951,7 +2951,7 @@
    "jumpRange": 4,
    "jumpFalloff": 0.85,
    "row": 1,
-   "description": "He hurls a charged hammer that jumps between 3 enemies and flies back to his hand. 15% less damage per jump.",
+   "description": "She hurls a charged hammer that jumps between 3 enemies and flies back to her hand. 15% less damage per jump.",
    "mods": [
     [
      {
@@ -3054,7 +3054,7 @@
    "delay": 0.4,
    "shockChance": 30,
    "row": 1,
-   "description": "He leaps onto the target, up to 8 tiles away, and lands with a thunderclap that hits every enemy within 2.2 tiles.",
+   "description": "She leaps onto the target, up to 8 tiles away, and lands with a thunderclap that hits every enemy within 2.2 tiles.",
    "mods": [
     [
      {
@@ -3158,7 +3158,7 @@
    "duration": 10,
    "tick": 0.7,
    "row": 2,
-   "description": "Violet storm winds circle him for 10s and strike every enemy within 2.4 tiles every 0.7s.",
+   "description": "Violet storm winds circle her for 10s and strike every enemy within 2.4 tiles every 0.7s.",
    "mods": [
     [
      {
@@ -3258,7 +3258,7 @@
    "delay": 0.3,
    "critBonus": 10,
    "row": 2,
-   "description": "He raises his weapon and a violet bolt strikes the target, hitting every enemy within 1.4 tiles. +10% crit chance.",
+   "description": "She raises her weapon and a violet bolt strikes the target, hitting every enemy within 1.4 tiles. +10% crit chance.",
    "mods": [
     [
      {
@@ -3349,7 +3349,7 @@
    "reqLevel": 10,
    "maxLevel": 10,
    "row": 3,
-   "description": "Sparks dance on his skin: more shocks and stronger ones.",
+   "description": "Sparks dance on her skin: more shocks and stronger ones.",
    "stats": {
     "shockChance": 4,
     "shockEffect": 3
@@ -3364,7 +3364,7 @@
    "reqLevel": 14,
    "maxLevel": 10,
    "row": 3,
-   "description": "He hits shocked foes harder and through their wards.",
+   "description": "She hits shocked foes harder and through their wards.",
    "stats": {
     "vsShocked": 4,
     "lightPen": 1
