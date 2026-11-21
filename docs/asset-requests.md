@@ -169,3 +169,43 @@ Negative: `text, letters, pink, magenta inside icons, yellow lightning, cartoon,
 Only if the code-drawn lantern looks too plain. The scene adds the violet glow, sparks and the bobbing.
 
 > [style sentence], a small old wrought-iron lantern with a ring on top, four soot-darkened glass panes, empty inside (no flame), three-quarter view from slightly above, centered, flat pure magenta #FF00FF background, no ground, no shadow, no glow
+
+## Warrior
+
+Placeholders now: the warrior is the sorceress sprite tinted bronze, 20 % broader, with an axe drawn in code
+(`drawWeapon` in `src/render/scene.ts`); the class choice shows the same tinted picture with "placeholder art". His 24 skill icons are
+tinted effect sprites in a bronze frame (`PLACEHOLDER_ICONS` in `tools/slice_sheets.py`), his three weapon bases simple
+iron shapes (`make_placeholder_weapons`). Everything below replaces itself once the sheet is in `assets/sheets/` and
+`python3 tools/slice_sheets.py` has run (for the hero also set `"sprite": "warrior"` in `src/content/classes.json` and copy the
+printed weapon tips into `WEAPON_TIP` in `scene.ts`).
+
+### W1 – `assets/sheets/hero-warrior.png` (4 poses in one row, landscape 2:1, e.g. 1792 × 896, **green `#00FF00`**)
+
+Exactly like `assets/sheets/hero.png` (attach it as style **and** layout reference): same photorealistic rendered look, same
+camera (full body, front three-quarter view, slightly from above), same size of the figure in its cell, feet near the bottom,
+wide green gaps. Cut by `slice_hero("hero-warrior", …)`: all four poses share one foot point and one scale, 384 px high.
+
+> Photorealistic pre-rendered 3D character, gritty dark medieval fantasy, physically realistic materials, cold moonlit light from the top left, low saturation, muted browns and greys. Sprite sheet of ONE male warrior in 4 poses in one row, evenly spaced with wide gaps, each pose full body from head to boots, front three-quarter view from slightly above, on a solid flat pure green #00FF00 background, no ground, no shadow, no text. The warrior: broad-shouldered man in his thirties, short dark beard, weathered face, scarred leather and dark iron scale armour over a padded gambeson, heavy pauldrons, a torn dark wool half-cape, leather bracers and boots, a wide belt with pouches. He holds a single heavy one-handed war axe of blackened iron with a wide notched blade and a leather-wrapped haft (no glow, no fire on it). Pose 1 "idle": standing ready, axe held low in the right hand. Pose 2 "strike": mid swing, axe raised high over the right shoulder with both hands, body twisted, weight forward. Pose 3 "walk1": walking towards the viewer, left foot forward, axe in the right hand. Pose 4 "walk2": walking, right foot forward. Same person, same armour and axe in all four poses; nothing green on him.
+
+Negative: `cartoon, painterly, stylized, cel shading, outlines, saturated colors, glow, magic effects, text, frame, cast shadow, ground plane, green on the character, shield, two weapons`
+
+### W2–W4 – skill icons: `assets/sheets/skill-icons-cinder.png`, `skill-icons-rime.png`, `skill-icons-thunder.png` (each 3 × 3, square, **magenta `#FF00FF`**) → 128 px icons
+
+Attach `skill-icons.png` as style reference so they match the sorceress' icons (square painting, thin dark bronze frame).
+Cells are read row by row; the 9th cell (bottom right) stays **empty magenta**.
+
+Shared start:
+
+> Sprite sheet of 8 square skill icons in a grid of 3 columns and 3 rows, the last cell (bottom right) left empty, evenly spaced with wide magenta gaps, on a solid flat pure magenta #FF00FF background. Each icon is a square dark fantasy painting with a thin dark bronze frame, painterly semi-realistic, dark smoky background, muted colors with a focused glow only on the main motif, a warrior's weapon or armoured body as the motif, no text. Nothing pink or magenta inside the icons.
+
+- **Cinder** (fire, dull orange-red on dark ember background): (1) `searblade`: an axe blade glowing orange at the edge, a burning arc behind it; (2) `emberblood`: a clenched armoured fist with glowing ember veins; (3) `cinderslam`: an axe head striking the ground, a crack of fire running away from it; (4) `kindleroar`: a bearded warrior's open mouth roaring, sparks and flame swirling out; (5) `sunder`: a huge overhead blow splitting the earth, fire bursting from the split; (6) `pyrebrand`: a glowing brand mark burned into dark leather, smoke rising; (7) `heatofbattle`: crossed axes over a bed of coals; (8) `pyreheart`: a burning heart inside an iron breastplate.
+- **Rime** (cold, pale ice blue on dark blue-grey background): (1) `frostcleave`: an axe sweeping in a wide arc that leaves frost crystals; (2) `wintersbite`: frost creeping over an iron gauntlet; (3) `glaciershield`: a round shield of thick cracked ice raised in front of a dark silhouette; (4) `wintertaunt`: a warrior beating his chest, a ring of cold mist bursting outward; (5) `shatterstrike`: a hammer smashing a frozen figure into ice shards; (6) `glacialstomp`: an iron boot stomping, a ring of ice spikes rising; (7) `hoarfrost`: frost flowers on a dark blade; (8) `icevein`: a forearm with pale blue frozen veins.
+- **Thunder** (lightning, **violet**, never yellow, on dark purple-grey background): (1) `thundermaul`: a war hammer crackling with violet sparks mid-blow; (2) `stormblood`: an armoured silhouette with violet lightning running through the veins; (3) `hurledhammer`: a spinning hammer flying through the air trailing violet arcs; (4) `skyleap`: a warrior in mid-leap high above the ground, weapon raised, violet light below; (5) `tempestmantle`: violet storm winds circling a dark armoured figure; (6) `callstorm`: a raised axe calling a violet lightning bolt down from black clouds; (7) `staticskin`: violet sparks dancing on scale armour; (8) `overload`: a cracked iron rune stone overflowing with violet light.
+
+Negative: `text, letters, pink, magenta inside icons, yellow lightning, cartoon, flat vector`
+
+### W5 – `assets/sheets/items-warrior.png` (3 × 1, landscape 3:1, **magenta `#FF00FF`**) → item icons + upright 1×3 versions
+
+> [style sentence], game item icon sprite sheet, 3 weapons in one row, each centered in its cell with wide spacing, nothing touches the cell edges, lying diagonally from bottom left to top right, flat pure magenta #FF00FF background, no ground, no shadows. (1) `notched-cleaver`: a heavy one-handed war axe, blackened iron blade with notches, leather-wrapped haft; (2) `iron-maul`: a short two-handed maul with a square iron head and iron bands on the haft; (3) `grave-blade`: a broad straight sword, dark worn steel, plain cross guard, leather grip.
+
+Cut by `tools/slice_sheets.py` (`items-warrior` in `UI_SHEETS`, upright versions by `make_tall_weapons`).

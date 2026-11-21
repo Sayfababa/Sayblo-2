@@ -51,6 +51,14 @@ UI_SHEETS = {
     # skills package: icons of the new skills (docs/asset-requests.md, section Skills), magenta background
     "skill-icons-3": (3, 3, ["icon-flamelance", "icon-ashenhex", "icon-smoulder", "icon-hailstorm", "icon-rimeshell",
                              "icon-brittlefrost", "icon-stormwisp", "icon-stormlantern", "icon-capacitor"]),
+    # warrior package (docs/asset-requests.md, section Warrior): one icon sheet per tree, magenta; the 9th cell stays empty
+    "skill-icons-cinder": (3, 3, ["icon-searblade", "icon-emberblood", "icon-cinderslam", "icon-kindleroar", "icon-sunder",
+                                  "icon-pyrebrand", "icon-heatofbattle", "icon-pyreheart", None]),
+    "skill-icons-rime": (3, 3, ["icon-frostcleave", "icon-wintersbite", "icon-glaciershield", "icon-wintertaunt", "icon-shatterstrike",
+                                "icon-glacialstomp", "icon-hoarfrost", "icon-icevein", None]),
+    "skill-icons-thunder": (3, 3, ["icon-thundermaul", "icon-stormblood", "icon-hurledhammer", "icon-skyleap", "icon-tempestmantle",
+                                   "icon-callstorm", "icon-staticskin", "icon-overload", None]),
+    "items-warrior": (3, 1, ["item-notched-cleaver", "item-iron-maul", "item-grave-blade"]),
     "gems-element": (3, 2, ["gem-searingburn", "gem-addedfire", "gem-deepfreeze", "gem-addedcold", "gem-overcharge", "gem-addedlight"]),
     "gems-general": (4, 3, ["gem-multi", "gem-pierce", "gem-fork", "gem-wider", "gem-concentrated", "gem-chains",
                             "gem-spread", "gem-echo", "gem-quick", "gem-efficiency", "gem-lingering", None]),
@@ -62,7 +70,7 @@ UI_SHEETS = {
                              "ember-rise", "ember-bind", "ember-wax"]),
     "ground-decals": (3, 2, ["decal-puddle", "decal-ash", "decal-blood", "decal-leaves", "decal-cracks", "decal-grass"]),
 }
-MAGENTA = {"skill-icons-3", "gems-general", "props-gallows", "ground-decals", "props-feel", "icons-economy", "vendor-parcel"}
+MAGENTA = {"skill-icons-3", "skill-icons-cinder", "skill-icons-rime", "skill-icons-thunder", "items-warrior", "gems-general", "props-gallows", "ground-decals", "props-feel", "icons-economy", "vendor-parcel"}
 # realistic sheets: brown and grey only, so every trace of magenta can go (no pink fringe on thorns and decal edges)
 MAGENTA_STRONG = {"props-gallows", "ground-decals", "props-feel"}
 # Sheets whose pieces do not sit on an even grid: name -> [(sprite, (x0, y0, x1, y1) as fractions of the sheet)]
@@ -85,6 +93,7 @@ UI_SIDE.update({n: 320 for n in ["gf-gallows", "gf-gibbet", "gf-deadtree", "gf-l
 UI_SIDE.update({n: 256 for n in ["gf-fence", "gf-cross", "gf-stone", "gf-bones", "gf-thorn", "gf-cart", "gf-scarecrow", "gf-well"]})
 UI_SIDE.update({n: 256 for n in ["decal-puddle", "decal-ash", "decal-blood", "decal-leaves", "decal-cracks", "decal-grass"]})
 UI_SIDE.update({"parcel": 192})
+UI_SIDE.update({n: 128 for n in ["item-notched-cleaver", "item-iron-maul", "item-grave-blade"]})
 UI_SIDE.update({n: 256 for n in ["shrine-embers", "shrine-greed", "shrine-frenzy", "shrine-bulwark", "shrine-fortune", "shrine-lore", "shrine-fury", "chest-vault"]})
 UI_SMALL = ("glyph-", "ic-", "gem-", "mat-", "ember-")  # 96 px icons
 MAX_H = {"vesper": 384}
@@ -300,10 +309,17 @@ def slice_monsters():
 
 
 def make_tall_weapons():
-    """Staffs lie diagonally in their icon. For the 1x3 bag cell and the weapon slot they are turned upright."""
+    """Staffs lie diagonally in their icon. For the 1x3 bag cell and the weapon slot they are turned upright.
+    Warrior weapons (items-warrior.png, magenta) are turned upright the same way once that sheet exists."""
     cols, rows, names = SHEETS["items"]
     full = dict(cut_cells(key_green(Image.open(ROOT / "assets" / "sheets" / "items.png")), cols, rows, names))
-    for name in ["gnarled-staff", "bone-wand", "ritual-staff"]:
+    todo = ["gnarled-staff", "bone-wand", "ritual-staff"]
+    wsrc = ROOT / "assets" / "sheets" / "items-warrior.png"
+    if wsrc.exists():
+        c, r, n = UI_SHEETS["items-warrior"]
+        full.update(dict(cut_cells(key_magenta(Image.open(wsrc)), c, r, n)))
+        todo += PLACEHOLDER_WEAPONS
+    for name in todo:
         im = full[f"item-{name}"]
         # main axis of the opaque pixels -> rotate it to vertical
         ys, xs = np.where(np.asarray(im)[..., 3] > 60)

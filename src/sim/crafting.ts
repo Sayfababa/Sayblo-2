@@ -6,6 +6,7 @@
 import {
   AFFIXES, AFFIX_ROLL, AFFIX_TIERS, ECONOMY, EMBERS, MAT_IDS, RARITIES, UNIQUES,
   type CorruptOutcome, type EmberId, type MatId, type Mats, type Slot,
+  getActiveClass,
 } from '../content/index.ts';
 import { affixValue } from './formulas.ts';
 import { affixFits, genItemOf, genUnique, magicName, rareName, rollAffix, tiersFor } from './items.ts';
@@ -163,7 +164,7 @@ export function corruptBlock(it: Item): string | null {
 
 /** Random new affix of any group that fits the slot, for corruption. */
 function wildAffix(rng: Rng, it: Item, skip: number, best: boolean): Mod | null {
-  const taken = keysOf(it, skip), pool = Object.entries(AFFIXES).filter(([k, a]) => !taken.has(k) && affixFits(k, it.slot) && (a.minLevel ?? 0) <= it.L);
+  const taken = keysOf(it, skip), pool = Object.entries(AFFIXES).filter(([k, a]) => !taken.has(k) && affixFits(k, it.slot) && (a.minLevel ?? 0) <= it.L && (!a.cls || a.cls === getActiveClass())); // classes: +tree affixes
   if (!pool.length) return null;
   const [k] = pool[Math.floor(rng.next() * pool.length)];
   const tiers = tiersFor(it.L), t = best ? tiers[tiers.length - 1] : rng.pick(tiers);

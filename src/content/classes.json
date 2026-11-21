@@ -32,9 +32,9 @@
         "vit": { "name": "Vitality", "description": "+4 life, +0.05 life/s" }
       },
       "startAttributes": { "power": 5, "focus": 5, "spirit": 5, "vit": 15 },
-      "base": { "life": 70, "lifePerVit": 4, "lifeRegen": 0.6, "lifeRegenPerVit": 0.05, "mana": 25, "manaPerSpirit": 1.5, "manaRegen": 2.2, "manaRegenPerSpirit": 0.12 },
-      "perLevel": { "life": 9, "mana": 1 },
-      "innate": { "elemDR": 10 },
+      "base": { "life": 80, "lifePerVit": 4, "lifeRegen": 0.6, "lifeRegenPerVit": 0.05, "mana": 25, "manaPerSpirit": 1.5, "manaRegen": 2.2, "manaRegenPerSpirit": 0.12 },
+      "perLevel": { "life": 10, "mana": 1 },
+      "innate": { "elemDR": 15 },
       "basicDef": { "name": "Weapon Swing", "min": 2, "max": 5, "perLevel": 0.14, "castTimeMult": 1.15 },
       "weaponName": "Weapon",
       "weaponBases": [

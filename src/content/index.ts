@@ -104,7 +104,7 @@ export interface AreaDef { id: string; name: string; level: number; waves: numbe
 export interface PropDef { variants: [string, number][]; noFlip?: boolean; light?: { x?: number; y: number; radius: number; color: string; alpha: number; flicker?: number } }
 
 export type AffixKind = 'offense' | 'defense' | 'mana';
-export interface AffixDef { group: 'prefix' | 'suffix'; kind: AffixKind; name: string; text: string; percent: boolean; base: number; perLevel: number; weight: number; decimals?: number; slots?: Slot[]; minLevel?: number; rare?: number }
+export interface AffixDef { group: 'prefix' | 'suffix'; kind: AffixKind; name: string; text: string; percent: boolean; base: number; perLevel: number; weight: number; decimals?: number; slots?: Slot[]; minLevel?: number; rare?: number; /** only rolls for heroes of this class */ cls?: string }
 export type Slot = 'weapon' | 'helm' | 'armor' | 'amulet' | 'ring';
 export interface RarityDef { name: string; color: string; weight: number; bossWeight: number; affixes?: [number, number]; prefixes?: number; suffixes?: number }
 export interface UniqueDef { slot: Slot; base: string; name: string; mods: string[]; effect: string; /** mythic: only drops from the rift pinnacle boss */ pinnacle?: boolean }

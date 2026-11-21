@@ -1,4 +1,4 @@
-import { AFFIXES, AFFIX_ROLL, AFFIX_TIERS, COMMON_UNIQUES, GEMS, SLOT_KINDS, GEM_MAX_LEVEL, ITEMS, RARITIES, SLOTS, UNIQUES, type Slot } from '../content/index.ts';
+import { AFFIXES, AFFIX_ROLL, AFFIX_TIERS, COMMON_UNIQUES, GEMS, SLOT_KINDS, GEM_MAX_LEVEL, ITEMS, RARITIES, SLOTS, UNIQUES, getActiveClass, weaponBases, type Slot } from '../content/index.ts';
 import { affixValue } from './formulas.ts';
 import type { Rng } from './rng.ts';
 import type { GemItem, Item, Mod } from './types.ts';
@@ -28,7 +28,8 @@ export const affixFits = (k: string, slot: Slot) => {
 
 /** Roll one affix of a group that the item does not have yet. */
 export function rollAffix(rng: Rng, slot: Slot, L: number, group: 'prefix' | 'suffix', taken: Set<string>): Mod | null {
-  const pool = Object.entries(AFFIXES).filter(([k, a]) => a.group === group && !taken.has(k) && affixFits(k, slot) && (a.minLevel ?? 0) <= L);
+  const cls = getActiveClass(); // classes: +tree affixes of the hero's class only
+  const pool = Object.entries(AFFIXES).filter(([k, a]) => a.group === group && !taken.has(k) && affixFits(k, slot) && (a.minLevel ?? 0) <= L && (!a.cls || a.cls === cls));
   if (!pool.length) return null;
   const [k] = weighted(rng, pool, ([, a]) => a.rare ?? 1);
   const tier = weighted(rng, tiersFor(L), t => t.weight);
@@ -50,7 +51,7 @@ export function magicName(base: string, mods: Mod[], imp: number): string {
 
 /** Non-unique item of a given rarity (0-2) and slot. */
 export function genItemOf(rng: Rng, id: number, L: number, r: number, slot: Slot): Item {
-  const base = rng.pick(ITEMS.bases[slot]).name, mods: Mod[] = [];
+  const base = rng.pick(slot === 'weapon' ? weaponBases() : ITEMS.bases[slot]).name, mods: Mod[] = []; // classes: warrior weapons
   let imp = 0;
   const impl = ITEMS.implicits[slot];
   if (impl) {

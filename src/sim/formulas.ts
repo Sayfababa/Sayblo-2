@@ -20,7 +20,7 @@ export const monsterXp = (L: number, rank: number, diff = 0) =>
   Math.round(MONSTER_SCALING.xpBase * Math.pow(MONSTER_SCALING.xpGrowth, L - 1) * RANKS[rank].xp * DIFFICULTIES[diff].xpMult);
 
 const EL_KEY: Record<Element, string> = { fire: 'fire', cold: 'cold', light: 'light' };
-const TREE_PLUS: Record<string, string> = { ember: 'plusEmber', frost: 'plusFrost', storm: 'plusStorm' };
+const TREE_PLUS: Record<string, string> = { ember: 'plusEmber', frost: 'plusFrost', storm: 'plusStorm', cinder: 'plusCinder', rime: 'plusRime', thunder: 'plusThunder' };
 
 /** Experience is reduced when the hero is far above the monster level. */
 export const xpFactor = (heroLvl: number, monLvl: number) =>
