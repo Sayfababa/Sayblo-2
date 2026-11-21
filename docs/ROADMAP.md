@@ -112,8 +112,9 @@ Jedes Gem kostet zusätzlich Mana (Multiplikator). Dadurch bleiben Mana, Spirit 
 
 ### 1.5 Skill-Bäume erweitern
 
-- [ ] Drei Bäume mit je ca. 8 Skills: aktive Skills, passive Skills (z. B. „Feuer-Meisterschaft“) und Synergien
-- [ ] Prioritätenliste: neue Bedingungen, etwa „Ziel geschockt“, „Ziel brennt nicht“, „Gegner näher als X“
+- [x] Drei Bäume mit je 8 Skills (5 aktiv, 3 passiv), neue Typen: Strahl (Flame Lance), Fluch (Ashen Hex), Bodenfeld (Hailstorm), Schutzschild (Rime Shell), Konstrukt (Storm Lantern), Irrlicht (Stormwisp)
+- [x] **Skill-Modifikatoren:** je aktivem Skill 4 Stufen (Skill-Level 3/6/10/15) mit je 2 Wahlmöglichkeiten, gegen Gold zurücksetzbar. Aufbau für weitere Klassen: `docs/skill-system.md`
+- [x] Prioritätenliste: neue Bedingungen (Ziel verflucht/brennt/unterkühlt, Barriere niedrig, 5+ Gegner)
 
 **Fertig, wenn:** Zwei Spieler mit derselben Klasse deutlich verschiedene Builds spielen können, etwa einen Feuer-Projektil-Build und einen Blitz-Ketten-Build.
 
