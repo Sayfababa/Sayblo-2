@@ -8,7 +8,8 @@ import './ui/economy.css';
 import './ui/feel.css';
 import './ui/meta.css';
 import './ui/rift.css';
-import './ui/skills.css';
+import './ui/phone.css'; // UI package: phone density and no-sideways-scroll pass, loaded last
+import './ui/skills.css'; // skills package: skills menu (after phone.css, it sets its own phone sizes)
 import { Application } from 'pixi.js';
 import { registerSW } from 'virtual:pwa-register';
 import { Scene } from './render/scene.ts';

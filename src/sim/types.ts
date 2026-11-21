@@ -61,7 +61,10 @@ export interface SaveState {
   skillMods: Record<string, number[]>;
   slots: CastSlot[];
   equip: Record<Slot, Item | null>;
+  /** equipment grid (no gems: those live in the gem pouch below) */
   bag: BagItem[];
+  /** gem pouch (see pouch.ts): support gems, not socketed, not in the grid */
+  gems: GemItem[];
   loot: LootRules;
   /** crafting materials from salvage */
   mats: Record<MatId, number>;

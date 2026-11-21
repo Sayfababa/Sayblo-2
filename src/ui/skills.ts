@@ -9,12 +9,13 @@ import {
 import { calcStats, damageRange, formatMod, frostArmorBarrier, gemFits, gemText, skillCtx, type SkillCtx } from '../sim/formulas.ts';
 import { chooseMod, modChoice, modRespecCost, modTierOpen, pendingMods, resetMods } from '../sim/skillmods.ts';
 import type { Sim } from '../sim/sim.ts';
-import { isGem, type GemItem, type SaveState } from '../sim/types.ts';
+import type { GemItem, SaveState } from '../sim/types.ts';
+import { pouchPick } from '../sim/pouch.ts';
 import { esc, ic, itemPic, skillIcon } from './html.ts';
 import { gemColor } from './gemcolor.ts';
 
-/** Support gems the hero owns and may socket. One place, so the gem pouch (UI package) only changes this line. */
-export const ownedGems = (s: SaveState): GemItem[] => s.bag.filter(isGem);
+/** Support gems the hero may socket: one of each kind and level from the gem pouch. */
+export const ownedGems = (s: SaveState): GemItem[] => pouchPick(s.gems);
 
 type Dropdown = (key: string, label: string, cur: string, options: [string, string, string?][]) => string;
 const TREE_IDS = () => Object.keys(TREES);
@@ -272,7 +273,7 @@ export class SkillsUI {
         <span><b>${esc(GEMS[g.gem].name)}</b> <small>Lv ${g.lvl}</small><br><small>${fits ? (dup ? 'Already in this skill.' : esc(gemText(g))) : `Does not fit: needs ${GEMS[g.gem].requires.join(', ')}`}</small></span></button>`;
     }).join('');
     return `<div class="picker">${cur ? `<button class="btn sm" data-act="unsock:${skill}:${i}">Take ${esc(GEMS[cur.gem].name)} out</button>` : ''}
-      ${list || '<p class="hint">No support gems yet. Champions, elites and bosses drop them more often.</p>'}</div>`;
+      ${list || '<p class="hint">No support gems in the pouch yet. Champions, elites and bosses drop them more often.</p>'}</div>`;
   }
 
   private prioView(dropdown: Dropdown): string {

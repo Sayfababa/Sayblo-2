@@ -16,6 +16,7 @@ The coordinator (main session) merges the parts into `claude/ui-assets` and publ
 - Original names only. Nothing named after Diablo/PoE things.
 - Missing art: draw a decent placeholder in code (Pixi Graphics / CSS) and list the needed image with a prompt in `docs/asset-requests.md` (section per package, same style rules as `docs/ui-assets.md` section 7/9: photorealistic dark fantasy, magenta `#FF00FF` background for props, sheet layout that `tools/slice_sheets.py` can cut).
 - Before finishing: `npm test` green, `npx tsc --noEmit -p .` clean, `npm run build` ok, `npm run sim -- 60 1` still progresses sensibly (report numbers). Add vitest tests for new formulas/systems.
+- UI changes: `npm run ui-check` (= `node scripts/ui-check.mjs`; add `--no-build` to reuse `dist/`, `--verbose` for small tap targets and truncated text, `--sizes 390x664,360x640`, `--shots <dir>`). It builds, serves `dist/` with an end-game test hero (full bag, gems, keys, points to spend), opens every panel, sub-tab, tooltip and overlay at 390×664 (visible area in the claude.ai viewer) and 390×844 in Chromium, and fails on anything that overflows sideways (page wider than the screen, element outside the screen or cut off by its box, box that scrolls sideways, hidden close button). Screenshots land in the temp folder (`grimlight-ui-check/`); look at them. New views: add a line to `VIEWS` in the script. Phone overrides live in `src/ui/phone.css` (loaded last).
 - Commit in small logical commits on your branch. Do **not** push and do not publish artifacts; the coordinator does that.
 - Final report: what was built, files touched, save version used, open issues, needed assets.
 
@@ -29,3 +30,17 @@ The coordinator (main session) merges the parts into `claude/ui-assets` and publ
 | 2 | **D – Meta** | bounty board, area tyrants, area events, ember points after level cap, unique codex + imprint, achievements/feats |
 | 3 | **E – Town & idle** | town buildings upgraded with gold (unlock features/automation), expeditions, rested bonus, loadouts, more priority conditions, skill mastery, DPS meter, better offline report, seasons |
 | 3 | **F – Polish** | balancing all three elements, onboarding, mobile playtest, performance, asset integration |
+
+## Handoff / current state (keep updated)
+
+Merged into `claude/ui-assets` and published (artifact https://claude.ai/artifact/LBgXfG93fk3jLj1qnTwc7k): wave 1 A (feel) + B (economy), wave 2 C (rifts) + D (meta), wave-1 art (Coin-Wretch, shrines, chest, material/ember icons, parcel). Save version on main: **8**.
+Owner decisions since: no big header pictures in menus (altar/forge pictures removed); rifts open after Mother Vesper on any difficulty, tier 1 = start of Nightmare (`src/content/rift.json`); never horizontal scrolling on phones; gems get their own pouch; each skill tree gets its own page with more customisation; a **Warrior** class comes after the sorceress skill rework, built on the same data-driven system (keep elemental damage only unless the owner decides otherwise).
+
+Running / next:
+- **UI agent** (worktree branch `worktree-agent-a23187f2f31fc20d0`): gem pouch (save v9, done), compact bag strip, hero panel without sideways scroll, compact town navigation (8 tabs), `scripts/ui-check.mjs` overflow check. Stays the contact for future owner UI complaints.
+- **Skill agent** (branch `worktree-agent-a5bfd12a8e0e3f91a`): 24 sorceress skills, modifiers per skill, new skill types (beam, curse, field, ward, construct, orb), per-tree skills panel, `docs/skill-system.md` (save v9 too: renumber on merge).
+- Then: **Warrior** agent (needs `docs/skill-system.md`), then **E – Town & idle** and **F – balance/polish**.
+
+Known balance issues for F: Hell is not reachable (monster curve 1.17/1.15 per level too steep); level cap 60 + ember points unreachable (XP curve 1.36× per level); storm builds clearly slower in rifts.
+Art waiting for prompts to the owner: 6 tyrant sheets, `mon-matriarch.png`, rift tear / blood moon / champion casing fx, new skill icons (prompts in `docs/asset-requests.md`). Imp/Wraith prompts: `docs/ui-assets.md` section 9.
+Publishing: `node scripts/build-artifact.mjs`, upload every renamed file in `dist-artifact/assets/` plus new/changed sprites, remove old chunks with `null`.

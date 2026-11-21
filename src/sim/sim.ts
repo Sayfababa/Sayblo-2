@@ -19,6 +19,7 @@ import { Mythic } from './mythic.ts';
 import { Spells } from './spells.ts';
 import { genGem, genItem } from './items.ts';
 import { disposeItem } from './economy.ts';
+import { addGem, takeGem } from './pouch.ts';
 import { lootFate } from './loot.ts';
 import { isUpgrade } from './upgrade.ts';
 import { Rng } from './rng.ts';
@@ -814,11 +815,12 @@ export class Sim {
   /** Put an item into the bag. If there is no room, the least valuable item (maybe the new one) is sold. */
   takeItem(it: BagItem, quiet = false) {
     const s = this.s;
-    if (isGem(it)) this.run.gems++; else this.run.items++;
+    if (isGem(it)) { this.run.gems++; this.pouchGem(it, quiet); return; } // gems go into the pouch (pouch.ts)
+    this.run.items++;
     let spot = findSpot(s.bag, it);
     if (!spot) { s.bag = autoSort(s.bag); spot = findSpot(s.bag, it); }
     while (!spot) {
-      const worst = [...s.bag, it].sort((a, b) => keepValue(a) - keepValue(b))[0];
+      const worst: BagItem = [...s.bag, it].sort((a, b) => keepValue(a) - keepValue(b))[0];
       const how = s.loot.autoSalvage && !isGem(worst) ? 'salvaged' : `sold for ${sellValue(worst)} gold`;
       disposeItem(s, worst, s.loot.autoSalvage ? 'salvage' : 'sell');
       if (worst === it) { if (!quiet) this.log(`Bag full: ${how} **${this.itemName(it)}**.`); this.dirty.add('bag'); return; }
@@ -835,10 +837,23 @@ export class Sim {
       else this.log(`Picked up **${it.name}** (${RARITIES[it.r].name} ${SLOT_NAMES[it.slot]}).${isUpgrade(it, s.equip[it.slot]) ? ' ▲ Upgrade' : ''}`, 'r' + it.r);
     }
   }
+  /** Put a gem into the pouch; a full pouch sells its least valuable gem. */
+  private pouchGem(g: GemItem, quiet = false) {
+    const out = addGem(this.s, g);
+    if (out) { this.s.gold += sellValue(out); if (!quiet) this.log(`Gem pouch full: sold **${this.itemName(out)}** for ${sellValue(out)} gold.`); }
+    if (!quiet && out !== g) this.log(`Picked up **${this.itemName(g)}** (support gem).`, 'gem');
+    this.dirty.add('bag');
+  }
+  /** Sell one gem from the pouch. */
+  sellGem(id: number) {
+    const g = takeGem(this.s, id);
+    if (g) { this.s.gold += sellValue(g); this.dirty.add('bag'); this.dirty.add('town'); }
+  }
   itemName(it: BagItem) { return isGem(it) ? `${GEMS[it.gem].name} (Lv ${it.lvl})` : isKey(it) ? keyName(it) : it.name; }
   private bagRoomFor(it: BagItem) { return !!findSpot(this.s.bag, it) || !!findSpot(autoSort(this.s.bag.slice().map(x => ({ ...x }))), it); }
   /** Place an item into the bag without selling anything. Returns false if there is no room. */
   private putInBag(it: BagItem): boolean {
+    if (isGem(it)) { this.pouchGem(it, true); return true; }
     let spot = findSpot(this.s.bag, it);
     if (!spot) { this.s.bag = autoSort(this.s.bag); spot = findSpot(this.s.bag, it); }
     if (!spot) return false;
@@ -968,13 +983,13 @@ export class Sim {
   socketOpen(id: string, i: number) { return (this.s.skills[id] || 0) >= SOCKET_LEVELS[i]; }
   /** Put a gem from the bag into a skill socket. Returns an error text or null. */
   socketGem(skill: string, i: number, gemItemId: number): string | null {
-    const s = this.s, g = s.bag.find(x => x.id === gemItemId);
-    if (!g || !isGem(g)) return 'Gem not found.';
+    const s = this.s, g = s.gems.find(x => x.id === gemItemId);
+    if (!g) return 'Gem not found.';
     if (!this.socketOpen(skill, i)) return `This socket opens at skill level ${SOCKET_LEVELS[i]}.`;
     if (!gemFits(g.gem, skill)) return `${GEMS[g.gem].name} does not fit ${SKILLS[skill].name}.`;
     const arr = this.socketsOf(skill);
     if (arr.some((o, j) => o && j !== i && o.gem === g.gem)) return 'The same gem is already in this skill.';
-    s.bag.splice(s.bag.indexOf(g), 1);
+    takeGem(s, g.id);
     const old = arr[i];
     g.bx = g.by = undefined;
     arr[i] = g;
@@ -993,16 +1008,16 @@ export class Sim {
   /** Gems that three of a kind can be fused from: [gem, level, count]. */
   fusable(): [string, number, number][] {
     const n = new Map<string, number>();
-    for (const g of this.s.bag) if (isGem(g) && g.lvl < GEM_MAX_LEVEL) n.set(`${g.gem}|${g.lvl}`, (n.get(`${g.gem}|${g.lvl}`) || 0) + 1);
+    for (const g of this.s.gems) if (g.lvl < GEM_MAX_LEVEL) n.set(`${g.gem}|${g.lvl}`, (n.get(`${g.gem}|${g.lvl}`) || 0) + 1);
     return [...n].filter(([, c]) => c >= 3).map(([k, c]) => { const [g, l] = k.split('|'); return [g, +l, c] as [string, number, number]; });
   }
   fuseGems(gem: string, lvl: number): string | null {
-    const s = this.s, list = s.bag.filter((g): g is GemItem => isGem(g) && g.gem === gem && g.lvl === lvl).slice(0, 3);
+    const s = this.s, list = s.gems.filter(g => g.gem === gem && g.lvl === lvl).slice(0, 3);
     if (list.length < 3) return 'You need three gems of the same kind and level.';
     const cost = 25 * lvl * lvl;
     if (s.gold < cost) return `Fusing costs ${cost} gold.`;
     s.gold -= cost;
-    s.bag = s.bag.filter(x => !list.includes(x as GemItem));
+    s.gems = s.gems.filter(x => !list.includes(x));
     const g: GemItem = { id: this.itemId(), kind: 'gem', gem, lvl: lvl + 1 };
     this.putInBag(g);
     this.log(`Fused three gems into **${this.itemName(g)}**.`, 'gem');
@@ -1038,7 +1053,7 @@ export class Sim {
     s.slots = emptySlots();
     this.recalc();
     for (const k of ['town', 'hero', 'skills', 'slots', 'bag'] as DirtyKey[]) this.dirty.add(k);
-    this.log('Points reset. Spend them in Hero and Skills. Gems went back to the bag.', 'lvl');
+    this.log('Points reset. Spend them in Hero and Skills. Gems went back to the gem pouch.', 'lvl');
     return null;
   }
   setDifficulty(d: number) {

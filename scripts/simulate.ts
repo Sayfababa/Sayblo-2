@@ -17,7 +17,7 @@ import { forge, salvage } from '../src/sim/economy.ts';
 import { bountyDone } from '../src/sim/bounty.ts';
 import { imprintBlock, imprintCost } from '../src/sim/codex.ts';
 import { UNIQUES, TYRANTS } from '../src/content/index.ts';
-import { isEquip, isGem } from '../src/sim/types.ts';
+import { isEquip } from '../src/sim/types.ts';
 import { rollKey, riftHpMult, riftDmgMult, riftLevel } from '../src/sim/rift.ts';
 import { PLANS, endgameSave, nextSkill, pickMods, planSlots } from './endgame.ts';
 
@@ -63,7 +63,7 @@ function spend() {
     if (SKILLS[id].kind === 'passive') continue;
     SOCKET_LEVELS.forEach((_, si) => {
       if (!sim.socketOpen(id, si) || sim.socketsOf(id)[si]) return;
-      const g = s.bag.find(x => isGem(x) && gemFits(x.gem, id) && !sim.socketsOf(id).some(o => o?.gem === x.gem));
+      const g = s.gems.find(x => gemFits(x.gem, id) && !sim.socketsOf(id).some(o => o?.gem === x.gem));
       if (g) sim.socketGem(id, si, g.id);
     });
   }
