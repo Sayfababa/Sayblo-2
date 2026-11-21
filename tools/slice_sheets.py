@@ -48,6 +48,9 @@ UI_SHEETS = {
                         "ic-chill", "ic-freeze", "ic-shock", "ic-settings", "ic-log", "ic-sort", "ic-sell", "ic-lock"]),
     "skill-icons-2": (3, 3, ["icon-searing", "icon-pyromancy", "icon-kindling", "icon-icenova", "icon-coldmastery",
                              "icon-permafrost", "icon-thunder", "icon-conductivity", "icon-stormmastery"]),
+    # skills package: icons of the new skills (docs/asset-requests.md, section Skills), magenta background
+    "skill-icons-3": (3, 3, ["icon-flamelance", "icon-ashenhex", "icon-smoulder", "icon-hailstorm", "icon-rimeshell",
+                             "icon-brittlefrost", "icon-stormwisp", "icon-stormlantern", "icon-capacitor"]),
     "gems-element": (3, 2, ["gem-searingburn", "gem-addedfire", "gem-deepfreeze", "gem-addedcold", "gem-overcharge", "gem-addedlight"]),
     "gems-general": (4, 3, ["gem-multi", "gem-pierce", "gem-fork", "gem-wider", "gem-concentrated", "gem-chains",
                             "gem-spread", "gem-echo", "gem-quick", "gem-efficiency", "gem-lingering", None]),
@@ -59,7 +62,7 @@ UI_SHEETS = {
                              "ember-rise", "ember-bind", "ember-wax"]),
     "ground-decals": (3, 2, ["decal-puddle", "decal-ash", "decal-blood", "decal-leaves", "decal-cracks", "decal-grass"]),
 }
-MAGENTA = {"gems-general", "props-gallows", "ground-decals", "props-feel", "icons-economy", "vendor-parcel"}
+MAGENTA = {"skill-icons-3", "gems-general", "props-gallows", "ground-decals", "props-feel", "icons-economy", "vendor-parcel"}
 # realistic sheets: brown and grey only, so every trace of magenta can go (no pink fringe on thorns and decal edges)
 MAGENTA_STRONG = {"props-gallows", "ground-decals", "props-feel"}
 # Sheets whose pieces do not sit on an even grid: name -> [(sprite, (x0, y0, x1, y1) as fractions of the sheet)]
@@ -426,6 +429,10 @@ PLACEHOLDER_ICONS = {
     "searing": "fx-fire-ring", "pyromancy": "fx-flames", "kindling": "fx-fire-burst",
     "icenova": "fx-ice-burst", "coldmastery": "fx-iceshard", "permafrost": "fx-frost-aura",
     "thunder": "fx-shock", "conductivity": "fx-orb", "stormmastery": "fx-shock-ring",
+    # skills package (tinted so they do not look like the older placeholders)
+    "flamelance": ("fx-fireball", (1.15, 0.8, 0.45)), "ashenhex": ("fx-fire-ring", (0.75, 0.55, 0.5)), "smoulder": ("fx-flames", (0.9, 0.5, 0.3)),
+    "hailstorm": ("fx-ice-burst", (0.8, 0.95, 1.2)), "rimeshell": ("fx-frost-aura", (1.1, 1.2, 1.3)), "brittlefrost": ("fx-iceshard", (0.7, 0.85, 1.1)),
+    "stormwisp": ("fx-orb", (1.1, 0.85, 1.3)), "stormlantern": ("fx-shock", (0.95, 0.75, 1.3)), "capacitor": ("fx-shock-ring", (0.8, 0.6, 1.2)),
 }
 
 
@@ -435,13 +442,14 @@ def make_placeholder_skill_icons():
     r = np.hypot(xx - size / 2, yy - size / 2) / (size / 2)
     bg = np.dstack([18 + 22 * (1 - r).clip(0, 1), 14 + 14 * (1 - r).clip(0, 1), 16 + 18 * (1 - r).clip(0, 1)])
     for skill, fx in PLACEHOLDER_ICONS.items():
+        fx, tint = fx if isinstance(fx, tuple) else (fx, (1, 1, 1))
         out = OUT / f"icon-{skill}.png"
         src = Image.open(OUT / f"{fx}.jpg").convert("RGB")
         f = size * 0.92 / max(src.size)
         src = src.resize((max(1, round(src.width * f)), max(1, round(src.height * f))), Image.LANCZOS)
         layer = np.zeros((size, size, 3), np.float32)
         ox, oy = (size - src.width) // 2, (size - src.height) // 2
-        layer[oy:oy + src.height, ox:ox + src.width] = np.asarray(src, np.float32)
+        layer[oy:oy + src.height, ox:ox + src.width] = np.asarray(src, np.float32) * np.array(tint, np.float32)
         img = np.clip(bg + layer, 0, 255)
         # bronze frame
         frame = (np.maximum(np.abs(xx - size / 2), np.abs(yy - size / 2)) > size / 2 - 5)

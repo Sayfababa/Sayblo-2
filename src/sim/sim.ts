@@ -5,7 +5,7 @@
 import {
   AREAS, AUTO_ORDER, DIFFICULTIES, ELEMENT_COLORS, ELEMENT_NAMES, ELITE_MODS, ELITE_MOD_COUNT, ELITE_NAMES,
   GEM_MAX_LEVEL, HERO, ITEMS, MONSTERS, MONSTER_SCALING, RANKS, RARITIES, SKILLS, SLOT_NAMES, SOCKET_LEVELS, START_SKILL, STATES, WAVES,
-  GEMS, isPassive, skillMaxLevel, type Attr, type Element, type Slot,
+  GEMS, SKILL_TYPES, isFiller, isPassive, skillMaxLevel, type Attr, type Element, type Slot,
 } from '../content/index.ts';
 import { autoSort, canPlace, findSpot } from './bag.ts';
 import {
@@ -16,6 +16,7 @@ import { Feel } from './feel.ts';
 import { LEVEL_CAP, Meta } from './meta.ts';
 import { Rift, keyName } from './rift.ts';
 import { Mythic } from './mythic.ts';
+import { Spells } from './spells.ts';
 import { genGem, genItem } from './items.ts';
 import { disposeItem } from './economy.ts';
 import { lootFate } from './loot.ts';
@@ -83,6 +84,8 @@ export class Sim {
   /** work package C: rifts, keys, atlas, pinnacle (see rift.ts) and the mythic uniques (mythic.ts) */
   rift = new Rift(this);
   mythic = new Mythic(this);
+  /** skills package: beams, fields, orbs, constructs, hexes, ward, modifier behaviour (see spells.ts) */
+  spells = new Spells(this);
   private uid = 1;
   private ctxCache = new Map<string, SkillCtx>();
 
@@ -129,7 +132,7 @@ export class Sim {
     if (!c) { c = skillCtx(this.s, this.st, id); this.ctxCache.set(id, c); }
     return c;
   }
-  maxBarrier() { return this.st.barrier + ((this.buffs.frostarmor ?? 0) > 0 ? this.faAmt : 0); }
+  maxBarrier() { return this.st.barrier + ((this.buffs.frostarmor ?? 0) > 0 ? this.faAmt : 0) + this.spells.shellBarrier(); } // skills: Rime Shell
 
   /* ---------- world flow ---------- */
   private fwd(d: number) {
@@ -227,6 +230,7 @@ export class Sim {
   clearArea() {
     this.wave = 0; this.bossSpawned = false; this.monsters = []; this.projectiles = []; this.strikes = []; this.echoes = [];
     this.feel.reset(); // feel
+    this.spells.reset(); // skills
     this.meta.reset(); // meta: tyrant and trapped champion leave
     while (this.drops.length) this.pickup(this.drops[0]);
     if (this.s.life == null || this.s.life <= 0) { this.s.life = this.st.maxLife; this.s.mana = this.st.maxMana; }
@@ -301,7 +305,7 @@ export class Sim {
   private condOk(c: string, id: string, alive: Monster[]) {
     const h = this.hero;
     switch (c) {
-      case 'notActive': return !((this.buffs[id] ?? 0) > 3);
+      case 'notActive': return this.spells.notActive(id) ?? !((this.buffs[id] ?? 0) > 3); // skills: constructs
       case 'enemies2': return alive.length >= 2;
       case 'enemies3': return alive.length >= 3;
       case 'enemyClose': return alive.some(m => dist(m, h) <= 3);
@@ -312,7 +316,7 @@ export class Sim {
       case 'notBurning': return alive.some(m => m.burn <= 0);
       case 'notShocked': return alive.some(m => m.shock <= 0);
       case 'shocked': return alive.some(m => m.shock > 0);
-      default: return true;
+      default: return this.spells.cond(c, alive) ?? true; // skills: hex, burning, chilled, barrier conditions
     }
   }
   private target(c: string, alive: Monster[]) {
@@ -323,7 +327,7 @@ export class Sim {
       case 'notBurning': return pick(m => m.burn <= 0);
       case 'notShocked': return pick(m => m.shock <= 0);
       case 'shocked': return pick(m => m.shock > 0);
-      default: return alive[0];
+      default: return this.spells.pick(c, alive) ?? alive[0]; // skills
     }
   }
   private aliveNear() {
@@ -351,7 +355,7 @@ export class Sim {
     this.castT = this.ctx('spark').castTime; this.lastCast = 'spark';
   }
 
-  private face(t: { x: number; y: number }) {
+  face(t: { x: number; y: number }) {
     const h = this.hero, dx = (t.x - t.y) - (h.x - h.y);
     if (Math.abs(dx) > 0.05) h.f = dx > 0 ? 1 : -1;
   }
@@ -359,17 +363,17 @@ export class Sim {
   private shoot(c: SkillCtx, from: { x: number; y: number; z: number }, t: Monster, hit: number[], pierce: number, fork: number, echo: boolean) {
     this.projectiles.push({
       id: this.nextUid(), x: from.x, y: from.y, z: from.z, px: from.x, py: from.y, pz: from.z, target: t.id,
-      spd: c.def.projectileSpeed || 10, el: c.el, small: c.id === 'spark',
+      spd: c.projSpeed, el: c.el, small: c.id === 'spark',
       shot: { kind: 'skill', skill: c.id, hit, pierce, fork, echo },
     });
   }
 
-  private cast(id: string, cond: string, alive: Monster[], echo: boolean) {
+  cast(id: string, cond: string, alive: Monster[], echo: boolean) {
     const c = this.ctx(id), h = this.hero, type = c.def.type;
     this.emit({ t: 'cast', el: c.el });
     if (type === 'buff') {
       const lv = c.lvl;
-      this.faAmt = frostArmorBarrier(lv);
+      this.faAmt = Math.round(frostArmorBarrier(lv) * (1 + (c.g.barrierPct || 0) / 100)); // skills: barrier modifiers
       const dur = (c.def.duration || 0) * c.durMult;
       this.buffs[id] = dur; this.buffMax[id] = dur;
       this.s.barrier = Math.min(this.maxBarrier(), this.s.barrier + this.faAmt);
@@ -380,10 +384,12 @@ export class Sim {
     if (type === 'nova') {
       this.emit({ t: 'ring', x: h.x, y: h.y, r0: 0.4, r1: c.radius, dur: 0.35, el: c.el });
       for (const m of alive) if (dist(m, h) <= c.radius) this.hitMon(m, c, 1);
+      this.spells.onImpact(c, h.x, h.y, 'nova'); // skills: ground, repeat
       return;
     }
     const t = this.target(cond, alive);
     this.face(t); this.targetId = t.id;
+    if (this.spells.cast(c, t, alive)) return; // skills: beam, curse, field, ward, construct, orb
     if (type === 'projectile') {
       const from = { x: h.x, y: h.y, z: 1.5 };
       const others = alive.filter(m => m !== t);
@@ -393,11 +399,13 @@ export class Sim {
     }
     if (type === 'area') {
       this.areaHit(c, t.x, t.y);
+      this.spells.onImpact(c, t.x, t.y, 'area'); // skills: ground, repeat
       return;
     }
     if (type === 'meteor' || type === 'strike') {
       this.strikes.push({ id: this.nextUid(), x: t.x, y: t.y, t: 0, dur: c.def.delay || 0.5, skill: id, kind: type, echo });
       if (type === 'strike') this.emit({ t: 'bolt', pts: [{ x: t.x + 0.4, y: t.y - 0.4, z: 14 }, { x: t.x, y: t.y, z: 0.2 }] });
+      this.spells.extraStrikes(c, t, alive, type, echo); // skills: extra meteors / bolts
       return;
     }
     if (type === 'chain') {
@@ -410,17 +418,17 @@ export class Sim {
       }
       this.emit({ t: 'bolt', pts: [{ x: h.x, y: h.y, z: 1.5 }, ...ts.map(m => ({ x: m.x, y: m.y, z: 0.8 }))] });
       let mult = 1;
-      for (const m of ts) { this.hitMon(m, c, mult); mult *= c.jumpFalloff; }
+      for (const m of ts) { this.hitMon(m, c, mult); this.spells.onDirectHit(c, m); mult *= c.jumpFalloff; } // skills: explode
     }
   }
 
-  private areaHit(c: SkillCtx, x: number, y: number) {
+  areaHit(c: SkillCtx, x: number, y: number, mult = 1) {
     this.emit({ t: 'ring', x, y, r0: 0.3, r1: c.radius, dur: 0.45, el: c.el, fill: true });
     this.emit({ t: 'burst', x, y, z: 0.5, el: c.el, size: 70 + c.radius * 30 });
-    for (const m of this.monsters) if (m.hp > 0 && Math.hypot(m.x - x, m.y - y) <= c.radius) this.hitMon(m, c, 1, true);
+    for (const m of this.monsters) if (m.hp > 0 && Math.hypot(m.x - x, m.y - y) <= c.radius) this.hitMon(m, c, mult, true);
   }
 
-  private strikeImpact(st: Strike) {
+  strikeImpact(st: Strike) {
     const c = this.ctx(st.skill);
     if (st.kind === 'meteor') {
       this.emit({ t: 'ring', x: st.x, y: st.y, r0: 0.6, r1: c.radius, dur: 0.6, el: 'fire', fill: true });
@@ -429,8 +437,9 @@ export class Sim {
       this.emit({ t: 'ring', x: st.x, y: st.y, r0: 0.3, r1: c.radius * 1.4, dur: 0.4, el: c.el });
       this.emit({ t: 'burst', x: st.x, y: st.y, z: 0.4, el: c.el, size: 110 });
     }
-    for (const m of this.monsters) if (m.hp > 0 && Math.hypot(m.x - st.x, m.y - st.y) <= c.radius) this.hitMon(m, c, 1, true);
-    if (c.meteorNova) {
+    for (const m of this.monsters) if (m.hp > 0 && Math.hypot(m.x - st.x, m.y - st.y) <= c.radius) this.hitMon(m, c, st.mult ?? 1, true);
+    this.spells.onImpact(c, st.x, st.y, st.kind, st.sub); // skills: ground, repeat
+    if (c.meteorNova && !st.sub) {
       const n = this.ctx('nova');
       this.emit({ t: 'ring', x: st.x, y: st.y, r0: 0.4, r1: n.radius, dur: 0.35, el: 'light' });
       for (const m of this.monsters) if (m.hp > 0 && Math.hypot(m.x - st.x, m.y - st.y) <= n.radius) this.hitMon(m, n, 1, true);
@@ -438,26 +447,28 @@ export class Sim {
   }
 
   /** Roll a hit of a skill and apply it to a monster, including burn, chill, freeze and shock. */
-  private hitMon(m: Monster, c: SkillCtx, mult: number, small = false) {
+  hitMon(m: Monster, c: SkillCtx, mult: number, small = false) {
     if (m.hp <= 0) return;
     const r = () => this.rng.next();
     const { dmg, crit } = hitDamage(c, r, mult * this.mythic.hitMult(m)); // mythic: Pyrewright's Rod
     if (m.shock > 0 && c.shockedCold) dmg.cold += total(dmg) * c.shockedCold;
+    this.spells.preHit(m, c, dmg); // skills: hex, damage vs burning/chilled/shocked
     const fin = afterRes(dmg, m.res, c.pen, m.shock > 0 ? 1 + m.shockEff : 1);
     const n = Math.max(1, Math.round(total(fin)));
     this.emit({ t: 'monHit', id: m.id });
     const el = mainElement(fin);
     this.emit({ t: 'burst', x: m.x, y: m.y, z: 0.9, el, size: small ? 44 : 58 });
     this.float(m.x, m.y, n + (crit ? '!' : ''), ELEMENT_COLORS[el], crit, true);
-    this.applyStates(m, fin, c, true);
+    this.applyStates(m, fin, c, true, crit);
     this.dmgMon(m, n);
   }
 
-  private applyStates(m: Monster, fin: Dmg, c: SkillCtx, spread: boolean) {
+  private applyStates(m: Monster, fin: Dmg, c: SkillCtx, spread: boolean, crit = false) {
+    const force = crit && c.critAilment; // skills: Sunfire
     if (m.hp <= 0) return;
     const S = STATES, rng = this.rng;
     let any = false;
-    if (fin.fire > 0 && rng.next() * 100 < c.burnChance) {
+    if (fin.fire > 0 && (rng.next() * 100 < c.burnChance || force)) {
       const dps = (fin.fire * c.burnMult) / S.burnDuration;
       if (m.burn <= 0 || dps >= m.burnDps) { m.burnDps = dps; m.burn = c.burnDur; }
       else m.burn = Math.max(m.burn, c.burnDur);
@@ -466,10 +477,10 @@ export class Sim {
     if (fin.cold > 0) {
       m.chill = Math.max(m.chill, c.chillDur); m.chillEff = Math.max(m.chill > 0 ? m.chillEff : 0, c.chillEff);
       const heavy = (fin.cold / m.maxHp) * 100 * S.heavyHitFreeze;
-      if (m.freezeCd <= 0 && rng.next() * 100 < c.freezeChance + heavy) this.freeze(m, S.freezeDuration * c.durMult);
+      if (m.freezeCd <= 0 && rng.next() * 100 < c.freezeChance + heavy) this.freeze(m, S.freezeDuration * c.durMult * c.freezeMult);
       any = true;
     }
-    if (fin.light > 0 && rng.next() * 100 < c.shockChance) {
+    if (fin.light > 0 && (rng.next() * 100 < c.shockChance || force)) {
       m.shock = S.shockDuration * c.durMult; m.shockEff = Math.max(m.shockEff, c.shockEff);
       any = true;
     }
@@ -483,7 +494,7 @@ export class Sim {
     }
   }
 
-  private freeze(m: Monster, dur: number) {
+  freeze(m: Monster, dur: number) {
     m.frozen = m.boss ? dur * 0.5 : dur;
     m.freezeCd = STATES.freezeCooldown + m.frozen;
   }
@@ -509,11 +520,12 @@ export class Sim {
     if (this.phase !== 'fight' || this.mythic.untouchable > 0) return; // mythic: Mantle of the Unburied
     const st = this.st, h = this.hero, s = this.s;
     if (!label && this.rng.next() * 100 < st.dodge) { this.float(h.x, h.y, 'Dodge', '#86c46f'); return; }
-    let d = afterHeroRes(dmg * this.rng.range(0.85, 1.15) * mult, st.res[el]) * (1 - st.elemDR / 100);
+    let d = afterHeroRes(dmg * this.rng.range(0.85, 1.15) * mult, st.res[el]) * (1 - st.elemDR / 100) * this.spells.heroTaken(); // skills: Rime Shell
     const tot = d;
     this.noHit = 0;
     const hadBarrier = s.barrier > 0;
     if (s.barrier > 0) { const a = Math.min(s.barrier, d); s.barrier -= a; d -= a; }
+    if (hadBarrier && s.barrier <= 0) this.spells.onBarrierBreak(); // skills: Shatter Armor
     if (hadBarrier && s.barrier <= 0 && st.uniques.has('saint') && this.saintCd <= 0) {
       this.saintCd = 5;
       this.emit({ t: 'ring', x: h.x, y: h.y, r0: 0.3, r1: 3, dur: 0.6, el: 'cold', fill: true });
@@ -537,6 +549,7 @@ export class Sim {
     } else {
       this.emit({ t: 'monAttack', id: m.id });
       this.monHit(m.dmg, m.el, m.name, 1, undefined, m);
+      this.spells.onMelee(m); // skills: Ice Spikes, Cold Grip
       if ((this.buffs.frostarmor ?? 0) > 0 && m.hp > 0) { m.chill = Math.max(m.chill, SKILLS.frostarmor.meleeChill || 0); m.chillEff = Math.max(m.chillEff, STATES.baseChillEffect / 100); }
     }
   }
@@ -562,6 +575,7 @@ export class Sim {
     const burning = m.burn > 0, overkill = Math.max(0, -m.hp);
     m.hp = 0;
     const s = this.s, rk = RANKS[m.rank], rng = this.rng, D = ITEMS.drops, diff = this.diff, F = this.feel;
+    this.spells.onKill(m); // skills: kill blasts, hex contagion
     s.kills++; this.run.kills++;
     const R = this.rift; // rift: key rewards (experience, gold, rarity, item quantity)
     this.gainXp(Math.round(monsterXp(m.L, m.rank, s.difficulty) * xpFactor(s.lvl, m.L) * F.xpMult() * R.xpMult()));
@@ -629,6 +643,7 @@ export class Sim {
     this.phase = 'town'; this.townT = D.townTime; this.returnZone = Math.max(0, s.zone - 1);
     this.monsters = []; this.projectiles = []; this.strikes = []; this.echoes = []; this.drops = []; this.buffs = {}; this.faAmt = 0; this.cd = {};
     this.feel.reset(true); // feel: lose shrine buffs
+    this.spells.reset(); // skills
     this.meta.reset(true); // meta: the event ends
     s.life = this.st.maxLife; s.mana = this.st.maxMana; s.barrier = 0;
     this.emit({ t: 'clear' });
@@ -637,6 +652,7 @@ export class Sim {
   private onProjectileHit(p: Projectile, m: Monster, shot: SkillShot) {
     const c = this.ctx(shot.skill);
     this.hitMon(m, c, 1, shot.echo);
+    this.spells.onDirectHit(c, m); // skills: explode on impact
     shot.hit.push(m.id);
     const next = (from: Monster) => this.monsters
       .filter(o => o.hp > 0 && !shot.hit.includes(o.id) && dist(o, from) <= 5)
@@ -706,6 +722,7 @@ export class Sim {
     }
     this.regen(dt);
     this.feel.tick(dt); // feel: shrine buffs, vault timer, death blasts, loot events
+    this.spells.tick(dt); // skills: beams, fields, orbs, constructs, hexes, shell
     this.meta.tick(dt); // meta: events, tyrant mechanics, feats, shrine bounties
     this.rift.tick(dt); this.mythic.tick(dt); // rift: timer; mythic: stacks
     for (const k in this.cd) if (this.cd[k] > 0) this.cd[k] -= dt;
@@ -760,7 +777,7 @@ export class Sim {
       if (this.meta.monStep(m)) continue; // meta: trapped champion stays in its casing
       if (this.feel.monStep(m, dt)) continue; // feel: treasure creature flees; monster affixes
       this.rift.monStep(m, dt); // rift: guardian mechanics
-      const d = dist(m, h), slow = m.chill > 0 ? 1 - m.chillEff : 1;
+      const d = dist(m, h), slow = (m.chill > 0 ? 1 - m.chillEff : 1) * this.spells.monSlow(m); // skills: Choking Ash
       const dsx = (h.x - h.y) - (m.x - m.y);
       if (Math.abs(dsx) > 0.05) m.f = dsx > 0 ? 1 : -1;
       if (d > m.range) { m.walking = true; const st = m.mv * slow * dt; m.x += ((h.x - m.x) / d) * st; m.y += ((h.y - m.y) / d) * st; }
@@ -782,7 +799,7 @@ export class Sim {
     this.potions();
     if (this.life <= 0 && !this.mythic.cheatDeath()) { this.die(); return; } // mythic: Mantle of the Unburied
     this.monsters = this.monsters.filter(m => m.hp > 0);
-    if (!this.monsters.length && !this.strikes.length && !this.feel.busy()) { this.echoes = []; this.startWalk(); }
+    if (!this.monsters.length && !this.strikes.length && !this.feel.busy()) { this.echoes = []; this.spells.clearFight(); this.startWalk(); } // skills: beams, fields, orbs end
   }
 
   /** Run many ticks at once (headless). */
@@ -844,8 +861,7 @@ export class Sim {
     this.s.slots.forEach((sl, i) => {
       if (!sl.id) return;
       if (blocker != null) out.push([i, blocker]);
-      const sk = SKILLS[sl.id];
-      if (blocker == null && sl.cond === 'always' && !sk.cooldown && sk.type !== 'buff') blocker = i;
+      if (blocker == null && sl.cond === 'always' && isFiller(sl.id)) blocker = i;
     });
     return out;
   }
@@ -857,8 +873,8 @@ export class Sim {
     for (const id of have) if (!order.some(o => o.id === id)) order.push({ id, cond: 'always' });
     // the last skill becomes the filler: make sure something always fires
     const lastIdx = order.length - 1;
-    if (lastIdx >= 0 && !order.some(o => o.cond === 'always' && !SKILLS[o.id!].cooldown && SKILLS[o.id!].type !== 'buff')) {
-      const filler = order.findIndex(o => !SKILLS[o.id!].cooldown && SKILLS[o.id!].type !== 'buff');
+    if (lastIdx >= 0 && !order.some(o => o.cond === 'always' && isFiller(o.id!))) {
+      const filler = order.findIndex(o => isFiller(o.id!));
       if (filler >= 0) { const [f] = order.splice(filler, 1); order.push({ id: f.id, cond: 'always' }); }
     }
     while (order.length < 4) order.push({ id: null, cond: 'always' });
@@ -893,7 +909,8 @@ export class Sim {
     const sl = this.s.slots[i];
     if (id) { const other = this.s.slots.findIndex(o => o.id === id); if (other >= 0 && other !== i) this.s.slots[other] = { id: sl.id, cond: this.s.slots[other].cond }; }
     sl.id = id;
-    if (id && SKILLS[id].type === 'buff') sl.cond = 'notActive';
+    const dc = id ? SKILL_TYPES[SKILLS[id].type ?? '']?.cond : undefined;
+    if (dc) sl.cond = dc; // default condition of the skill type (skills.json "types")
     this.dirty.add('skills'); this.dirty.add('slots');
   }
   setSlotCond(i: number, cond: string) { this.s.slots[i].cond = cond; this.dirty.add('skills'); }
@@ -1016,6 +1033,7 @@ export class Sim {
       arr.forEach((g, i) => { if (g && this.putInBag(g)) arr[i] = null; });
     }
     s.skills = { [START_SKILL]: 1 };
+    s.skillMods = {}; // skills: modifier choices are free again
     s.slots = emptySlots();
     this.recalc();
     for (const k of ['town', 'hero', 'skills', 'slots', 'bag'] as DirtyKey[]) this.dirty.add(k);

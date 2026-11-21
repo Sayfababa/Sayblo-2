@@ -20,7 +20,12 @@ export const ELEMENTS: Element[] = ['fire', 'cold', 'light'];
 export const ELEMENT_NAMES: Record<Element, string> = { fire: 'Fire', cold: 'Cold', light: 'Lightning' };
 export const ELEMENT_COLORS: Record<Element, string> = { fire: '#ff7a3d', cold: '#8fd8ff', light: '#b48cff' };
 
-export type SkillType = 'projectile' | 'area' | 'meteor' | 'strike' | 'buff' | 'chain' | 'nova';
+export type SkillType = 'projectile' | 'area' | 'meteor' | 'strike' | 'buff' | 'chain' | 'nova' | 'beam' | 'curse' | 'field' | 'ward' | 'construct' | 'orb';
+/** One choice of a skill modifier tier: effect keys are the same as support gem effects plus the
+ *  behaviour keys listed in docs/skill-system.md (explode, ground, repeat, extra, killBlast, ...). */
+export interface SkillModDef { id: string; name: string; text: string; fx: Record<string, number> }
+/** How a skill type behaves in the cast priority list: `filler` = may be the last "Always" skill, `cond` = default condition. */
+export interface SkillTypeDef { filler?: boolean; cond?: string }
 export interface SkillDef {
   name: string; abbr: string; tree: string; element: Element; kind?: 'passive'; type?: SkillType; tags?: string[];
   mana?: number; cooldown?: number; min?: number; max?: number; reqLevel: number; maxLevel?: number; description: string; row: number;
@@ -28,6 +33,20 @@ export interface SkillDef {
   burnChance?: number; freezeChance?: number; shockChance?: number; critBonus?: number;
   duration?: number; barrierBase?: number; barrierPerLevel?: number; meleeChill?: number;
   jumps?: number; jumpRange?: number; jumpFalloff?: number;
+  /** beam: pulses per channel, channel seconds (scaled by cast speed), reach and width in tiles */
+  ticks?: number; channel?: number; range?: number; width?: number;
+  /** curse: % more damage taken of the skill element, per level */
+  curseTaken?: number; curseTakenPerLevel?: number;
+  /** field: seconds between pulses */
+  tick?: number;
+  /** ward: barrier as % of life (+ per level), % less damage taken, freeze seconds on cast */
+  wardPct?: number; wardPctPerLevel?: number; wardDR?: number; freeze?: number;
+  /** orb: tiles per second, seconds between zaps, zap reach */
+  speed?: number; zapEvery?: number; zapRange?: number;
+  /** construct: seconds between attacks, how many at a time */
+  attackEvery?: number; constructs?: number;
+  /** active skills: modifier tiers, two choices each (unlocked at MOD_LEVELS) */
+  mods?: [SkillModDef, SkillModDef][];
   /** passive skills: stat bonus per level */
   stats?: Record<string, number>;
 }
@@ -40,7 +59,7 @@ export interface StatesDef {
   spreadRadius: number;
 }
 export interface GemDef { name: string; requires: string[]; mana: number; effects: Record<string, [number, number]>; text: string }
-export interface TreeDef { name: string; element: Element; description: string }
+export interface TreeDef { name: string; element: Element; description: string; /** class the tree belongs to (hero.json className, lower case) */ class?: string }
 
 export interface BossDef {
   title: string; res: Record<Element, number>; intro: string;
@@ -87,6 +106,7 @@ const sk = skillsJson as unknown as {
   trees: Record<string, TreeDef>; skills: Record<string, SkillDef>; spark: SparkDef; startSkill: string;
   autoOrder: [string, string][]; scaling: { damagePerLevel: number; synergyPerPoint: number; manaPerLevel: number };
   states: StatesDef; conditions: Record<string, string>; maxSkillLevel: number; socketLevels: number[];
+  modifiers: { levels: number[]; respecPerLevel: number }; types: Record<string, SkillTypeDef>; statNames: Record<string, string>;
 };
 export const TREES = sk.trees;
 export const SKILLS = sk.skills;
@@ -100,6 +120,14 @@ export const SOCKET_LEVELS = sk.socketLevels;
 export const isPassive = (id: string) => SKILLS[id]?.kind === 'passive';
 export const skillMaxLevel = (id: string) => SKILLS[id].maxLevel ?? sk.maxSkillLevel;
 export const CONDITIONS = sk.conditions;
+/** Skill levels (points spent, without +skill items) at which the modifier tiers open. */
+export const MOD_LEVELS = sk.modifiers.levels;
+export const MOD_RESPEC_PER_LEVEL = sk.modifiers.respecPerLevel;
+export const SKILL_TYPES = sk.types;
+/** Display names of passive stat keys that are not item affixes. */
+export const STAT_NAMES = sk.statNames;
+/** May this skill be the bottom "Always" filler of the cast list (no cooldown, a damage type)? */
+export const isFiller = (id: string) => { const d = SKILLS[id]; return !!d && !d.cooldown && !!SKILL_TYPES[d.type ?? '']?.filler; };
 
 const mo = monstersJson as unknown as {
   monsters: Record<string, MonsterDef>; ranks: RankDef[]; eliteMods: Record<string, EliteModDef>; eliteModCount: [number, number];

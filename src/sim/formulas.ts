@@ -4,6 +4,7 @@ import {
   TREES, isPassive, type Attr, type Element, type SkillDef,
 } from '../content/index.ts';
 import { metaMods, metaPost } from './metastats.ts';
+import { activeMods } from './skillmods.ts';
 import { isEquip, isGem, type BagItem, type GemItem, type Item, type SaveState } from './types.ts';
 
 export const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -120,6 +121,27 @@ export interface SkillCtx {
   shockedCold: number;
   /** Stormcaller's Band: meteor releases a nova */
   meteorNova: boolean;
+  /* ----- skill modifiers and the newer skill types (see skillmods.ts, spells.ts, docs/skill-system.md) ----- */
+  /** merged effect values of socketed gems and chosen modifiers (more = product) */
+  g: Record<string, number>;
+  projSpeed: number;
+  /** % more damage against burning / chilled-or-frozen / shocked targets (passives + modifiers) */
+  vs: { burning: number; chilled: number; shocked: number };
+  freezeMult: number; critAilment: boolean;
+  /** direct hits burst around the target: radius (0 = off) and damage share */
+  explode: number; explodeDmg: number;
+  /** impact leaves a damaging ground patch: radius (0 = off), seconds, damage share per pulse */
+  ground: number; groundDur: number; groundDmg: number;
+  /** impact repeats n times 0.4s apart; extra strikes on other enemies; their damage shares */
+  repeat: number; repeatDmg: number; extra: number; extraDmg: number;
+  /** enemies killed by this skill explode for this % of their life */
+  killBlast: number;
+  /** effective duration of field/curse/ward/construct/orb/buff skills in seconds */
+  duration: number;
+  /** beam pulses; curse % more damage taken; ward barrier % of life and % less damage taken */
+  ticks: number; curse: number; wardPct: number; wardDR: number;
+  /** construct count, attack/zap/pulse rate factor, extra targets per zap, number of orbs */
+  constructs: number; rate: number; arcs: number; orbs: number;
 }
 
 export function skillCtx(s: SaveState, st: Stats, id: string): SkillCtx {
@@ -137,6 +159,12 @@ export function skillCtx(s: SaveState, st: Stats, id: string): SkillCtx {
       g[k] = k === 'more' ? ((g.more ?? 1) * (1 + v / 100)) : (g[k] || 0) + v;
     }
   }
+  // skill modifiers use the same effect keys as gems (skillmods.ts)
+  if (!spark) for (const md of activeMods(s, id)) for (const [k, v] of Object.entries(md.fx)) {
+    if (k === 'more') g.more = (g.more ?? 1) * (1 + v / 100);
+    else if (k === 'manaMore') manaMult *= 1 + v / 100;
+    else g[k] = (g[k] || 0) + v;
+  }
   const G = (k: string) => g[k] || 0, M = st.mods, mod = (k: string) => M[k] || 0;
   const U = st.uniques;
   let syn = 0;
@@ -149,7 +177,7 @@ export function skillCtx(s: SaveState, st: Stats, id: string): SkillCtx {
   const reed = id === 'frostbolt' && U.has('hollowreed'), tide = def.type === 'nova' && U.has('tidecrook');
   if (reed) projectiles += 1;
   if (tide) more *= 1.25;
-  const durMult = 1 + G('duration') / 100;
+  const durMult = Math.max(0.2, 1 + G('duration') / 100);
   const addRange = (v: number): [number, number] => [v * 0.6, v * 1.4];
   const added: Record<Element, [number, number]> = {
     fire: addRange(G('addFire') + (tags.has('spell') ? mod('addFire') : 0)),
@@ -161,12 +189,13 @@ export function skillCtx(s: SaveState, st: Stats, id: string): SkillCtx {
   return {
     id, def, lvl, tags, el: def.element,
     mana: Math.round(baseMana * (1 + SKILL_SCALING.manaPerLevel * (lvl - 1)) * manaMult * (1 - G('manaLess') / 100)),
-    castTime: castTime(st) * (spark ? SPARK.castTimeMult : 1) / (1 + G('castSpeed') / 100),
-    cooldown: def.cooldown || 0,
+    castTime: castTime(st) * (spark ? SPARK.castTimeMult : 1) / (1 + G('castSpeed') / 100)
+      * (def.type === 'beam' ? (def.channel || 1) * (1 + G('ticks') / (def.ticks || 1)) : 1),
+    cooldown: (def.cooldown || 0) * Math.max(0.2, 1 - G('cdLess') / 100),
     levelMult: spark ? 1 + SPARK.perLevel * (s.lvl - 1) : 1 + SKILL_SCALING.damagePerLevel * (lvl - 1),
     inc: { fire: generic + st.el.fire, cold: generic + st.el.cold, light: generic + st.el.light },
     more, added,
-    critChance: Math.min(HERO.caps.crit + 15, st.crit + (def.critBonus || 0)),
+    critChance: Math.min(HERO.caps.crit + 15, st.crit + (def.critBonus || 0) + G('critBonus')),
     critMulti: st.critMulti,
     pen: { ...st.pen },
     burnChance: S.baseBurnChance + (def.burnChance || 0) + mod('burnChance') + G('burnChance'),
@@ -178,11 +207,25 @@ export function skillCtx(s: SaveState, st: Stats, id: string): SkillCtx {
     shockChance: S.baseShockChance + (def.shockChance || 0) + mod('shockChance') + G('shockChance'),
     shockEff: Math.min(S.maxShockEffect, S.baseShockEffect + mod('shockEffect') + G('shockEffect')) / 100,
     radius: (def.radius || 0) * Math.max(0.3, 1 + G('radius') / 100) * (tide ? 1.4 : 1),
-    projectiles, pierce: Math.floor(G('pierce')) + (reed ? 2 : 0), fork: Math.floor(G('fork')), chains, jumpFalloff: def.jumpFalloff || 0.85,
+    projectiles, pierce: Math.floor(G('pierce')) + (reed ? 2 : 0), fork: Math.floor(G('fork')), chains, jumpFalloff: Math.min(1, (def.jumpFalloff || 0.85) + G('falloffLess') / 100),
     spread: G('spread') > 0, echo: G('echo') > 0, durMult,
     extraFire: U.has('emberheart') && tags.has('cold') ? 0.3 : 0,
     shockedCold: U.has('gravewhisper') ? 0.25 : 0,
     meteorNova: id === 'meteor' && U.has('stormcaller'),
+    g, projSpeed: (def.projectileSpeed || 10) * (1 + G('projSpeed') / 100),
+    vs: { burning: mod('vsBurning') + G('vsBurning'), chilled: mod('vsChilled') + G('vsChilled'), shocked: mod('vsShocked') + G('vsShocked') },
+    freezeMult: 1 + (mod('freezeDur') + G('freezeDur')) / 100, critAilment: G('critAilment') > 0,
+    explode: G('explode'), explodeDmg: G('explodeDmg') / 100,
+    ground: G('ground'), groundDur: G('groundDur') * durMult, groundDmg: G('groundDmg') / 100,
+    repeat: Math.round(G('repeat')), repeatDmg: G('repeatDmg') / 100, extra: Math.round(G('extra')), extraDmg: G('extraDmg') / 100,
+    killBlast: G('killBlast'),
+    duration: (def.duration || 0) * durMult,
+    ticks: (def.ticks || 0) + Math.round(G('ticks')),
+    curse: ((def.curseTaken || 0) + (def.curseTakenPerLevel || 0) * (lvl - 1)) * (1 + G('curseEffect') / 100),
+    wardPct: (def.wardPct || 0) + (def.wardPctPerLevel || 0) * (lvl - 1) + G('wardPct'),
+    wardDR: Math.min(80, (def.wardDR || 0) + G('wardDR')),
+    constructs: (def.constructs || 0) + Math.round(G('constructs')), rate: 1 + G('rate') / 100,
+    arcs: Math.round(G('arcs')), orbs: 1 + Math.round(G('orbs')),
   };
 }
 

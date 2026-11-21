@@ -57,6 +57,8 @@ export interface SaveState {
   skills: Record<string, number>;
   /** support gems socketed into each skill */
   sockets: Record<string, (GemItem | null)[]>;
+  /** chosen skill modifiers: per skill one entry per tier, 0/1 = option, -1 = not chosen yet (see skillmods.ts) */
+  skillMods: Record<string, number[]>;
   slots: CastSlot[];
   equip: Record<Slot, Item | null>;
   bag: BagItem[];
@@ -100,7 +102,11 @@ export interface Monster {
   /** rift guardian / pinnacle boss (see rift.ts): mechanic timers; render size and tint */
   rg?: { slam: number; rain: number; pin: boolean; el2: Element };
   scale?: number; tint?: string;
+  /** skills: hex on the monster and the skill that hit it last (see spells.ts) */
+  hex?: Hex; lastSkill?: string;
 }
+/** Curse on a monster: seconds left, % more damage taken per element, slow (0..1), skill that cast it. */
+export interface Hex { t: number; taken: Record<Element, number>; slow: number; skill: string }
 export interface MonFeel {
   /** treasure creature: seconds until it escapes, and its current flight angle */
   flee?: number; ang?: number; turn?: number;
@@ -117,7 +123,8 @@ export interface Projectile {
   target: number | 'hero'; spd: number; el: Element; small: boolean; shot: SkillShot | MonsterShot;
 }
 /** Delayed area hit (Meteor, Thunderstrike). */
-export interface Strike { id: number; x: number; y: number; t: number; dur: number; skill: string; kind: 'meteor' | 'strike'; echo: boolean }
+export interface Strike { id: number; x: number; y: number; t: number; dur: number; skill: string; kind: 'meteor' | 'strike'; echo: boolean;
+  /** damage factor and "no follow-ups" for extra strikes and repeats from skill modifiers */ mult?: number; sub?: boolean }
 export interface Echo { t: number; skill: string; cond: string }
 export interface Drop { id: number; x: number; y: number; gold?: number; item?: BagItem }
 
@@ -132,6 +139,8 @@ export type SimEvent =
   | { t: 'burst'; x: number; y: number; z: number; el: Element; size: number }
   | { t: 'ring'; x: number; y: number; r0: number; r1: number; dur: number; el: Element | 'gold'; fill?: boolean }
   | { t: 'bolt'; pts: { x: number; y: number; z: number }[] }
+  /** short fire/cold/lightning beam between two points (Forked Lance) */
+  | { t: 'beam'; x0: number; y0: number; x1: number; y1: number; el: Element; dur: number }
   | { t: 'cast'; el: Element }
   | { t: 'heroHit' }
   | { t: 'monHit'; id: number }

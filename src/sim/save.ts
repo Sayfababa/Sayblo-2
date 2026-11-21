@@ -6,6 +6,7 @@
  */
 import { AREAS, ATLAS_NODES, ATTRS, DIFFICULTIES, ECONOMY, GEMS, GEM_MAX_LEVEL, KEY_MODS, MAT_IDS, RARITIES, SKILLS, SLOTS, UNIQUES, isPassive } from '../content/index.ts';
 import { placeMissing } from './bag.ts';
+import { sanitizeSkillMods } from './skillmods.ts';
 import { DEFAULT_VOLUME, SAVE_VERSION, defaultLoot, newRiftSave, newSaveState } from './state.ts';
 import { newMeta, sanitizeMeta } from './meta-types.ts';
 import type { BagItem, GemItem, Item, KeyItem, RiftSave, SaveState } from './types.ts';
@@ -47,6 +48,8 @@ const MIGRATIONS: Record<number, (s: Raw) => Raw> = {
   6: s => ({ ...s, v: 7, meta: newMeta() }),
   // v8: rifts (work package C). Nothing is unlocked yet: Mother Vesper has to fall (again) to open them.
   7: s => ({ ...s, v: 8, rift: newRiftSave() }),
+  // v9: skill modifiers (skills package). Skill points stay where they are; no modifier is chosen yet.
+  8: s => ({ ...s, v: 9, skillMods: {} }),
 };
 
 export class SaveError extends Error {}
@@ -110,6 +113,7 @@ function sanitize(s: Raw): SaveState {
     if (!SKILLS[k] || isPassive(k) || !Array.isArray(arr)) continue;
     out.sockets[k] = [0, 1, 2].map(i => (validGem(arr[i]) ? arr[i] as GemItem : null));
   }
+  out.skillMods = sanitizeSkillMods(s.skillMods, out.skills);
   const equip = (s.equip || {}) as Raw;
   out.equip = { weapon: null, helm: null, armor: null, amulet: null, ring: null };
   for (const k of SLOTS) { const it = equip[k]; if (validItem(it) && it.slot === k) out.equip[k] = it; }

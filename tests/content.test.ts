@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AFFIXES, AREAS, AUTO_ORDER, CONDITIONS, GEMS, ITEMS, MONSTERS, PROPS, RARITIES, SKILLS, SLOTS, TREES, UNIQUES } from '../src/content/index.ts';
+import { AFFIXES, STAT_NAMES, AREAS, AUTO_ORDER, CONDITIONS, GEMS, ITEMS, MONSTERS, PROPS, RARITIES, SKILLS, SLOTS, TREES, UNIQUES } from '../src/content/index.ts';
 import { existsSync } from 'node:fs';
 
 const sprite = (n: string) => existsSync(new URL(`../public/sprites/${n}`, import.meta.url));
@@ -9,7 +9,7 @@ describe('content data is consistent', () => {
     for (const [id, s] of Object.entries(SKILLS)) {
       expect(TREES[s.tree], id).toBeTruthy();
       expect(sprite(`icon-${id}.png`), id).toBe(true);
-      if (s.kind === 'passive') { expect(s.stats, id).toBeTruthy(); for (const k of Object.keys(s.stats!)) expect(AFFIXES[k] || ['burnDmg', 'chillEffect', 'shockEffect'].includes(k), k).toBeTruthy(); }
+      if (s.kind === 'passive') { expect(s.stats, id).toBeTruthy(); for (const k of Object.keys(s.stats!)) expect(AFFIXES[k] || STAT_NAMES[k], k).toBeTruthy(); }
       else if (s.type !== 'buff') expect(s.max! >= s.min!, id).toBe(true);
     }
     for (const [id, c] of AUTO_ORDER) { expect(SKILLS[id]).toBeTruthy(); expect(CONDITIONS[c]).toBeTruthy(); }
