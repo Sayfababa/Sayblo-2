@@ -3,17 +3,20 @@
   "ember": {
    "name": "Ember",
    "element": "fire",
-   "description": "Raw fire: big hits and burning."
+   "description": "Raw fire: big hits, burning ground, a hex that makes everything burn hotter.",
+   "class": "sorceress"
   },
   "frost": {
    "name": "Frost",
    "element": "cold",
-   "description": "Control and protection: chill, freeze, barrier."
+   "description": "Control and protection: chill, freeze, hail and shells of ice.",
+   "class": "sorceress"
   },
   "storm": {
    "name": "Storm",
    "element": "light",
-   "description": "Wild damage that jumps between foes and shocks them."
+   "description": "Wild damage that jumps between foes, shocks them and keeps arcing on its own.",
+   "class": "sorceress"
   }
  },
  "skills": {
@@ -36,7 +39,105 @@
    "reqLevel": 1,
    "projectileSpeed": 10,
    "row": 0,
-   "description": "Hurls a ball of fire at one enemy. Fire hits have a chance to burn."
+   "description": "Hurls a ball of fire at one enemy. Fire hits have a chance to burn.",
+   "mods": [
+    [
+     {
+      "id": "twin",
+      "name": "Twin Flame",
+      "text": "+1 projectile, 15% less damage.",
+      "fx": {
+       "projectiles": 1,
+       "more": -15
+      }
+     },
+     {
+      "id": "core",
+      "name": "Searing Core",
+      "text": "+40% chance to burn, 30% more burn damage.",
+      "fx": {
+       "burnChance": 40,
+       "burnMore": 30
+      }
+     }
+    ],
+    [
+     {
+      "id": "burst",
+      "name": "Bursting Core",
+      "text": "Explodes on impact: 60% damage to enemies within 1.4 tiles.",
+      "fx": {
+       "explode": 1.4,
+       "explodeDmg": 60
+      }
+     },
+     {
+      "id": "seeker",
+      "name": "Seeker",
+      "text": "Pierces 2 more enemies, flies 40% faster.",
+      "fx": {
+       "pierce": 2,
+       "projSpeed": 40
+      }
+     }
+    ],
+    [
+     {
+      "id": "trail",
+      "name": "Cinder Trail",
+      "text": "Leaves burning ground for 2.5s where it lands (25% damage per pulse).",
+      "fx": {
+       "ground": 1.2,
+       "groundDur": 2.5,
+       "groundDmg": 25
+      }
+     },
+     {
+      "id": "molten",
+      "name": "Molten Heart",
+      "text": "30% more damage, 25% more mana.",
+      "fx": {
+       "more": 30,
+       "manaMore": 25
+      }
+     }
+    ],
+    [
+     {
+      "id": "volley",
+      "name": "Volley",
+      "text": "+2 projectiles, 10% less damage.",
+      "fx": {
+       "projectiles": 2,
+       "more": -10
+      }
+     },
+     {
+      "id": "sunfire",
+      "name": "Sunfire",
+      "text": "+15% crit chance. Crits always burn.",
+      "fx": {
+       "critBonus": 15,
+       "critAilment": 1
+      }
+     }
+    ]
+   ]
+  },
+  "pyromancy": {
+   "name": "Pyromancy",
+   "abbr": "PY",
+   "tree": "ember",
+   "element": "fire",
+   "kind": "passive",
+   "reqLevel": 2,
+   "maxLevel": 10,
+   "row": 1,
+   "stats": {
+    "fireDmg": 8,
+    "burnDmg": 6
+   },
+   "description": "Passive. +8% fire damage and +6% burn damage per level."
   },
   "searing": {
    "name": "Searing Burst",
@@ -58,22 +159,189 @@
    "radius": 1.8,
    "burnChance": 30,
    "row": 1,
-   "description": "Flames erupt around the target and hit every enemy within 1.8 tiles. +30% chance to burn."
+   "description": "Flames erupt around the target and hit every enemy within 1.8 tiles. +30% chance to burn.",
+   "mods": [
+    [
+     {
+      "id": "wide",
+      "name": "Wide Blaze",
+      "text": "30% larger area.",
+      "fx": {
+       "radius": 30
+      }
+     },
+     {
+      "id": "focus",
+      "name": "Focused Heat",
+      "text": "25% smaller area, 30% more damage.",
+      "fx": {
+       "radius": -25,
+       "more": 30
+      }
+     }
+    ],
+    [
+     {
+      "id": "after",
+      "name": "Afterburn",
+      "text": "Leaves burning ground for 3s (25% damage per pulse).",
+      "fx": {
+       "ground": 1,
+       "groundDur": 3,
+       "groundDmg": 25
+      }
+     },
+     {
+      "id": "kindle",
+      "name": "Kindle",
+      "text": "+50% chance to burn, burns last 1s longer.",
+      "fx": {
+       "burnChance": 50,
+       "burnDuration": 1
+      }
+     }
+    ],
+    [
+     {
+      "id": "double",
+      "name": "Double Burst",
+      "text": "Erupts a second time 0.4s later (60% damage).",
+      "fx": {
+       "repeat": 1,
+       "repeatDmg": 60
+      }
+     },
+     {
+      "id": "pact",
+      "name": "Fire Pact",
+      "text": "20% faster casting, 15% lower mana cost.",
+      "fx": {
+       "castSpeed": 20,
+       "manaLess": 15
+      }
+     }
+    ],
+    [
+     {
+      "id": "chain",
+      "name": "Chain Eruption",
+      "text": "Enemies it kills explode for 25% of their life as fire damage.",
+      "fx": {
+       "killBlast": 25
+      }
+     },
+     {
+      "id": "consume",
+      "name": "Consume",
+      "text": "40% more damage against burning enemies.",
+      "fx": {
+       "vsBurning": 40
+      }
+     }
+    ]
+   ]
   },
-  "pyromancy": {
-   "name": "Pyromancy",
-   "abbr": "PY",
+  "flamelance": {
+   "name": "Flame Lance",
+   "abbr": "FL",
    "tree": "ember",
    "element": "fire",
-   "kind": "passive",
-   "reqLevel": 2,
-   "maxLevel": 10,
+   "type": "beam",
+   "tags": [
+    "spell",
+    "fire",
+    "channel",
+    "hit"
+   ],
+   "mana": 7,
+   "cooldown": 0,
+   "min": 2,
+   "max": 4,
+   "reqLevel": 5,
+   "ticks": 5,
+   "channel": 1.1,
+   "range": 7,
+   "width": 0.6,
    "row": 1,
-   "stats": {
-    "fireDmg": 8,
-    "burnDmg": 6
-   },
-   "description": "Passive. +8% fire damage and +6% burn damage per level."
+   "description": "Channels a lance of fire for about a second. Each of its 5 pulses burns every enemy on the line to the target.",
+   "mods": [
+    [
+     {
+      "id": "long",
+      "name": "Long Channel",
+      "text": "+2 pulses per cast.",
+      "fx": {
+       "ticks": 2
+      }
+     },
+     {
+      "id": "white",
+      "name": "White Heat",
+      "text": "20% more damage, 20% more mana.",
+      "fx": {
+       "more": 20,
+       "manaMore": 20
+      }
+     }
+    ],
+    [
+     {
+      "id": "scorch",
+      "name": "Scorch",
+      "text": "+40% chance to burn, 25% more burn damage.",
+      "fx": {
+       "burnChance": 40,
+       "burnMore": 25
+      }
+     },
+     {
+      "id": "lens",
+      "name": "Focus Lens",
+      "text": "+12% crit chance.",
+      "fx": {
+       "critBonus": 12
+      }
+     }
+    ],
+    [
+     {
+      "id": "melt",
+      "name": "Melt",
+      "text": "30% more damage against burning enemies.",
+      "fx": {
+       "vsBurning": 30
+      }
+     },
+     {
+      "id": "fork",
+      "name": "Forked Lance",
+      "text": "Each pulse also burns 1 more enemy near the target.",
+      "fx": {
+       "arcs": 1
+      }
+     }
+    ],
+    [
+     {
+      "id": "flare",
+      "name": "Flare",
+      "text": "Each pulse bursts around the target: 30% damage within 1.2 tiles.",
+      "fx": {
+       "explode": 1.2,
+       "explodeDmg": 30
+      }
+     },
+     {
+      "id": "endless",
+      "name": "Endless Flame",
+      "text": "+3 pulses, 10% less damage.",
+      "fx": {
+       "ticks": 3,
+       "more": -10
+      }
+     }
+    ]
+   ]
   },
   "meteor": {
    "name": "Meteor",
@@ -98,7 +366,188 @@
    "delay": 0.7,
    "burnChance": 100,
    "row": 2,
-   "description": "Calls a meteor onto the target. Hits everything within 2.5 tiles and always burns."
+   "description": "Calls a meteor onto the target. Hits everything within 2.5 tiles and always burns.",
+   "mods": [
+    [
+     {
+      "id": "big",
+      "name": "Great Impact",
+      "text": "25% larger area.",
+      "fx": {
+       "radius": 25
+      }
+     },
+     {
+      "id": "swift",
+      "name": "Swift Fall",
+      "text": "25% shorter cooldown.",
+      "fx": {
+       "cdLess": 25
+      }
+     }
+    ],
+    [
+     {
+      "id": "crater",
+      "name": "Molten Crater",
+      "text": "Leaves burning ground for 3s (30% damage per pulse).",
+      "fx": {
+       "ground": 1.6,
+       "groundDur": 3,
+       "groundDmg": 30
+      }
+     },
+     {
+      "id": "star",
+      "name": "Falling Star",
+      "text": "1 more meteor lands on another enemy (50% damage).",
+      "fx": {
+       "extra": 1,
+       "extraDmg": 50
+      }
+     }
+    ],
+    [
+     {
+      "id": "quake",
+      "name": "Aftershock",
+      "text": "The ground shakes again 0.4s later (40% damage).",
+      "fx": {
+       "repeat": 1,
+       "repeatDmg": 40
+      }
+     },
+     {
+      "id": "heavy",
+      "name": "Heavy Stone",
+      "text": "25% more damage.",
+      "fx": {
+       "more": 25
+      }
+     }
+    ],
+    [
+     {
+      "id": "shower",
+      "name": "Meteor Shower",
+      "text": "2 more meteors on other enemies (50% damage).",
+      "fx": {
+       "extra": 2,
+       "extraDmg": 50
+      }
+     },
+     {
+      "id": "cata",
+      "name": "Cataclysm",
+      "text": "20% larger area, 30% more damage, 30% more mana.",
+      "fx": {
+       "radius": 20,
+       "more": 30,
+       "manaMore": 30
+      }
+     }
+    ]
+   ]
+  },
+  "ashenhex": {
+   "name": "Ashen Hex",
+   "abbr": "AH",
+   "tree": "ember",
+   "element": "fire",
+   "type": "curse",
+   "tags": [
+    "spell",
+    "fire",
+    "curse",
+    "area",
+    "duration"
+   ],
+   "mana": 8,
+   "cooldown": 3,
+   "min": 0,
+   "max": 0,
+   "reqLevel": 8,
+   "radius": 2.6,
+   "duration": 8,
+   "curseTaken": 15,
+   "curseTakenPerLevel": 1.5,
+   "row": 2,
+   "description": "Hexes enemies within 2.6 tiles of the target for 8s: they take 15% more fire damage (+1.5% per level), burn included.",
+   "mods": [
+    [
+     {
+      "id": "wide",
+      "name": "Spreading Ash",
+      "text": "40% larger area.",
+      "fx": {
+       "radius": 40
+      }
+     },
+     {
+      "id": "deep",
+      "name": "Deep Hex",
+      "text": "The hex is 30% stronger.",
+      "fx": {
+       "curseEffect": 30
+      }
+     }
+    ],
+    [
+     {
+      "id": "long",
+      "name": "Lasting Ash",
+      "text": "Lasts 50% longer.",
+      "fx": {
+       "duration": 50
+      }
+     },
+     {
+      "id": "all",
+      "name": "Hex of Ruin",
+      "text": "Also raises cold and lightning damage taken by half the value.",
+      "fx": {
+       "curseAll": 1
+      }
+     }
+    ],
+    [
+     {
+      "id": "spread",
+      "name": "Contagion",
+      "text": "When a hexed enemy dies, the hex jumps to enemies within 2.5 tiles.",
+      "fx": {
+       "curseSpread": 1
+      }
+     },
+     {
+      "id": "slow",
+      "name": "Choking Ash",
+      "text": "Hexed enemies move and attack 20% slower.",
+      "fx": {
+       "curseSlow": 20
+      }
+     }
+    ],
+    [
+     {
+      "id": "pyre",
+      "name": "Pyre",
+      "text": "Hexed enemies explode on death for 30% of their life as fire damage.",
+      "fx": {
+       "killBlast": 30
+      }
+     },
+     {
+      "id": "doom",
+      "name": "Doom",
+      "text": "The hex is 40% stronger but lasts 30% shorter.",
+      "fx": {
+       "curseEffect": 40,
+       "duration": -30
+      }
+     }
+    ]
+   ]
   },
   "kindling": {
    "name": "Kindling",
@@ -114,6 +563,21 @@
     "firePen": 2
    },
    "description": "Passive. +4% chance to burn and 2% fire penetration per level."
+  },
+  "smoulder": {
+   "name": "Smoulder",
+   "abbr": "SM",
+   "tree": "ember",
+   "element": "fire",
+   "kind": "passive",
+   "reqLevel": 14,
+   "maxLevel": 10,
+   "row": 3,
+   "stats": {
+    "vsBurning": 4,
+    "burnChance": 2
+   },
+   "description": "Passive. +4% damage against burning enemies and +2% chance to burn per level."
   },
   "frostbolt": {
    "name": "Frost Bolt",
@@ -137,7 +601,88 @@
    "chillEffect": 20,
    "projectileSpeed": 13,
    "row": 0,
-   "description": "Cheap bolt. Chills strongly for 3s: chilled enemies move and attack slower."
+   "description": "Cheap bolt. Chills strongly for 3s: chilled enemies move and attack slower.",
+   "mods": [
+    [
+     {
+      "id": "shards",
+      "name": "Shards",
+      "text": "+1 projectile, 15% less damage.",
+      "fx": {
+       "projectiles": 1,
+       "more": -15
+      }
+     },
+     {
+      "id": "bite",
+      "name": "Biting Cold",
+      "text": "+15% chill effect, chill lasts 40% longer.",
+      "fx": {
+       "chillEffect": 15,
+       "duration": 40
+      }
+     }
+    ],
+    [
+     {
+      "id": "pierce",
+      "name": "Ice Needle",
+      "text": "Pierces 2 more enemies.",
+      "fx": {
+       "pierce": 2
+      }
+     },
+     {
+      "id": "core",
+      "name": "Glacial Core",
+      "text": "+15% chance to freeze.",
+      "fx": {
+       "freezeChance": 15
+      }
+     }
+    ],
+    [
+     {
+      "id": "burst",
+      "name": "Frost Burst",
+      "text": "Shatters on impact: 50% damage to enemies within 1.3 tiles.",
+      "fx": {
+       "explode": 1.3,
+       "explodeDmg": 50
+      }
+     },
+     {
+      "id": "split",
+      "name": "Splinter",
+      "text": "Splits into 2 on its first hit, 10% less damage.",
+      "fx": {
+       "fork": 2,
+       "more": -10
+      }
+     }
+    ],
+    [
+     {
+      "id": "rime",
+      "name": "Rime Patch",
+      "text": "Leaves freezing ground for 2s (20% damage per pulse).",
+      "fx": {
+       "ground": 1,
+       "groundDur": 2,
+       "groundDmg": 20
+      }
+     },
+     {
+      "id": "deep",
+      "name": "Deep Cold",
+      "text": "30% more damage, freezes last 30% longer.",
+      "fx": {
+       "more": 30,
+       "freezeDur": 30
+      }
+     }
+    ]
+   ]
   },
   "coldmastery": {
    "name": "Cold Mastery",
@@ -174,7 +719,85 @@
    "barrierPerLevel": 6,
    "meleeChill": 2,
    "row": 1,
-   "description": "Adds 6 + 6 per level barrier for 30s. Melee attackers get chilled."
+   "description": "Adds 6 + 6 per level barrier for 30s. Melee attackers get chilled.",
+   "min": 3,
+   "max": 6,
+   "mods": [
+    [
+     {
+      "id": "thick",
+      "name": "Thick Ice",
+      "text": "30% more barrier.",
+      "fx": {
+       "barrierPct": 30
+      }
+     },
+     {
+      "id": "long",
+      "name": "Long Winter",
+      "text": "Lasts 50% longer.",
+      "fx": {
+       "duration": 50
+      }
+     }
+    ],
+    [
+     {
+      "id": "spikes",
+      "name": "Ice Spikes",
+      "text": "Melee attackers take cold damage.",
+      "fx": {
+       "retaliate": 100
+      }
+     },
+     {
+      "id": "grip",
+      "name": "Cold Grip",
+      "text": "Melee attackers have a 15% chance to freeze.",
+      "fx": {
+       "wardFreeze": 15
+      }
+     }
+    ],
+    [
+     {
+      "id": "shatter",
+      "name": "Shatter Armor",
+      "text": "When the barrier breaks, an ice nova hits enemies within 3 tiles (300% damage).",
+      "fx": {
+       "breakNova": 300
+      }
+     },
+     {
+      "id": "ever",
+      "name": "Everfrost",
+      "text": "20% more barrier, lasts 30% longer.",
+      "fx": {
+       "barrierPct": 20,
+       "duration": 30
+      }
+     }
+    ],
+    [
+     {
+      "id": "glacier",
+      "name": "Glacier",
+      "text": "50% more barrier, 30% more mana.",
+      "fx": {
+       "barrierPct": 50,
+       "manaMore": 30
+      }
+     },
+     {
+      "id": "aura",
+      "name": "Frost Aura",
+      "text": "Enemies within 3 tiles are chilled while it lasts.",
+      "fx": {
+       "chillAura": 3
+      }
+     }
+    ]
+   ]
   },
   "icenova": {
    "name": "Ice Nova",
@@ -196,8 +819,288 @@
    "reqLevel": 5,
    "radius": 3.2,
    "freezeChance": 15,
+   "row": 1,
+   "description": "A ring of ice bursts from the sorceress, hitting all enemies within 3.2 tiles. +15% chance to freeze.",
+   "mods": [
+    [
+     {
+      "id": "wide",
+      "name": "Wide Ring",
+      "text": "20% larger area.",
+      "fx": {
+       "radius": 20
+      }
+     },
+     {
+      "id": "hard",
+      "name": "Hard Frost",
+      "text": "+15% chance to freeze.",
+      "fx": {
+       "freezeChance": 15
+      }
+     }
+    ],
+    [
+     {
+      "id": "ground",
+      "name": "Chilled Ground",
+      "text": "Leaves icy ground for 3s (15% damage per pulse, chills).",
+      "fx": {
+       "ground": 2.4,
+       "groundDur": 3,
+       "groundDmg": 15
+      }
+     },
+     {
+      "id": "long",
+      "name": "Long Freeze",
+      "text": "Freezes last 50% longer.",
+      "fx": {
+       "freezeDur": 50
+      }
+     }
+    ],
+    [
+     {
+      "id": "twin",
+      "name": "Twin Ring",
+      "text": "A second ring follows 0.4s later (50% damage).",
+      "fx": {
+       "repeat": 1,
+       "repeatDmg": 50
+      }
+     },
+     {
+      "id": "brittle",
+      "name": "Brittle",
+      "text": "25% more damage against chilled enemies.",
+      "fx": {
+       "vsChilled": 25
+      }
+     }
+    ],
+    [
+     {
+      "id": "shatter",
+      "name": "Shatter",
+      "text": "Enemies it kills burst for 25% of their life as cold damage.",
+      "fx": {
+       "killBlast": 25
+      }
+     },
+     {
+      "id": "glacial",
+      "name": "Glacial Might",
+      "text": "30% more damage, 25% more mana.",
+      "fx": {
+       "more": 30,
+       "manaMore": 25
+      }
+     }
+    ]
+   ]
+  },
+  "hailstorm": {
+   "name": "Hailstorm",
+   "abbr": "HS",
+   "tree": "frost",
+   "element": "cold",
+   "type": "field",
+   "tags": [
+    "spell",
+    "area",
+    "cold",
+    "duration",
+    "hit"
+   ],
+   "mana": 13,
+   "cooldown": 5,
+   "min": 3,
+   "max": 6,
+   "reqLevel": 7,
+   "radius": 2.2,
+   "duration": 4,
+   "tick": 0.5,
    "row": 2,
-   "description": "A ring of ice bursts from the sorceress, hitting all enemies within 3.2 tiles. +15% chance to freeze."
+   "description": "Hail pounds the ground around the target for 4s. Every half second it hits all enemies within 2.2 tiles and chills them.",
+   "mods": [
+    [
+     {
+      "id": "wide",
+      "name": "Wide Storm",
+      "text": "25% larger area.",
+      "fx": {
+       "radius": 25
+      }
+     },
+     {
+      "id": "long",
+      "name": "Long Storm",
+      "text": "Lasts 50% longer.",
+      "fx": {
+       "duration": 50
+      }
+     }
+    ],
+    [
+     {
+      "id": "heavy",
+      "name": "Heavy Hail",
+      "text": "25% more damage.",
+      "fx": {
+       "more": 25
+      }
+     },
+     {
+      "id": "freeze",
+      "name": "Freezing Hail",
+      "text": "+10% chance to freeze, +10% chill effect.",
+      "fx": {
+       "freezeChance": 10,
+       "chillEffect": 10
+      }
+     }
+    ],
+    [
+     {
+      "id": "twin",
+      "name": "Twin Storms",
+      "text": "A second storm opens over another enemy (70% damage).",
+      "fx": {
+       "extra": 1,
+       "extraDmg": 70
+      }
+     },
+     {
+      "id": "rapid",
+      "name": "Rapid Hail",
+      "text": "Pulses 40% faster.",
+      "fx": {
+       "rate": 40
+      }
+     }
+    ],
+    [
+     {
+      "id": "brittle",
+      "name": "Shatter Hail",
+      "text": "30% more damage against chilled enemies.",
+      "fx": {
+       "vsChilled": 30
+      }
+     },
+     {
+      "id": "eye",
+      "name": "Eye of Winter",
+      "text": "+15% crit chance, 15% larger area.",
+      "fx": {
+       "critBonus": 15,
+       "radius": 15
+      }
+     }
+    ]
+   ]
+  },
+  "rimeshell": {
+   "name": "Rime Shell",
+   "abbr": "RS",
+   "tree": "frost",
+   "element": "cold",
+   "type": "ward",
+   "tags": [
+    "spell",
+    "cold",
+    "buff",
+    "duration"
+   ],
+   "mana": 12,
+   "cooldown": 20,
+   "min": 4,
+   "max": 9,
+   "reqLevel": 9,
+   "duration": 4,
+   "wardPct": 20,
+   "wardPctPerLevel": 1,
+   "wardDR": 30,
+   "radius": 2.6,
+   "freeze": 1.2,
+   "row": 2,
+   "description": "Emergency shell of ice: barrier worth 20% of life (+1% per level), 30% less damage taken for 4s, and enemies within 2.6 tiles freeze.",
+   "mods": [
+    [
+     {
+      "id": "thick",
+      "name": "Thick Shell",
+      "text": "+15% of life as extra barrier.",
+      "fx": {
+       "wardPct": 15
+      }
+     },
+     {
+      "id": "quick",
+      "name": "Quick Reform",
+      "text": "25% shorter cooldown.",
+      "fx": {
+       "cdLess": 25
+      }
+     }
+    ],
+    [
+     {
+      "id": "burst",
+      "name": "Frost Burst",
+      "text": "The shell bursts when cast: cold damage to enemies around her.",
+      "fx": {
+       "wardNova": 100
+      }
+     },
+     {
+      "id": "long",
+      "name": "Long Shell",
+      "text": "Lasts 60% longer.",
+      "fx": {
+       "duration": 60
+      }
+     }
+    ],
+    [
+     {
+      "id": "hard",
+      "name": "Hard Shell",
+      "text": "20% less damage taken on top while it lasts.",
+      "fx": {
+       "wardDR": 20
+      }
+     },
+     {
+      "id": "mana",
+      "name": "Cold Clarity",
+      "text": "Restores 25% of mana when cast.",
+      "fx": {
+       "wardMana": 25
+      }
+     }
+    ],
+    [
+     {
+      "id": "heal",
+      "name": "Frozen Sanctuary",
+      "text": "Heals 15% of life when cast.",
+      "fx": {
+       "wardHeal": 15
+      }
+     },
+     {
+      "id": "bulwark",
+      "name": "Bulwark",
+      "text": "+25% of life as barrier, 15% shorter cooldown.",
+      "fx": {
+       "wardPct": 25,
+       "cdLess": 15
+      }
+     }
+    ]
+   ]
   },
   "permafrost": {
    "name": "Permafrost",
@@ -213,6 +1116,21 @@
     "coldPen": 2
    },
    "description": "Passive. +3% chance to freeze and 2% cold penetration per level."
+  },
+  "brittlefrost": {
+   "name": "Brittle Frost",
+   "abbr": "BF",
+   "tree": "frost",
+   "element": "cold",
+   "kind": "passive",
+   "reqLevel": 14,
+   "maxLevel": 10,
+   "row": 3,
+   "stats": {
+    "vsChilled": 3,
+    "freezeDur": 4
+   },
+   "description": "Passive. +3% damage against chilled or frozen enemies and 4% longer freezes per level."
   },
   "chain": {
    "name": "Chain Lightning",
@@ -235,7 +1153,84 @@
    "jumpRange": 4,
    "jumpFalloff": 0.85,
    "row": 0,
-   "description": "Arcs through up to 3 enemies close to each other, 15% weaker per jump."
+   "description": "Arcs through up to 3 enemies close to each other, 15% weaker per jump.",
+   "mods": [
+    [
+     {
+      "id": "long",
+      "name": "Long Chain",
+      "text": "Jumps 2 more times.",
+      "fx": {
+       "chains": 2
+      }
+     },
+     {
+      "id": "true",
+      "name": "True Arc",
+      "text": "Loses only 5% per jump instead of 15%.",
+      "fx": {
+       "falloffLess": 10
+      }
+     }
+    ],
+    [
+     {
+      "id": "static",
+      "name": "Static",
+      "text": "+30% chance to shock.",
+      "fx": {
+       "shockChance": 30
+      }
+     },
+     {
+      "id": "over",
+      "name": "Overload",
+      "text": "+10% crit chance.",
+      "fx": {
+       "critBonus": 10
+      }
+     }
+    ],
+    [
+     {
+      "id": "cond",
+      "name": "Conductor",
+      "text": "30% more damage against shocked enemies.",
+      "fx": {
+       "vsShocked": 30
+      }
+     },
+     {
+      "id": "heavy",
+      "name": "Heavy Arc",
+      "text": "+1 jump, 15% more damage.",
+      "fx": {
+       "chains": 1,
+       "more": 15
+      }
+     }
+    ],
+    [
+     {
+      "id": "storm",
+      "name": "Storm Chain",
+      "text": "Jumps 3 more times, 10% less damage.",
+      "fx": {
+       "chains": 3,
+       "more": -10
+      }
+     },
+     {
+      "id": "thunder",
+      "name": "Thunderous",
+      "text": "Each target is blasted: 40% damage to enemies within 1.2 tiles.",
+      "fx": {
+       "explode": 1.2,
+       "explodeDmg": 40
+      }
+     }
+    ]
+   ]
   },
   "conductivity": {
    "name": "Conductivity",
@@ -273,7 +1268,190 @@
    "radius": 4,
    "shockChance": 20,
    "row": 1,
-   "description": "Shocks every enemy within 4 tiles. +20% chance to shock."
+   "description": "Shocks every enemy within 4 tiles. +20% chance to shock.",
+   "mods": [
+    [
+     {
+      "id": "wide",
+      "name": "Wide Nova",
+      "text": "20% larger area.",
+      "fx": {
+       "radius": 20
+      }
+     },
+     {
+      "id": "charged",
+      "name": "Charged",
+      "text": "+30% chance to shock.",
+      "fx": {
+       "shockChance": 30
+      }
+     }
+    ],
+    [
+     {
+      "id": "pulse",
+      "name": "Pulse",
+      "text": "Pulses a second time 0.4s later (60% damage).",
+      "fx": {
+       "repeat": 1,
+       "repeatDmg": 60
+      }
+     },
+     {
+      "id": "quick",
+      "name": "Quick Nova",
+      "text": "30% shorter cooldown.",
+      "fx": {
+       "cdLess": 30
+      }
+     }
+    ],
+    [
+     {
+      "id": "ground",
+      "name": "Static Ground",
+      "text": "Leaves crackling ground for 3s (15% damage per pulse).",
+      "fx": {
+       "ground": 3,
+       "groundDur": 3,
+       "groundDmg": 15
+      }
+     },
+     {
+      "id": "over",
+      "name": "Overcharge",
+      "text": "+10% shock effect.",
+      "fx": {
+       "shockEffect": 10
+      }
+     }
+    ],
+    [
+     {
+      "id": "cata",
+      "name": "Cataclysm",
+      "text": "40% more damage, 30% more mana.",
+      "fx": {
+       "more": 40,
+       "manaMore": 30
+      }
+     },
+     {
+      "id": "tempest",
+      "name": "Tempest",
+      "text": "Pulses two more times (40% damage each).",
+      "fx": {
+       "repeat": 2,
+       "repeatDmg": 40
+      }
+     }
+    ]
+   ]
+  },
+  "stormwisp": {
+   "name": "Stormwisp",
+   "abbr": "SW",
+   "tree": "storm",
+   "element": "light",
+   "type": "orb",
+   "tags": [
+    "spell",
+    "lightning",
+    "orb",
+    "duration",
+    "hit"
+   ],
+   "mana": 10,
+   "cooldown": 1.5,
+   "min": 2,
+   "max": 9,
+   "reqLevel": 5,
+   "speed": 2.6,
+   "duration": 2.4,
+   "zapEvery": 0.4,
+   "zapRange": 2.6,
+   "row": 1,
+   "description": "Releases a slow wisp that drifts through the enemies and zaps one of them every 0.4s for 2.4s.",
+   "mods": [
+    [
+     {
+      "id": "twin",
+      "name": "Twin Wisps",
+      "text": "+1 wisp, 10% less damage.",
+      "fx": {
+       "orbs": 1,
+       "more": -10
+      }
+     },
+     {
+      "id": "linger",
+      "name": "Lingering Wisp",
+      "text": "Lasts 40% longer.",
+      "fx": {
+       "duration": 40
+      }
+     }
+    ],
+    [
+     {
+      "id": "fork",
+      "name": "Forked Zaps",
+      "text": "Each zap hits 1 more enemy.",
+      "fx": {
+       "arcs": 1
+      }
+     },
+     {
+      "id": "quick",
+      "name": "Quick Zaps",
+      "text": "Zaps 30% faster.",
+      "fx": {
+       "rate": 30
+      }
+     }
+    ],
+    [
+     {
+      "id": "static",
+      "name": "Static Wisp",
+      "text": "+30% chance to shock, +10% shock effect.",
+      "fx": {
+       "shockChance": 30,
+       "shockEffect": 10
+      }
+     },
+     {
+      "id": "collapse",
+      "name": "Collapse",
+      "text": "Bursts when it fades: 200% damage within 2 tiles.",
+      "fx": {
+       "explode": 2,
+       "explodeDmg": 200
+      }
+     }
+    ],
+    [
+     {
+      "id": "swarm",
+      "name": "Swarm",
+      "text": "+2 wisps, 15% less damage.",
+      "fx": {
+       "orbs": 2,
+       "more": -15
+      }
+     },
+     {
+      "id": "super",
+      "name": "Supercharge",
+      "text": "35% more damage, 25% more mana.",
+      "fx": {
+       "more": 35,
+       "manaMore": 25
+      }
+     }
+    ]
+   ]
   },
   "thunder": {
    "name": "Thunderstrike",
@@ -297,7 +1475,187 @@
    "delay": 0.3,
    "critBonus": 10,
    "row": 2,
-   "description": "A bolt from the sky strikes the target and everything within 1.3 tiles. +10% crit chance."
+   "description": "A bolt from the sky strikes the target and everything within 1.3 tiles. +10% crit chance.",
+   "mods": [
+    [
+     {
+      "id": "wide",
+      "name": "Wide Bolt",
+      "text": "40% larger area.",
+      "fx": {
+       "radius": 40
+      }
+     },
+     {
+      "id": "sharp",
+      "name": "Sharp Sky",
+      "text": "+15% crit chance.",
+      "fx": {
+       "critBonus": 15
+      }
+     }
+    ],
+    [
+     {
+      "id": "fork",
+      "name": "Forked Sky",
+      "text": "1 more bolt strikes another enemy (60% damage).",
+      "fx": {
+       "extra": 1,
+       "extraDmg": 60
+      }
+     },
+     {
+      "id": "quick",
+      "name": "Quick Storm",
+      "text": "25% shorter cooldown.",
+      "fx": {
+       "cdLess": 25
+      }
+     }
+    ],
+    [
+     {
+      "id": "after",
+      "name": "Aftershock",
+      "text": "Strikes again 0.4s later (50% damage).",
+      "fx": {
+       "repeat": 1,
+       "repeatDmg": 50
+      }
+     },
+     {
+      "id": "ionize",
+      "name": "Ionize",
+      "text": "+50% chance to shock, +10% shock effect.",
+      "fx": {
+       "shockChance": 50,
+       "shockEffect": 10
+      }
+     }
+    ],
+    [
+     {
+      "id": "judge",
+      "name": "Judgement",
+      "text": "50% more damage, 40% more mana.",
+      "fx": {
+       "more": 50,
+       "manaMore": 40
+      }
+     },
+     {
+      "id": "fury",
+      "name": "Sky Fury",
+      "text": "2 more bolts on other enemies (50% damage).",
+      "fx": {
+       "extra": 2,
+       "extraDmg": 50
+      }
+     }
+    ]
+   ]
+  },
+  "stormlantern": {
+   "name": "Storm Lantern",
+   "abbr": "SL",
+   "tree": "storm",
+   "element": "light",
+   "type": "construct",
+   "tags": [
+    "spell",
+    "lightning",
+    "construct",
+    "duration",
+    "hit"
+   ],
+   "mana": 18,
+   "cooldown": 2,
+   "min": 4,
+   "max": 14,
+   "reqLevel": 8,
+   "duration": 12,
+   "attackEvery": 0.9,
+   "range": 5.5,
+   "constructs": 1,
+   "row": 2,
+   "description": "Lights a lantern of violet storm that floats beside her for 12s and strikes the nearest enemy within 5.5 tiles every 0.9s.",
+   "mods": [
+    [
+     {
+      "id": "second",
+      "name": "Second Lantern",
+      "text": "+1 lantern at a time.",
+      "fx": {
+       "constructs": 1
+      }
+     },
+     {
+      "id": "bright",
+      "name": "Bright Glass",
+      "text": "Strikes 25% faster.",
+      "fx": {
+       "rate": 25
+      }
+     }
+    ],
+    [
+     {
+      "id": "chain",
+      "name": "Arcing Light",
+      "text": "Each strike jumps to 2 more enemies.",
+      "fx": {
+       "arcs": 2
+      }
+     },
+     {
+      "id": "long",
+      "name": "Long Wick",
+      "text": "Lasts 50% longer.",
+      "fx": {
+       "duration": 50
+      }
+     }
+    ],
+    [
+     {
+      "id": "shock",
+      "name": "Shocking Glass",
+      "text": "+40% chance to shock.",
+      "fx": {
+       "shockChance": 40
+      }
+     },
+     {
+      "id": "volt",
+      "name": "High Voltage",
+      "text": "30% more damage.",
+      "fx": {
+       "more": 30
+      }
+     }
+    ],
+    [
+     {
+      "id": "choir",
+      "name": "Lantern Choir",
+      "text": "+2 lanterns at a time, 20% less damage.",
+      "fx": {
+       "constructs": 2,
+       "more": -20
+      }
+     },
+     {
+      "id": "over",
+      "name": "Overcharged Glass",
+      "text": "+20% crit chance, strikes 20% faster.",
+      "fx": {
+       "critBonus": 20,
+       "rate": 20
+      }
+     }
+    ]
+   ]
   },
   "stormmastery": {
    "name": "Storm Mastery",
@@ -313,6 +1671,21 @@
     "critMulti": 5
    },
    "description": "Passive. +8% lightning damage and +5% crit damage per level."
+  },
+  "capacitor": {
+   "name": "Capacitor",
+   "abbr": "CA",
+   "tree": "storm",
+   "element": "light",
+   "kind": "passive",
+   "reqLevel": 14,
+   "maxLevel": 10,
+   "row": 3,
+   "stats": {
+    "vsShocked": 4,
+    "lightPen": 1
+   },
+   "description": "Passive. +4% damage against shocked enemies and 1% lightning penetration per level."
   }
  },
  "spark": {
@@ -334,12 +1707,28 @@
  ],
  "autoOrder": [
   [
+   "rimeshell",
+   "lifeLow"
+  ],
+  [
    "frostarmor",
    "notActive"
   ],
   [
+   "stormlantern",
+   "notActive"
+  ],
+  [
+   "ashenhex",
+   "notCursed"
+  ],
+  [
    "meteor",
    "enemies3"
+  ],
+  [
+   "hailstorm",
+   "enemies2"
   ],
   [
    "thunder",
@@ -354,7 +1743,15 @@
    "enemies3"
   ],
   [
+   "stormwisp",
+   "enemies2"
+  ],
+  [
    "searing",
+   "enemies2"
+  ],
+  [
+   "flamelance",
    "enemies2"
   ],
   [
@@ -370,6 +1767,10 @@
    "always"
   ],
   [
+   "flamelance",
+   "always"
+  ],
+  [
    "thunder",
    "always"
   ],
@@ -379,6 +1780,18 @@
   ],
   [
    "chain",
+   "always"
+  ],
+  [
+   "stormwisp",
+   "always"
+  ],
+  [
+   "hailstorm",
+   "always"
+  ],
+  [
+   "frostbolt",
    "always"
   ]
  ],
@@ -415,6 +1828,62 @@
   "notChilled": "Target not chilled",
   "notBurning": "Target not burning",
   "notShocked": "Target not shocked",
-  "shocked": "Target shocked"
+  "shocked": "Target shocked",
+  "notCursed": "Target not hexed",
+  "burning": "Target burning",
+  "chilled": "Target chilled or frozen",
+  "barrierLow": "Barrier below 50%",
+  "enemies5": "5+ enemies"
+ },
+ "modifiers": {
+  "levels": [
+   3,
+   6,
+   10,
+   15
+  ],
+  "respecPerLevel": 15
+ },
+ "types": {
+  "projectile": {
+   "filler": true
+  },
+  "area": {
+   "filler": true
+  },
+  "chain": {
+   "filler": true
+  },
+  "nova": {
+   "filler": true
+  },
+  "beam": {
+   "filler": true
+  },
+  "meteor": {},
+  "strike": {},
+  "orb": {},
+  "field": {},
+  "buff": {
+   "cond": "notActive"
+  },
+  "curse": {
+   "cond": "notCursed"
+  },
+  "ward": {
+   "cond": "lifeLow"
+  },
+  "construct": {
+   "cond": "notActive"
+  }
+ },
+ "statNames": {
+  "burnDmg": "Burn Damage",
+  "chillEffect": "Chill Effect",
+  "shockEffect": "Shock Effect",
+  "vsBurning": "Damage vs Burning",
+  "vsChilled": "Damage vs Chilled",
+  "vsShocked": "Damage vs Shocked",
+  "freezeDur": "Longer Freezes"
  }
 }
