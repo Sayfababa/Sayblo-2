@@ -17,6 +17,24 @@
    "element": "light",
    "description": "Wild damage that jumps between foes, shocks them and keeps arcing on its own.",
    "class": "sorceress"
+  },
+  "cinder": {
+   "name": "Cinder",
+   "element": "fire",
+   "description": "Burning steel: wide cuts that set foes alight, fissures of fire, a roar that ignites the pack.",
+   "class": "warrior"
+  },
+  "rime": {
+   "name": "Rime",
+   "element": "cold",
+   "description": "A wall of ice: cleaves that chill, a shield that freezes, blows that shatter frozen foes.",
+   "class": "warrior"
+  },
+  "thunder": {
+   "name": "Thunder",
+   "element": "light",
+   "description": "Violet thunder: leaps into the pack, hurled hammers that jump, a storm that circles him.",
+   "class": "warrior"
   }
  },
  "skills": {
@@ -1686,6 +1704,1671 @@
     "lightPen": 1
    },
    "description": "Passive. +4% damage against shocked enemies and 1% lightning penetration per level."
+  },
+  "searblade": {
+   "name": "Searing Edge",
+   "abbr": "SE",
+   "tree": "cinder",
+   "element": "fire",
+   "type": "melee",
+   "tags": [
+    "attack",
+    "melee",
+    "area",
+    "fire",
+    "hit"
+   ],
+   "mana": 0,
+   "cooldown": 0,
+   "min": 6,
+   "max": 11,
+   "reqLevel": 1,
+   "radius": 1.1,
+   "burnChance": 15,
+   "row": 0,
+   "description": "A burning swing at the nearest foe; enemies within 1.1 tiles of it are cut too. Fire hits can burn. Free to use.",
+   "mods": [
+    [
+     {
+      "id": "wide",
+      "name": "Wide Arc",
+      "text": "40% larger arc.",
+      "fx": {
+       "radius": 40
+      }
+     },
+     {
+      "id": "core",
+      "name": "Searing Core",
+      "text": "+40% chance to burn, 30% more burn damage.",
+      "fx": {
+       "burnChance": 40,
+       "burnMore": 30
+      }
+     }
+    ],
+    [
+     {
+      "id": "flare",
+      "name": "Flare",
+      "text": "The struck foe bursts: 50% damage to enemies within 1.4 tiles.",
+      "fx": {
+       "explode": 1.4,
+       "explodeDmg": 50
+      }
+     },
+     {
+      "id": "quick",
+      "name": "Quick Edge",
+      "text": "20% faster attacks.",
+      "fx": {
+       "castSpeed": 20
+      }
+     }
+    ],
+    [
+     {
+      "id": "trail",
+      "name": "Cinder Trail",
+      "text": "Leaves burning ground for 2.5s where it hits (25% damage per pulse).",
+      "fx": {
+       "ground": 1.2,
+       "groundDur": 2.5,
+       "groundDmg": 25
+      }
+     },
+     {
+      "id": "molten",
+      "name": "Molten Edge",
+      "text": "30% more damage.",
+      "fx": {
+       "more": 30
+      }
+     }
+    ],
+    [
+     {
+      "id": "twin",
+      "name": "Twin Cut",
+      "text": "A second burning cut follows 0.4s later (50% damage).",
+      "fx": {
+       "repeat": 1,
+       "repeatDmg": 50
+      }
+     },
+     {
+      "id": "sunfire",
+      "name": "Sunfire",
+      "text": "+15% crit chance. Crits always burn.",
+      "fx": {
+       "critBonus": 15,
+       "critAilment": 1
+      }
+     }
+    ]
+   ]
+  },
+  "emberblood": {
+   "name": "Emberblood",
+   "abbr": "EB",
+   "tree": "cinder",
+   "element": "fire",
+   "kind": "passive",
+   "reqLevel": 2,
+   "maxLevel": 10,
+   "row": 1,
+   "description": "Fire runs in his veins: more fire damage and hotter burns.",
+   "stats": {
+    "fireDmg": 8,
+    "burnDmg": 6
+   }
+  },
+  "cinderslam": {
+   "name": "Cinder Fissure",
+   "abbr": "CF",
+   "tree": "cinder",
+   "element": "fire",
+   "type": "fissure",
+   "tags": [
+    "attack",
+    "area",
+    "fire",
+    "hit"
+   ],
+   "mana": 6,
+   "cooldown": 0,
+   "min": 5,
+   "max": 10,
+   "reqLevel": 3,
+   "range": 6,
+   "width": 0.8,
+   "burnChance": 25,
+   "row": 1,
+   "description": "He slams the ground: a fissure of fire runs 6 tiles towards the target and hits every enemy on it.",
+   "mods": [
+    [
+     {
+      "id": "long",
+      "name": "Long Rift",
+      "text": "30% longer and wider fissure.",
+      "fx": {
+       "radius": 30
+      }
+     },
+     {
+      "id": "hot",
+      "name": "Searing Rift",
+      "text": "+40% chance to burn, 30% more burn damage.",
+      "fx": {
+       "burnChance": 40,
+       "burnMore": 30
+      }
+     }
+    ],
+    [
+     {
+      "id": "ground",
+      "name": "Molten Rift",
+      "text": "Leaves burning ground for 2.5s where it ends (25% damage per pulse).",
+      "fx": {
+       "ground": 1.4,
+       "groundDur": 2.5,
+       "groundDmg": 25
+      }
+     },
+     {
+      "id": "split",
+      "name": "Split Fissure",
+      "text": "2 more fissures run at other enemies (50% damage).",
+      "fx": {
+       "extra": 2,
+       "extraDmg": 50
+      }
+     }
+    ],
+    [
+     {
+      "id": "after",
+      "name": "Aftershock",
+      "text": "Erupts again 0.4s later (50% damage).",
+      "fx": {
+       "repeat": 1,
+       "repeatDmg": 50
+      }
+     },
+     {
+      "id": "rage",
+      "name": "Kindled Rage",
+      "text": "30% more damage against burning enemies.",
+      "fx": {
+       "vsBurning": 30
+      }
+     }
+    ],
+    [
+     {
+      "id": "grave",
+      "name": "Ashen Grave",
+      "text": "Enemies it kills burst for 25% of their life as fire damage.",
+      "fx": {
+       "killBlast": 25
+      }
+     },
+     {
+      "id": "might",
+      "name": "Tectonic Might",
+      "text": "30% more damage, 25% more fury cost.",
+      "fx": {
+       "more": 30,
+       "manaMore": 25
+      }
+     }
+    ]
+   ]
+  },
+  "kindleroar": {
+   "name": "Kindling Roar",
+   "abbr": "KR",
+   "tree": "cinder",
+   "element": "fire",
+   "type": "cry",
+   "tags": [
+    "attack",
+    "nova",
+    "area",
+    "fire",
+    "hit",
+    "shout",
+    "buff",
+    "duration"
+   ],
+   "mana": 10,
+   "cooldown": 12,
+   "min": 3,
+   "max": 6,
+   "reqLevel": 5,
+   "radius": 3,
+   "burnChance": 100,
+   "duration": 8,
+   "cryMore": 15,
+   "cryMorePerLevel": 1,
+   "row": 1,
+   "description": "A roar that sets every enemy within 3 tiles alight. For 8s he deals 15% more damage (+1% per level).",
+   "mods": [
+    [
+     {
+      "id": "loud",
+      "name": "Bellow",
+      "text": "40% larger area.",
+      "fx": {
+       "radius": 40
+      }
+     },
+     {
+      "id": "long",
+      "name": "Long Roar",
+      "text": "Lasts 50% longer.",
+      "fx": {
+       "duration": 50
+      }
+     }
+    ],
+    [
+     {
+      "id": "fury",
+      "name": "Battle Fury",
+      "text": "The damage bonus is 40% stronger.",
+      "fx": {
+       "cryEffect": 40
+      }
+     },
+     {
+      "id": "hide",
+      "name": "Thick Hide",
+      "text": "Also 15% less damage taken while it lasts.",
+      "fx": {
+       "cryDR": 15
+      }
+     }
+    ],
+    [
+     {
+      "id": "blaze",
+      "name": "Blaze",
+      "text": "The roar deals 60% more damage.",
+      "fx": {
+       "more": 60
+      }
+     },
+     {
+      "id": "quick",
+      "name": "Quick Breath",
+      "text": "30% shorter cooldown.",
+      "fx": {
+       "cdLess": 30
+      }
+     }
+    ],
+    [
+     {
+      "id": "ash",
+      "name": "Choking Ash",
+      "text": "Enemies it kills burst for 30% of their life as fire damage.",
+      "fx": {
+       "killBlast": 30
+      }
+     },
+     {
+      "id": "wind",
+      "name": "Second Wind",
+      "text": "Heals 15% of life when used.",
+      "fx": {
+       "wardHeal": 15
+      }
+     }
+    ]
+   ]
+  },
+  "sunder": {
+   "name": "Sunder",
+   "abbr": "SU",
+   "tree": "cinder",
+   "element": "fire",
+   "type": "melee",
+   "tags": [
+    "attack",
+    "melee",
+    "area",
+    "fire",
+    "hit"
+   ],
+   "mana": 12,
+   "cooldown": 5,
+   "min": 20,
+   "max": 34,
+   "reqLevel": 6,
+   "radius": 2,
+   "burnChance": 50,
+   "critBonus": 10,
+   "row": 2,
+   "description": "An overhead blow that splits the ground under the target: heavy fire damage to every enemy within 2 tiles of it.",
+   "mods": [
+    [
+     {
+      "id": "wide",
+      "name": "Wide Split",
+      "text": "30% larger area.",
+      "fx": {
+       "radius": 30
+      }
+     },
+     {
+      "id": "quick",
+      "name": "Quick Recovery",
+      "text": "25% shorter cooldown.",
+      "fx": {
+       "cdLess": 25
+      }
+     }
+    ],
+    [
+     {
+      "id": "ground",
+      "name": "Molten Split",
+      "text": "Leaves burning ground for 3s (25% damage per pulse).",
+      "fx": {
+       "ground": 2,
+       "groundDur": 3,
+       "groundDmg": 25
+      }
+     },
+     {
+      "id": "exec",
+      "name": "Executioner",
+      "text": "+20% crit chance.",
+      "fx": {
+       "critBonus": 20
+      }
+     }
+    ],
+    [
+     {
+      "id": "after",
+      "name": "Aftershock",
+      "text": "The ground erupts again 0.4s later (50% damage).",
+      "fx": {
+       "repeat": 1,
+       "repeatDmg": 50
+      }
+     },
+     {
+      "id": "rage",
+      "name": "Kindled Rage",
+      "text": "30% more damage against burning enemies.",
+      "fx": {
+       "vsBurning": 30
+      }
+     }
+    ],
+    [
+     {
+      "id": "pyre",
+      "name": "Pyre Blast",
+      "text": "Enemies it kills burst for 30% of their life as fire damage.",
+      "fx": {
+       "killBlast": 30
+      }
+     },
+     {
+      "id": "might",
+      "name": "Titan's Might",
+      "text": "35% more damage, 30% more fury cost.",
+      "fx": {
+       "more": 35,
+       "manaMore": 30
+      }
+     }
+    ]
+   ]
+  },
+  "pyrebrand": {
+   "name": "Pyre Brand",
+   "abbr": "PB",
+   "tree": "cinder",
+   "element": "fire",
+   "type": "curse",
+   "tags": [
+    "attack",
+    "fire",
+    "curse",
+    "area",
+    "duration"
+   ],
+   "mana": 8,
+   "cooldown": 4,
+   "min": 0,
+   "max": 0,
+   "reqLevel": 8,
+   "radius": 2.6,
+   "duration": 8,
+   "curseTaken": 12,
+   "curseTakenPerLevel": 1.5,
+   "row": 2,
+   "description": "Brands enemies within 2.6 tiles of the target for 8s: they take 12% more fire damage (+1.5% per level).",
+   "mods": [
+    [
+     {
+      "id": "wide",
+      "name": "Wide Brand",
+      "text": "40% larger area.",
+      "fx": {
+       "radius": 40
+      }
+     },
+     {
+      "id": "deep",
+      "name": "Deep Brand",
+      "text": "The brand is 30% stronger.",
+      "fx": {
+       "curseEffect": 30
+      }
+     }
+    ],
+    [
+     {
+      "id": "long",
+      "name": "Lasting Brand",
+      "text": "Lasts 50% longer.",
+      "fx": {
+       "duration": 50
+      }
+     },
+     {
+      "id": "all",
+      "name": "Brand of Ruin",
+      "text": "Also raises cold and lightning damage taken by half the value.",
+      "fx": {
+       "curseAll": 1
+      }
+     }
+    ],
+    [
+     {
+      "id": "spread",
+      "name": "Wildfire",
+      "text": "When a branded enemy dies, the brand jumps to enemies within 2.5 tiles.",
+      "fx": {
+       "curseSpread": 1
+      }
+     },
+     {
+      "id": "slow",
+      "name": "Heavy Brand",
+      "text": "Branded enemies move and attack 20% slower.",
+      "fx": {
+       "curseSlow": 20
+      }
+     }
+    ],
+    [
+     {
+      "id": "pyre",
+      "name": "Funeral Pyre",
+      "text": "Branded enemies explode on death for 30% of their life as fire damage.",
+      "fx": {
+       "killBlast": 30
+      }
+     },
+     {
+      "id": "quick",
+      "name": "Quick Brand",
+      "text": "40% shorter cooldown.",
+      "fx": {
+       "cdLess": 40
+      }
+     }
+    ]
+   ]
+  },
+  "heatofbattle": {
+   "name": "Heat of Battle",
+   "abbr": "HB",
+   "tree": "cinder",
+   "element": "fire",
+   "kind": "passive",
+   "reqLevel": 10,
+   "maxLevel": 10,
+   "row": 3,
+   "description": "Every blow spreads the fire: more burns, fire penetration.",
+   "stats": {
+    "burnChance": 4,
+    "firePen": 2
+   }
+  },
+  "pyreheart": {
+   "name": "Pyre Heart",
+   "abbr": "PH",
+   "tree": "cinder",
+   "element": "fire",
+   "kind": "passive",
+   "reqLevel": 14,
+   "maxLevel": 10,
+   "row": 3,
+   "description": "He hits burning foes harder and the heat keeps him standing.",
+   "stats": {
+    "vsBurning": 4,
+    "lifePct": 1.5
+   }
+  },
+  "frostcleave": {
+   "name": "Frost Cleave",
+   "abbr": "FC",
+   "tree": "rime",
+   "element": "cold",
+   "type": "melee",
+   "tags": [
+    "attack",
+    "melee",
+    "area",
+    "cold",
+    "hit",
+    "duration"
+   ],
+   "mana": 0,
+   "cooldown": 0,
+   "min": 5,
+   "max": 9,
+   "reqLevel": 1,
+   "radius": 1.5,
+   "chill": 2.5,
+   "chillEffect": 15,
+   "row": 0,
+   "description": "A wide icy cleave: hits the nearest foe and every enemy within 1.5 tiles of it, and chills them. Free to use.",
+   "mods": [
+    [
+     {
+      "id": "wide",
+      "name": "Wide Cleave",
+      "text": "35% larger arc.",
+      "fx": {
+       "radius": 35
+      }
+     },
+     {
+      "id": "hard",
+      "name": "Hard Frost",
+      "text": "+15% chance to freeze.",
+      "fx": {
+       "freezeChance": 15
+      }
+     }
+    ],
+    [
+     {
+      "id": "shards",
+      "name": "Ice Shards",
+      "text": "The struck foe bursts: 50% damage to enemies within 1.4 tiles.",
+      "fx": {
+       "explode": 1.4,
+       "explodeDmg": 50
+      }
+     },
+     {
+      "id": "brittle",
+      "name": "Brittle",
+      "text": "25% more damage against chilled enemies.",
+      "fx": {
+       "vsChilled": 25
+      }
+     }
+    ],
+    [
+     {
+      "id": "ground",
+      "name": "Chilled Ground",
+      "text": "Leaves icy ground for 3s (15% damage per pulse, chills).",
+      "fx": {
+       "ground": 1.4,
+       "groundDur": 3,
+       "groundDmg": 15
+      }
+     },
+     {
+      "id": "glacial",
+      "name": "Glacial Edge",
+      "text": "30% more damage.",
+      "fx": {
+       "more": 30
+      }
+     }
+    ],
+    [
+     {
+      "id": "twin",
+      "name": "Twin Cleave",
+      "text": "A second cleave follows 0.4s later (50% damage).",
+      "fx": {
+       "repeat": 1,
+       "repeatDmg": 50
+      }
+     },
+     {
+      "id": "shatter",
+      "name": "Shatter",
+      "text": "Enemies it kills burst for 25% of their life as cold damage.",
+      "fx": {
+       "killBlast": 25
+      }
+     }
+    ]
+   ]
+  },
+  "wintersbite": {
+   "name": "Winter's Bite",
+   "abbr": "WB",
+   "tree": "rime",
+   "element": "cold",
+   "kind": "passive",
+   "reqLevel": 2,
+   "maxLevel": 10,
+   "row": 1,
+   "description": "Colder steel: more cold damage and stronger chill.",
+   "stats": {
+    "coldDmg": 8,
+    "chillEffect": 2
+   }
+  },
+  "glaciershield": {
+   "name": "Glacier Shield",
+   "abbr": "GS",
+   "tree": "rime",
+   "element": "cold",
+   "type": "ward",
+   "tags": [
+    "attack",
+    "cold",
+    "buff",
+    "duration"
+   ],
+   "mana": 12,
+   "cooldown": 18,
+   "min": 4,
+   "max": 9,
+   "reqLevel": 3,
+   "duration": 5,
+   "wardPct": 25,
+   "wardPctPerLevel": 1,
+   "wardDR": 30,
+   "radius": 2.6,
+   "freeze": 1.2,
+   "row": 1,
+   "description": "He raises a shield of ice: barrier worth 25% of life (+1% per level), 30% less damage taken for 5s, and enemies within 2.6 tiles freeze.",
+   "mods": [
+    [
+     {
+      "id": "thick",
+      "name": "Thick Ice",
+      "text": "+15% of life as extra barrier.",
+      "fx": {
+       "wardPct": 15
+      }
+     },
+     {
+      "id": "quick",
+      "name": "Quick Reform",
+      "text": "25% shorter cooldown.",
+      "fx": {
+       "cdLess": 25
+      }
+     }
+    ],
+    [
+     {
+      "id": "burst",
+      "name": "Frost Burst",
+      "text": "The shield bursts when raised: cold damage to enemies around him.",
+      "fx": {
+       "wardNova": 100
+      }
+     },
+     {
+      "id": "long",
+      "name": "Long Shield",
+      "text": "Lasts 60% longer.",
+      "fx": {
+       "duration": 60
+      }
+     }
+    ],
+    [
+     {
+      "id": "hard",
+      "name": "Hard Ice",
+      "text": "20% less damage taken on top while it lasts.",
+      "fx": {
+       "wardDR": 20
+      }
+     },
+     {
+      "id": "calm",
+      "name": "Cold Calm",
+      "text": "Restores 25% of fury when raised.",
+      "fx": {
+       "wardMana": 25
+      }
+     }
+    ],
+    [
+     {
+      "id": "heal",
+      "name": "Frozen Sanctuary",
+      "text": "Heals 15% of life when raised.",
+      "fx": {
+       "wardHeal": 15
+      }
+     },
+     {
+      "id": "bulwark",
+      "name": "Bulwark",
+      "text": "+25% of life as barrier, 15% shorter cooldown.",
+      "fx": {
+       "wardPct": 25,
+       "cdLess": 15
+      }
+     }
+    ]
+   ]
+  },
+  "wintertaunt": {
+   "name": "Taunt of Winter",
+   "abbr": "TW",
+   "tree": "rime",
+   "element": "cold",
+   "type": "curse",
+   "self": true,
+   "tags": [
+    "attack",
+    "cold",
+    "curse",
+    "area",
+    "duration",
+    "shout"
+   ],
+   "mana": 8,
+   "cooldown": 5,
+   "min": 0,
+   "max": 0,
+   "reqLevel": 5,
+   "radius": 3.5,
+   "duration": 6,
+   "curseTaken": 12,
+   "curseTakenPerLevel": 1.5,
+   "chill": 3,
+   "row": 1,
+   "description": "A freezing challenge: enemies within 3.5 tiles of him are chilled and take 12% more cold damage (+1.5% per level) for 6s.",
+   "mods": [
+    [
+     {
+      "id": "wide",
+      "name": "Echoing Taunt",
+      "text": "40% larger area.",
+      "fx": {
+       "radius": 40
+      }
+     },
+     {
+      "id": "deep",
+      "name": "Bitter Challenge",
+      "text": "The taunt is 30% stronger.",
+      "fx": {
+       "curseEffect": 30
+      }
+     }
+    ],
+    [
+     {
+      "id": "long",
+      "name": "Lasting Cold",
+      "text": "Lasts 50% longer.",
+      "fx": {
+       "duration": 50
+      }
+     },
+     {
+      "id": "slow",
+      "name": "Numbing Howl",
+      "text": "Taunted enemies move and attack 20% slower.",
+      "fx": {
+       "curseSlow": 20
+      }
+     }
+    ],
+    [
+     {
+      "id": "spread",
+      "name": "Creeping Frost",
+      "text": "When a taunted enemy dies, the taunt jumps to enemies within 2.5 tiles.",
+      "fx": {
+       "curseSpread": 1
+      }
+     },
+     {
+      "id": "all",
+      "name": "Deep Winter",
+      "text": "Also raises fire and lightning damage taken by half the value.",
+      "fx": {
+       "curseAll": 1
+      }
+     }
+    ],
+    [
+     {
+      "id": "mark",
+      "name": "Shatter Mark",
+      "text": "Taunted enemies burst on death for 30% of their life as cold damage.",
+      "fx": {
+       "killBlast": 30
+      }
+     },
+     {
+      "id": "quick",
+      "name": "Quick Taunt",
+      "text": "40% shorter cooldown.",
+      "fx": {
+       "cdLess": 40
+      }
+     }
+    ]
+   ]
+  },
+  "shatterstrike": {
+   "name": "Shatterstrike",
+   "abbr": "SS",
+   "tree": "rime",
+   "element": "cold",
+   "type": "melee",
+   "tags": [
+    "attack",
+    "melee",
+    "area",
+    "cold",
+    "hit"
+   ],
+   "mana": 10,
+   "cooldown": 3,
+   "min": 14,
+   "max": 24,
+   "reqLevel": 6,
+   "radius": 1.4,
+   "vsChilled": 50,
+   "freezeChance": 10,
+   "row": 2,
+   "description": "A crushing blow at the target and every enemy within 1.4 tiles of it: 50% more damage against chilled or frozen enemies.",
+   "mods": [
+    [
+     {
+      "id": "quick",
+      "name": "Quick Recovery",
+      "text": "25% shorter cooldown.",
+      "fx": {
+       "cdLess": 25
+      }
+     },
+     {
+      "id": "wide",
+      "name": "Wide Blow",
+      "text": "40% larger area.",
+      "fx": {
+       "radius": 40
+      }
+     }
+    ],
+    [
+     {
+      "id": "shatter",
+      "name": "Shatter",
+      "text": "Enemies it kills burst for 30% of their life as cold damage.",
+      "fx": {
+       "killBlast": 30
+      }
+     },
+     {
+      "id": "brittle",
+      "name": "Brittle Bones",
+      "text": "30% more damage against chilled enemies.",
+      "fx": {
+       "vsChilled": 30
+      }
+     }
+    ],
+    [
+     {
+      "id": "after",
+      "name": "Aftershock",
+      "text": "Strikes again 0.4s later (50% damage).",
+      "fx": {
+       "repeat": 1,
+       "repeatDmg": 50
+      }
+     },
+     {
+      "id": "breaker",
+      "name": "Ice Breaker",
+      "text": "+20% crit chance.",
+      "fx": {
+       "critBonus": 20
+      }
+     }
+    ],
+    [
+     {
+      "id": "shards",
+      "name": "Frost Shards",
+      "text": "The struck foe bursts: 60% damage to enemies within 1.6 tiles.",
+      "fx": {
+       "explode": 1.6,
+       "explodeDmg": 60
+      }
+     },
+     {
+      "id": "might",
+      "name": "Glacial Might",
+      "text": "35% more damage, 30% more fury cost.",
+      "fx": {
+       "more": 35,
+       "manaMore": 30
+      }
+     }
+    ]
+   ]
+  },
+  "glacialstomp": {
+   "name": "Glacial Stomp",
+   "abbr": "GT",
+   "tree": "rime",
+   "element": "cold",
+   "type": "nova",
+   "tags": [
+    "attack",
+    "area",
+    "nova",
+    "cold",
+    "hit"
+   ],
+   "mana": 11,
+   "cooldown": 3,
+   "min": 6,
+   "max": 12,
+   "reqLevel": 8,
+   "radius": 3,
+   "freezeChance": 15,
+   "row": 2,
+   "description": "He stomps the ground: a ring of ice hits every enemy within 3 tiles of him. +15% chance to freeze.",
+   "mods": [
+    [
+     {
+      "id": "wide",
+      "name": "Wide Ring",
+      "text": "20% larger area.",
+      "fx": {
+       "radius": 20
+      }
+     },
+     {
+      "id": "hard",
+      "name": "Hard Frost",
+      "text": "+15% chance to freeze.",
+      "fx": {
+       "freezeChance": 15
+      }
+     }
+    ],
+    [
+     {
+      "id": "ground",
+      "name": "Chilled Ground",
+      "text": "Leaves icy ground for 3s (15% damage per pulse, chills).",
+      "fx": {
+       "ground": 2.4,
+       "groundDur": 3,
+       "groundDmg": 15
+      }
+     },
+     {
+      "id": "long",
+      "name": "Long Freeze",
+      "text": "Freezes last 50% longer.",
+      "fx": {
+       "freezeDur": 50
+      }
+     }
+    ],
+    [
+     {
+      "id": "twin",
+      "name": "Twin Stomp",
+      "text": "A second ring follows 0.4s later (50% damage).",
+      "fx": {
+       "repeat": 1,
+       "repeatDmg": 50
+      }
+     },
+     {
+      "id": "brittle",
+      "name": "Brittle",
+      "text": "25% more damage against chilled enemies.",
+      "fx": {
+       "vsChilled": 25
+      }
+     }
+    ],
+    [
+     {
+      "id": "shatter",
+      "name": "Shatter",
+      "text": "Enemies it kills burst for 25% of their life as cold damage.",
+      "fx": {
+       "killBlast": 25
+      }
+     },
+     {
+      "id": "might",
+      "name": "Glacial Might",
+      "text": "30% more damage, 25% more fury cost.",
+      "fx": {
+       "more": 30,
+       "manaMore": 25
+      }
+     }
+    ]
+   ]
+  },
+  "hoarfrost": {
+   "name": "Hoarfrost",
+   "abbr": "HF",
+   "tree": "rime",
+   "element": "cold",
+   "kind": "passive",
+   "reqLevel": 10,
+   "maxLevel": 10,
+   "row": 3,
+   "description": "Frost clings to his blows: more freezes, cold penetration.",
+   "stats": {
+    "freezeChance": 3,
+    "coldPen": 2
+   }
+  },
+  "icevein": {
+   "name": "Ice in the Veins",
+   "abbr": "IV",
+   "tree": "rime",
+   "element": "cold",
+   "kind": "passive",
+   "reqLevel": 14,
+   "maxLevel": 10,
+   "row": 3,
+   "description": "Cold and steady: harder hits on chilled foes, longer freezes, more life.",
+   "stats": {
+    "vsChilled": 3,
+    "freezeDur": 4,
+    "lifePct": 1
+   }
+  },
+  "thundermaul": {
+   "name": "Thunder Maul",
+   "abbr": "TM",
+   "tree": "thunder",
+   "element": "light",
+   "type": "melee",
+   "tags": [
+    "attack",
+    "melee",
+    "area",
+    "lightning",
+    "hit"
+   ],
+   "mana": 0,
+   "cooldown": 0,
+   "min": 1,
+   "max": 16,
+   "reqLevel": 1,
+   "radius": 0.9,
+   "shockChance": 20,
+   "row": 0,
+   "description": "A crackling blow at the nearest foe; enemies within 0.9 tiles of it are hit too. +20% chance to shock. Free to use.",
+   "mods": [
+    [
+     {
+      "id": "wide",
+      "name": "Wide Swing",
+      "text": "40% larger area.",
+      "fx": {
+       "radius": 40
+      }
+     },
+     {
+      "id": "over",
+      "name": "Overcharge",
+      "text": "+25% chance to shock, +10% shock effect.",
+      "fx": {
+       "shockChance": 25,
+       "shockEffect": 10
+      }
+     }
+    ],
+    [
+     {
+      "id": "arc",
+      "name": "Arcing Blow",
+      "text": "The struck foe discharges: 45% damage to enemies within 1.6 tiles.",
+      "fx": {
+       "explode": 1.6,
+       "explodeDmg": 45
+      }
+     },
+     {
+      "id": "quick",
+      "name": "Quick Hands",
+      "text": "20% faster attacks.",
+      "fx": {
+       "castSpeed": 20
+      }
+     }
+    ],
+    [
+     {
+      "id": "cond",
+      "name": "Conductor",
+      "text": "25% more damage against shocked enemies.",
+      "fx": {
+       "vsShocked": 25
+      }
+     },
+     {
+      "id": "heavy",
+      "name": "Heavy Maul",
+      "text": "30% more damage.",
+      "fx": {
+       "more": 30
+      }
+     }
+    ],
+    [
+     {
+      "id": "twin",
+      "name": "Double Blow",
+      "text": "A second blow follows 0.4s later (50% damage).",
+      "fx": {
+       "repeat": 1,
+       "repeatDmg": 50
+      }
+     },
+     {
+      "id": "sky",
+      "name": "Split Sky",
+      "text": "+15% crit chance. Crits always shock.",
+      "fx": {
+       "critBonus": 15,
+       "critAilment": 1
+      }
+     }
+    ]
+   ]
+  },
+  "stormblood": {
+   "name": "Storm Blood",
+   "abbr": "SB",
+   "tree": "thunder",
+   "element": "light",
+   "kind": "passive",
+   "reqLevel": 2,
+   "maxLevel": 10,
+   "row": 1,
+   "description": "Thunder in his blood: more lightning damage, harder crits.",
+   "stats": {
+    "lightDmg": 8,
+    "critMulti": 5
+   }
+  },
+  "hurledhammer": {
+   "name": "Hurled Hammer",
+   "abbr": "HH",
+   "tree": "thunder",
+   "element": "light",
+   "type": "chain",
+   "tags": [
+    "attack",
+    "chain",
+    "lightning",
+    "hit"
+   ],
+   "mana": 6,
+   "cooldown": 0,
+   "min": 2,
+   "max": 18,
+   "reqLevel": 3,
+   "jumps": 3,
+   "jumpRange": 4,
+   "jumpFalloff": 0.85,
+   "row": 1,
+   "description": "He hurls a charged hammer that jumps between 3 enemies and flies back to his hand. 15% less damage per jump.",
+   "mods": [
+    [
+     {
+      "id": "long",
+      "name": "Long Throw",
+      "text": "Jumps 2 more times.",
+      "fx": {
+       "chains": 2
+      }
+     },
+     {
+      "id": "over",
+      "name": "Overcharge",
+      "text": "+25% chance to shock, +10% shock effect.",
+      "fx": {
+       "shockChance": 25,
+       "shockEffect": 10
+      }
+     }
+    ],
+    [
+     {
+      "id": "head",
+      "name": "Thunderhead",
+      "text": "Every target is blasted: 40% damage to enemies within 1.2 tiles.",
+      "fx": {
+       "explode": 1.2,
+       "explodeDmg": 40
+      }
+     },
+     {
+      "id": "true",
+      "name": "True Flight",
+      "text": "Loses only 5% per jump instead of 15%.",
+      "fx": {
+       "falloffLess": 10
+      }
+     }
+    ],
+    [
+     {
+      "id": "cond",
+      "name": "Conductor",
+      "text": "25% more damage against shocked enemies.",
+      "fx": {
+       "vsShocked": 25
+      }
+     },
+     {
+      "id": "might",
+      "name": "Heavy Head",
+      "text": "30% more damage, 25% more fury cost.",
+      "fx": {
+       "more": 30,
+       "manaMore": 25
+      }
+     }
+    ],
+    [
+     {
+      "id": "return",
+      "name": "Return Throw",
+      "text": "Thrown a second time right after (20% less damage).",
+      "fx": {
+       "echo": 1,
+       "more": -20
+      }
+     },
+     {
+      "id": "sky",
+      "name": "Split Sky",
+      "text": "+15% crit chance. Crits always shock.",
+      "fx": {
+       "critBonus": 15,
+       "critAilment": 1
+      }
+     }
+    ]
+   ]
+  },
+  "skyleap": {
+   "name": "Skybreaker Leap",
+   "abbr": "SL",
+   "tree": "thunder",
+   "element": "light",
+   "type": "leap",
+   "tags": [
+    "attack",
+    "area",
+    "lightning",
+    "hit"
+   ],
+   "mana": 10,
+   "cooldown": 4,
+   "min": 10,
+   "max": 26,
+   "reqLevel": 5,
+   "radius": 2.2,
+   "range": 8,
+   "delay": 0.4,
+   "shockChance": 30,
+   "row": 1,
+   "description": "He leaps onto the target, up to 8 tiles away, and lands with a thunderclap that hits every enemy within 2.2 tiles.",
+   "mods": [
+    [
+     {
+      "id": "wide",
+      "name": "Wide Landing",
+      "text": "30% larger area.",
+      "fx": {
+       "radius": 30
+      }
+     },
+     {
+      "id": "quick",
+      "name": "Quick Legs",
+      "text": "25% shorter cooldown.",
+      "fx": {
+       "cdLess": 25
+      }
+     }
+    ],
+    [
+     {
+      "id": "ground",
+      "name": "Storm Ground",
+      "text": "Leaves crackling ground for 3s (20% damage per pulse).",
+      "fx": {
+       "ground": 2,
+       "groundDur": 3,
+       "groundDmg": 20
+      }
+     },
+     {
+      "id": "over",
+      "name": "Overcharge",
+      "text": "+30% chance to shock, +10% shock effect.",
+      "fx": {
+       "shockChance": 30,
+       "shockEffect": 10
+      }
+     }
+    ],
+    [
+     {
+      "id": "after",
+      "name": "Aftershock",
+      "text": "The landing strikes again 0.4s later (50% damage).",
+      "fx": {
+       "repeat": 1,
+       "repeatDmg": 50
+      }
+     },
+     {
+      "id": "cond",
+      "name": "Conductor",
+      "text": "25% more damage against shocked enemies.",
+      "fx": {
+       "vsShocked": 25
+      }
+     }
+    ],
+    [
+     {
+      "id": "grave",
+      "name": "Thunder Grave",
+      "text": "Enemies it kills burst for 25% of their life as lightning damage.",
+      "fx": {
+       "killBlast": 25
+      }
+     },
+     {
+      "id": "might",
+      "name": "Skybreaker",
+      "text": "35% more damage, 30% more fury cost.",
+      "fx": {
+       "more": 35,
+       "manaMore": 30
+      }
+     }
+    ]
+   ]
+  },
+  "tempestmantle": {
+   "name": "Tempest Mantle",
+   "abbr": "TP",
+   "tree": "thunder",
+   "element": "light",
+   "type": "aura",
+   "tags": [
+    "attack",
+    "lightning",
+    "area",
+    "duration",
+    "hit",
+    "buff"
+   ],
+   "mana": 16,
+   "cooldown": 2,
+   "min": 3,
+   "max": 12,
+   "reqLevel": 7,
+   "radius": 2.4,
+   "duration": 10,
+   "tick": 0.7,
+   "row": 2,
+   "description": "Violet storm winds circle him for 10s and strike every enemy within 2.4 tiles every 0.7s.",
+   "mods": [
+    [
+     {
+      "id": "wide",
+      "name": "Wide Gale",
+      "text": "30% larger area.",
+      "fx": {
+       "radius": 30
+      }
+     },
+     {
+      "id": "long",
+      "name": "Long Storm",
+      "text": "Lasts 50% longer.",
+      "fx": {
+       "duration": 50
+      }
+     }
+    ],
+    [
+     {
+      "id": "gale",
+      "name": "Gale",
+      "text": "Strikes 30% more often.",
+      "fx": {
+       "rate": 30
+      }
+     },
+     {
+      "id": "over",
+      "name": "Overcharge",
+      "text": "+25% chance to shock, +10% shock effect.",
+      "fx": {
+       "shockChance": 25,
+       "shockEffect": 10
+      }
+     }
+    ],
+    [
+     {
+      "id": "cond",
+      "name": "Conductor",
+      "text": "25% more damage against shocked enemies.",
+      "fx": {
+       "vsShocked": 25
+      }
+     },
+     {
+      "id": "calm",
+      "name": "Calm Eye",
+      "text": "40% lower fury cost.",
+      "fx": {
+       "manaLess": 40
+      }
+     }
+    ],
+    [
+     {
+      "id": "grave",
+      "name": "Static Grave",
+      "text": "Enemies it kills burst for 25% of their life as lightning damage.",
+      "fx": {
+       "killBlast": 25
+      }
+     },
+     {
+      "id": "might",
+      "name": "Tempest Might",
+      "text": "30% more damage, 25% more fury cost.",
+      "fx": {
+       "more": 30,
+       "manaMore": 25
+      }
+     }
+    ]
+   ]
+  },
+  "callstorm": {
+   "name": "Call the Storm",
+   "abbr": "CS",
+   "tree": "thunder",
+   "element": "light",
+   "type": "strike",
+   "tags": [
+    "attack",
+    "area",
+    "strike",
+    "lightning",
+    "hit"
+   ],
+   "mana": 13,
+   "cooldown": 4,
+   "min": 18,
+   "max": 40,
+   "reqLevel": 8,
+   "radius": 1.4,
+   "delay": 0.3,
+   "critBonus": 10,
+   "row": 2,
+   "description": "He raises his weapon and a violet bolt strikes the target, hitting every enemy within 1.4 tiles. +10% crit chance.",
+   "mods": [
+    [
+     {
+      "id": "wide",
+      "name": "Wide Bolt",
+      "text": "40% larger area.",
+      "fx": {
+       "radius": 40
+      }
+     },
+     {
+      "id": "quick",
+      "name": "Quick Storm",
+      "text": "25% shorter cooldown.",
+      "fx": {
+       "cdLess": 25
+      }
+     }
+    ],
+    [
+     {
+      "id": "fork",
+      "name": "Forked Sky",
+      "text": "2 more bolts strike other enemies (50% damage).",
+      "fx": {
+       "extra": 2,
+       "extraDmg": 50
+      }
+     },
+     {
+      "id": "over",
+      "name": "Overcharge",
+      "text": "+30% chance to shock, +10% shock effect.",
+      "fx": {
+       "shockChance": 30,
+       "shockEffect": 10
+      }
+     }
+    ],
+    [
+     {
+      "id": "roll",
+      "name": "Rolling Thunder",
+      "text": "Strikes again 0.4s later (50% damage).",
+      "fx": {
+       "repeat": 1,
+       "repeatDmg": 50
+      }
+     },
+     {
+      "id": "sharp",
+      "name": "Sharp Sky",
+      "text": "+20% crit chance.",
+      "fx": {
+       "critBonus": 20
+      }
+     }
+    ],
+    [
+     {
+      "id": "ground",
+      "name": "Charged Ground",
+      "text": "Leaves crackling ground for 3s (20% damage per pulse).",
+      "fx": {
+       "ground": 1.6,
+       "groundDur": 3,
+       "groundDmg": 20
+      }
+     },
+     {
+      "id": "might",
+      "name": "Judgement",
+      "text": "35% more damage, 30% more fury cost.",
+      "fx": {
+       "more": 35,
+       "manaMore": 30
+      }
+     }
+    ]
+   ]
+  },
+  "staticskin": {
+   "name": "Static Skin",
+   "abbr": "ST",
+   "tree": "thunder",
+   "element": "light",
+   "kind": "passive",
+   "reqLevel": 10,
+   "maxLevel": 10,
+   "row": 3,
+   "description": "Sparks dance on his skin: more shocks and stronger ones.",
+   "stats": {
+    "shockChance": 4,
+    "shockEffect": 3
+   }
+  },
+  "overload": {
+   "name": "Overload",
+   "abbr": "OL",
+   "tree": "thunder",
+   "element": "light",
+   "kind": "passive",
+   "reqLevel": 14,
+   "maxLevel": 10,
+   "row": 3,
+   "description": "He hits shocked foes harder and through their wards.",
+   "stats": {
+    "vsShocked": 4,
+    "lightPen": 1
+   }
   }
  },
  "spark": {
@@ -1793,6 +3476,78 @@
   [
    "frostbolt",
    "always"
+  ],
+  [
+   "glaciershield",
+   "lifeLow"
+  ],
+  [
+   "tempestmantle",
+   "notActive"
+  ],
+  [
+   "kindleroar",
+   "notActive"
+  ],
+  [
+   "pyrebrand",
+   "notCursed"
+  ],
+  [
+   "wintertaunt",
+   "notCursed"
+  ],
+  [
+   "skyleap",
+   "always"
+  ],
+  [
+   "callstorm",
+   "elite"
+  ],
+  [
+   "sunder",
+   "always"
+  ],
+  [
+   "shatterstrike",
+   "always"
+  ],
+  [
+   "glacialstomp",
+   "enemyClose"
+  ],
+  [
+   "cinderslam",
+   "enemies2"
+  ],
+  [
+   "hurledhammer",
+   "enemies2"
+  ],
+  [
+   "callstorm",
+   "always"
+  ],
+  [
+   "searblade",
+   "always"
+  ],
+  [
+   "frostcleave",
+   "always"
+  ],
+  [
+   "thundermaul",
+   "always"
+  ],
+  [
+   "cinderslam",
+   "always"
+  ],
+  [
+   "hurledhammer",
+   "always"
   ]
  ],
  "scaling": {
@@ -1833,7 +3588,8 @@
   "burning": "Target burning",
   "chilled": "Target chilled or frozen",
   "barrierLow": "Barrier below 50%",
-  "enemies5": "5+ enemies"
+  "enemies5": "5+ enemies",
+  "enemyFar": "Target beyond reach"
  },
  "modifiers": {
   "levels": [
@@ -1874,6 +3630,19 @@
    "cond": "lifeLow"
   },
   "construct": {
+   "cond": "notActive"
+  },
+  "melee": {
+   "filler": true
+  },
+  "fissure": {
+   "filler": true
+  },
+  "leap": {},
+  "cry": {
+   "cond": "notActive"
+  },
+  "aura": {
    "cond": "notActive"
   }
  },

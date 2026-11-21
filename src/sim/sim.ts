@@ -4,8 +4,8 @@
  */
 import {
   AREAS, AUTO_ORDER, DIFFICULTIES, ELEMENT_COLORS, ELEMENT_NAMES, ELITE_MODS, ELITE_MOD_COUNT, ELITE_NAMES,
-  GEM_MAX_LEVEL, HERO, ITEMS, MONSTERS, MONSTER_SCALING, RANKS, RARITIES, SKILLS, SLOT_NAMES, SOCKET_LEVELS, START_SKILL, STATES, WAVES,
-  GEMS, SKILL_TYPES, isFiller, isPassive, skillMaxLevel, type Attr, type Element, type Slot,
+  GEM_MAX_LEVEL, HERO, ITEMS, MONSTERS, MONSTER_SCALING, RANKS, RARITIES, SKILLS, SLOT_NAMES, SOCKET_LEVELS, STATES, WAVES,
+  GEMS, SKILL_TYPES, classDef, heroFor, isFiller, isPassive, setActiveClass, skillMaxLevel, type Attr, type Element, type Slot,
 } from '../content/index.ts';
 import { autoSort, canPlace, findSpot } from './bag.ts';
 import {
@@ -17,6 +17,7 @@ import { LEVEL_CAP, Meta } from './meta.ts';
 import { Rift, keyName } from './rift.ts';
 import { Mythic } from './mythic.ts';
 import { Spells } from './spells.ts';
+import { Melee } from './melee.ts';
 import { genGem, genItem } from './items.ts';
 import { disposeItem } from './economy.ts';
 import { addGem, takeGem } from './pouch.ts';
@@ -87,11 +88,14 @@ export class Sim {
   mythic = new Mythic(this);
   /** skills package: beams, fields, orbs, constructs, hexes, ward, modifier behaviour (see spells.ts) */
   spells = new Spells(this);
+  /** warrior package: melee reach, closing in, leaps, cries, auras, fissures (see melee.ts) */
+  melee = new Melee(this);
   private uid = 1;
   private ctxCache = new Map<string, SkillCtx>();
 
   constructor(save?: SaveState, opts: { seed?: number; headless?: boolean } = {}) {
     this.s = save ?? newSaveState();
+    setActiveClass(this.s.cls); // classes: words of shared texts and bases of new weapon drops
     this.rng = new Rng(opts.seed);
     this.collectEvents = !opts.headless;
     this.recalc();
@@ -129,6 +133,7 @@ export class Sim {
   }
   /** Cast data for a skill (cached until stats, skills or gems change). */
   ctx(id: string): SkillCtx {
+    if (id === 'swing') return skillCtx(this.s, this.st, id); // warrior: its element follows the first skill slot
     let c = this.ctxCache.get(id);
     if (!c) { c = skillCtx(this.s, this.st, id); this.ctxCache.set(id, c); }
     return c;
@@ -231,7 +236,7 @@ export class Sim {
   clearArea() {
     this.wave = 0; this.bossSpawned = false; this.monsters = []; this.projectiles = []; this.strikes = []; this.echoes = [];
     this.feel.reset(); // feel
-    this.spells.reset(); // skills
+    this.spells.reset(); this.melee.reset(); // skills, warrior
     this.meta.reset(); // meta: tyrant and trapped champion leave
     while (this.drops.length) this.pickup(this.drops[0]);
     if (this.s.life == null || this.s.life <= 0) { this.s.life = this.st.maxLife; this.s.mana = this.st.maxMana; }
@@ -305,6 +310,7 @@ export class Sim {
 
   private condOk(c: string, id: string, alive: Monster[]) {
     const h = this.hero;
+    const mc = this.melee.cond(c, id, alive); if (mc !== undefined) return mc; // warrior: enemyFar, taunts around him
     switch (c) {
       case 'notActive': return this.spells.notActive(id) ?? !((this.buffs[id] ?? 0) > 3); // skills: constructs
       case 'enemies2': return alive.length >= 2;
@@ -320,7 +326,7 @@ export class Sim {
       default: return this.spells.cond(c, alive) ?? true; // skills: hex, burning, chilled, barrier conditions
     }
   }
-  private target(c: string, alive: Monster[]) {
+  target(c: string, alive: Monster[]) {
     const pick = (f: (m: Monster) => boolean) => alive.find(f) || alive[0];
     switch (c) {
       case 'elite': return pick(m => m.rank >= 2);
@@ -328,7 +334,7 @@ export class Sim {
       case 'notBurning': return pick(m => m.burn <= 0);
       case 'notShocked': return pick(m => m.shock <= 0);
       case 'shocked': return pick(m => m.shock > 0);
-      default: return this.spells.pick(c, alive) ?? alive[0]; // skills
+      default: return this.spells.pick(c, alive) ?? this.melee.pick(c, alive) ?? alive[0]; // skills, warrior
     }
   }
   private aliveNear() {
@@ -338,6 +344,7 @@ export class Sim {
 
   private heroAct() {
     const alive = this.aliveNear();
+    this.melee.chase = null;
     if (!alive.length) { this.castT = 0.1; return; }
     for (const sl of this.s.slots) {
       if (!sl.id || isPassive(sl.id) || !(this.s.skills[sl.id] > 0)) continue;
@@ -346,12 +353,14 @@ export class Sim {
       if (this.mana < c.mana) continue;
       if (c.def.type === 'buff' && (this.buffs[id] ?? 0) > 3) continue;
       if (!this.condOk(sl.cond, id, alive)) continue;
+      if (!this.melee.canCast(c, sl.cond, alive)) continue; // warrior: melee needs a foe in reach, a leap one in range
       this.s.mana = this.mana - c.mana; this.cd[id] = c.cooldown;
       this.cast(id, sl.cond, alive, false);
       if (c.echo) this.echoes.push({ t: 0.25, skill: id, cond: sl.cond });
-      this.castT = c.castTime; this.lastCast = id; this.lastCastT = 0.35;
+      this.castT = Math.max(c.castTime, this.melee.busy()); this.lastCast = id; this.lastCastT = 0.35;
       return;
     }
+    if (this.melee.basic(alive)) return; // warrior: weapon swing, or walk to the next foe
     this.cast('spark', 'always', alive, false);
     this.castT = this.ctx('spark').castTime; this.lastCast = 'spark';
   }
@@ -388,9 +397,10 @@ export class Sim {
       this.spells.onImpact(c, h.x, h.y, 'nova'); // skills: ground, repeat
       return;
     }
-    const t = this.target(cond, alive);
+    const t = this.melee.aim(c, cond, alive) ?? this.target(cond, alive); // warrior: a foe in reach
     this.face(t); this.targetId = t.id;
     if (this.spells.cast(c, t, alive)) return; // skills: beam, curse, field, ward, construct, orb
+    if (this.melee.cast(c, t, alive)) return; // warrior: melee, fissure, leap, cry, aura
     if (type === 'projectile') {
       const from = { x: h.x, y: h.y, z: 1.5 };
       const others = alive.filter(m => m !== t);
@@ -451,7 +461,7 @@ export class Sim {
   hitMon(m: Monster, c: SkillCtx, mult: number, small = false) {
     if (m.hp <= 0) return;
     const r = () => this.rng.next();
-    const { dmg, crit } = hitDamage(c, r, mult * this.mythic.hitMult(m)); // mythic: Pyrewright's Rod
+    const { dmg, crit } = hitDamage(c, r, mult * this.mythic.hitMult(m) * this.melee.dmgMult()); // mythic: Pyrewright's Rod; warrior: cries
     if (m.shock > 0 && c.shockedCold) dmg.cold += total(dmg) * c.shockedCold;
     this.spells.preHit(m, c, dmg); // skills: hex, damage vs burning/chilled/shocked
     const fin = afterRes(dmg, m.res, c.pen, m.shock > 0 ? 1 + m.shockEff : 1);
@@ -522,7 +532,7 @@ export class Sim {
     if (this.phase !== 'fight' || this.mythic.untouchable > 0) return; // mythic: Mantle of the Unburied
     const st = this.st, h = this.hero, s = this.s;
     if (!label && this.rng.next() * 100 < st.dodge) { this.float(h.x, h.y, 'Dodge', '#86c46f'); return; }
-    let d = afterHeroRes(dmg * this.rng.range(0.85, 1.15) * mult, st.res[el]) * (1 - st.elemDR / 100) * this.spells.heroTaken(); // skills: Rime Shell
+    let d = afterHeroRes(dmg * this.rng.range(0.85, 1.15) * mult, st.res[el]) * (1 - st.elemDR / 100) * this.spells.heroTaken() * this.melee.heroTaken(); // skills: Rime Shell; warrior: cries
     const tot = d;
     this.noHit = 0;
     const hadBarrier = s.barrier > 0;
@@ -645,7 +655,7 @@ export class Sim {
     this.phase = 'town'; this.townT = D.townTime; this.returnZone = Math.max(0, s.zone - 1);
     this.monsters = []; this.projectiles = []; this.strikes = []; this.echoes = []; this.drops = []; this.buffs = {}; this.faAmt = 0; this.cd = {};
     this.feel.reset(true); // feel: lose shrine buffs
-    this.spells.reset(); // skills
+    this.spells.reset(); this.melee.reset(); // skills, warrior
     this.meta.reset(true); // meta: the event ends
     s.life = this.st.maxLife; s.mana = this.st.maxMana; s.barrier = 0;
     this.emit({ t: 'clear' });
@@ -725,6 +735,7 @@ export class Sim {
     this.regen(dt);
     this.feel.tick(dt); // feel: shrine buffs, vault timer, death blasts, loot events
     this.spells.tick(dt); // skills: beams, fields, orbs, constructs, hexes, shell
+    this.melee.tick(dt); // warrior: leap flight, cries, auras, fissure repeats
     this.meta.tick(dt); // meta: events, tyrant mechanics, feats, shrine bounties
     this.rift.tick(dt); this.mythic.tick(dt); // rift: timer; mythic: stacks
     for (const k in this.cd) if (this.cd[k] > 0) this.cd[k] -= dt;
@@ -755,7 +766,7 @@ export class Sim {
       if (Math.abs(dsx) > 0.05) h.f = dsx > 0 ? 1 : -1;
     } else {
       const near = alive.filter(m => !MONSTERS[m.def].ranged && !MONSTERS[m.def].treasure && m.frozen <= 0 && dist(m, h) < M.kiteTrigger);
-      if (s.kite !== false && near.length && this.kiteCd <= 0 && this.castT <= 0.2) {
+      if (!this.melee.on && s.kite !== false && near.length && this.kiteCd <= 0 && this.castT <= 0.2) { // warrior: never kites
         let ax = 0, ay = 0;
         for (const m of near) { const d = Math.max(0.3, dist(m, h)); ax += (h.x - m.x) / (d * d); ay += (h.y - m.y) / (d * d); }
         const l = Math.hypot(ax, ay) || 1;
@@ -766,6 +777,7 @@ export class Sim {
       } else {
         this.castT -= dt * this.feel.heroCastRate(); // feel: Frost Aura chill
         if (this.castT <= 0) this.heroAct();
+        this.melee.step(dt); // warrior: close in on the next foe
       }
     }
     for (const m of alive) {
@@ -801,7 +813,7 @@ export class Sim {
     this.potions();
     if (this.life <= 0 && !this.mythic.cheatDeath()) { this.die(); return; } // mythic: Mantle of the Unburied
     this.monsters = this.monsters.filter(m => m.hp > 0);
-    if (!this.monsters.length && !this.strikes.length && !this.feel.busy()) { this.echoes = []; this.spells.clearFight(); this.startWalk(); } // skills: beams, fields, orbs end
+    if (!this.monsters.length && !this.strikes.length && !this.feel.busy()) { this.echoes = []; this.spells.clearFight(); this.melee.clearFight(); this.startWalk(); } // skills: beams, fields, orbs end
   }
 
   /** Run many ticks at once (headless). */
@@ -1040,17 +1052,18 @@ export class Sim {
     const s = this.s, c = respecCost(s.lvl);
     if (s.gold < c) return `Respec costs ${c} gold.`;
     s.gold -= c;
-    const startSum = Object.values(HERO.startAttributes).reduce((a, b) => a + b, 0);
+    const H = heroFor(s.cls), start = classDef(s.cls).startSkill; // classes: start attributes and skill of the class
+    const startSum = Object.values(H.startAttributes).reduce((a, b) => a + b, 0);
     s.attrPts += Object.values(s.attrs).reduce((a, b) => a + b, 0) - startSum;
-    s.attrs = { ...HERO.startAttributes };
+    s.attrs = { ...H.startAttributes };
     s.skillPts += Object.values(s.skills).reduce((a, b) => a + b, 0) - 1;
     for (const [id, arr] of Object.entries(s.sockets)) {
-      if (id === START_SKILL) continue;
+      if (id === start) continue;
       arr.forEach((g, i) => { if (g && this.putInBag(g)) arr[i] = null; });
     }
-    s.skills = { [START_SKILL]: 1 };
+    s.skills = { [start]: 1 };
     s.skillMods = {}; // skills: modifier choices are free again
-    s.slots = emptySlots();
+    s.slots = emptySlots(s.cls);
     this.recalc();
     for (const k of ['town', 'hero', 'skills', 'slots', 'bag'] as DirtyKey[]) this.dirty.add(k);
     this.log('Points reset. Spend them in Hero and Skills. Gems went back to the gem pouch.', 'lvl');

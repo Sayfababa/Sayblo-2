@@ -218,12 +218,18 @@ def slice_ui():
                 PLACEHOLDER_ICONS.pop(name[5:], None)
 
 
-def slice_hero():
+def slice_hero(sheet="hero", names=("hero-idle", "hero-cast", "hero-walk1", "hero-walk2"), tip_of="staff"):
     """All poses share one scale and one foot point (bottom centre of the canvas), so switching
-    between idle, cast and walk does not make the heroine jump or shrink. Prints the staff tip
-    of every pose (as a fraction of the canvas height, x from the feet) for src/render/scene.ts."""
-    names = ["hero-idle", "hero-cast", "hero-walk1", "hero-walk2"]
-    cells = dict(cut_cells(key_green(Image.open(ROOT / "assets" / "sheets" / "hero.png")), 4, 1, names))
+    between idle, cast and walk does not make the hero jump or shrink. Prints the staff tip
+    of every pose (as a fraction of the canvas height, x from the feet) for src/render/scene.ts.
+    The warrior sheet (hero-warrior.png: idle, strike, walk1, walk2) is cut the same way; his weapon tip
+    is the highest opaque point away from the head (tip_of="weapon"), printed for WEAPON_TIP in scene.ts."""
+    src = ROOT / "assets" / "sheets" / f"{sheet}.png"
+    if not src.exists():
+        print("missing sheet (skipped):", src.name)
+        return
+    names = list(names)
+    cells = dict(cut_cells(key_green(Image.open(src)), 4, 1, names))
     feet = {}
     for n, c in cells.items():
         a = np.asarray(c)[..., 3] > 128
@@ -238,16 +244,20 @@ def slice_hero():
     for n, c in cells.items():
         canvas = Image.new("RGBA", (W, hmax), (0, 0, 0, 0))
         canvas.paste(c, (round(W / 2 - feet[n]), hmax - c.height), c)
-        # staff crystal: violet pixels
         a = np.asarray(canvas).astype(np.float32)
         r, g, b, al = a[..., 0], a[..., 1], a[..., 2], a[..., 3]
-        m = (al > 128) & (b > g + 25) & (r > g + 10) & (b > 70)
+        if tip_of == "staff":
+            # staff crystal: violet pixels
+            m = (al > 128) & (b > g + 25) & (r > g + 10) & (b > 70)
+        else:
+            # weapon head: opaque pixels more than a head width away from the body centre line
+            m = (al > 128) & (np.abs(np.arange(W)[None, :] - W / 2) > hmax * 0.09)
         ys, xs = np.where(m)
         top = ys < ys.min() + hmax * 0.08 if len(ys) else None
         tip = (round((xs[top].mean() - W / 2) / hmax, 3), round(1 - ys[top].mean() / hmax, 3)) if len(ys) else None
         out = canvas.resize((round(W * f), 384), Image.LANCZOS)
         out.save(OUT / f"{n}.png", optimize=True)
-        print(n, out.size, "staff tip (x, height) in canvas heights:", tip)
+        print(n, out.size, f"{tip_of} tip (x, height) in canvas heights:", tip)
 
 
 # Realistic monsters (docs/ui-assets.md section 9): one sheet per monster, 2 poses in a row
@@ -411,11 +421,13 @@ def main():
             Image.fromarray((np.asarray(g).astype(np.float32) * sh).clip(0, 255).astype(np.uint8)).save(OUT / f"{name}.jpg", quality=86)
     make_app_icons()
     slice_hero()
+    slice_hero("hero-warrior", ("warrior-idle", "warrior-strike", "warrior-walk1", "warrior-walk2"), "weapon")
     slice_monsters()
     slice_ui()
     make_tall_weapons()
     make_stone_texture()
     make_placeholder_skill_icons()
+    make_placeholder_weapons()
     MIRROR.mkdir(parents=True, exist_ok=True)
     for f in OUT.iterdir():
         # the old demo only needs the scene sprites, not the new interface pieces
@@ -433,7 +445,51 @@ PLACEHOLDER_ICONS = {
     "flamelance": ("fx-fireball", (1.15, 0.8, 0.45)), "ashenhex": ("fx-fire-ring", (0.75, 0.55, 0.5)), "smoulder": ("fx-flames", (0.9, 0.5, 0.3)),
     "hailstorm": ("fx-ice-burst", (0.8, 0.95, 1.2)), "rimeshell": ("fx-frost-aura", (1.1, 1.2, 1.3)), "brittlefrost": ("fx-iceshard", (0.7, 0.85, 1.1)),
     "stormwisp": ("fx-orb", (1.1, 0.85, 1.3)), "stormlantern": ("fx-shock", (0.95, 0.75, 1.3)), "capacitor": ("fx-shock-ring", (0.8, 0.6, 1.2)),
+    # warrior package (prompts: docs/asset-requests.md, section "Warrior"); darker, warmer tints than the sorceress
+    "searblade": ("fx-fire-burst", (1.2, 0.7, 0.4)), "emberblood": ("fx-flames", (1.0, 0.45, 0.35)), "cinderslam": ("fx-meteor", (1.1, 0.6, 0.35)),
+    "kindleroar": ("fx-fire-ring", (1.2, 0.85, 0.5)), "sunder": ("fx-fire-burst", (0.9, 0.45, 0.25)), "pyrebrand": ("fx-fire-ring", (0.6, 0.35, 0.3)),
+    "heatofbattle": ("fx-flames", (1.2, 0.8, 0.4)), "pyreheart": ("fx-fireball", (0.9, 0.4, 0.3)),
+    "frostcleave": ("fx-iceshard", (0.9, 1.05, 1.25)), "wintersbite": ("fx-ice-burst", (0.6, 0.8, 1.0)), "glaciershield": ("fx-frost-aura", (0.8, 1.0, 1.2)),
+    "wintertaunt": ("fx-ice-burst", (1.0, 1.1, 1.3)), "shatterstrike": ("fx-iceshard", (0.6, 0.75, 1.0)), "glacialstomp": ("fx-frost-aura", (0.6, 0.85, 1.1)),
+    "hoarfrost": ("fx-ice-burst", (0.85, 0.95, 1.05)), "icevein": ("fx-iceshard", (0.5, 0.7, 0.95)),
+    "thundermaul": ("fx-shock", (1.1, 0.7, 1.3)), "stormblood": ("fx-shock-ring", (1.0, 0.55, 1.1)), "hurledhammer": ("fx-orb", (0.9, 0.6, 1.25)),
+    "skyleap": ("fx-shock", (0.8, 0.6, 1.2)), "tempestmantle": ("fx-shock-ring", (1.15, 0.8, 1.35)), "callstorm": ("fx-shock", (1.3, 0.95, 1.4)),
+    "staticskin": ("fx-orb", (1.2, 0.85, 1.3)), "overload": ("fx-shock-ring", (0.7, 0.45, 1.0)),
 }
+
+# Warrior weapon bases without painted icons yet (classes.json weaponBases): simple iron shapes drawn here.
+PLACEHOLDER_WEAPONS = ["notched-cleaver", "iron-maul", "grave-blade"]
+
+
+def make_placeholder_weapons():
+    """Upright 1x3 weapon (…-tall) and a diagonal 128 px icon for each warrior base, until art exists."""
+    from PIL import ImageDraw
+    for name in PLACEHOLDER_WEAPONS:
+        if (ROOT / "assets" / "sheets" / "items-warrior.png").exists():
+            break
+        im = Image.new("RGBA", (80, 240), (0, 0, 0, 0))
+        d = ImageDraw.Draw(im)
+        iron, dark, wood, brass = (150, 146, 140, 255), (62, 58, 56, 255), (92, 62, 40, 255), (168, 128, 66, 255)
+        d.rectangle((36, 70, 44, 232), fill=wood, outline=dark)
+        d.rectangle((30, 214, 50, 222), fill=brass, outline=dark)
+        if name == "notched-cleaver":
+            d.polygon([(44, 18), (76, 26), (78, 92), (44, 100)], fill=iron, outline=dark)
+            for y in (40, 58, 76):
+                d.polygon([(78, y), (70, y + 4), (78, y + 8)], fill=(0, 0, 0, 0))
+        elif name == "iron-maul":
+            d.rectangle((14, 22, 66, 70), fill=iron, outline=dark, width=3)
+            d.rectangle((14, 40, 66, 52), fill=dark)
+        else:
+            d.polygon([(40, 4), (50, 24), (48, 176), (32, 176), (30, 24)], fill=iron, outline=dark)
+            d.rectangle((16, 176, 64, 186), fill=brass, outline=dark)
+            d.line((40, 20, 40, 170), fill=(200, 196, 190, 255), width=2)
+        im.save(OUT / f"item-{name}-tall.png", optimize=True)
+        icon = im.rotate(-40, resample=Image.BICUBIC, expand=True)
+        icon.thumbnail((128, 128), Image.LANCZOS)
+        out = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
+        out.paste(icon, ((128 - icon.width) // 2, (128 - icon.height) // 2), icon)
+        out.save(OUT / f"item-{name}.png", optimize=True)
+        print(f"item-{name} (placeholder)")
 
 
 def make_placeholder_skill_icons():
@@ -480,4 +536,9 @@ def make_app_icons():
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    if "--placeholders" in sys.argv:  # only the code-made placeholder icons (no sheets needed)
+        make_placeholder_skill_icons()
+        make_placeholder_weapons()
+    else:
+        main()

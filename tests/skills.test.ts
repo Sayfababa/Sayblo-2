@@ -13,6 +13,7 @@ const FX_KEYS = new Set([
   'ground', 'groundDur', 'groundDmg', 'repeat', 'repeatDmg', 'extra', 'extraDmg', 'killBlast', 'critAilment', 'vsBurning', 'vsChilled',
   'vsShocked', 'freezeDur', 'falloffLess', 'ticks', 'arcs', 'curseEffect', 'curseAll', 'curseSpread', 'curseSlow', 'wardPct', 'wardDR',
   'wardNova', 'wardMana', 'wardHeal', 'constructs', 'rate', 'orbs', 'barrierPct', 'retaliate', 'wardFreeze', 'breakNova', 'chillAura',
+  'cryEffect', 'cryDR', 'reach', // warrior (melee.ts)
 ]);
 
 const save = (skills: Record<string, number>, lvl = 30) => { const s = newSaveState(); s.lvl = lvl; s.skills = skills; s.gold = 10000; return s; };

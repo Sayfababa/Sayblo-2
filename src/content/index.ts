@@ -14,13 +14,15 @@ import economyJson from './economy.json' with { type: 'json' };
 import feelJson from './feel.json' with { type: 'json' };
 import metaJson from './meta.json' with { type: 'json' };
 import riftJson from './rift.json' with { type: 'json' };
+import classesJson from './classes.json' with { type: 'json' };
 
 export type Element = 'fire' | 'cold' | 'light';
 export const ELEMENTS: Element[] = ['fire', 'cold', 'light'];
 export const ELEMENT_NAMES: Record<Element, string> = { fire: 'Fire', cold: 'Cold', light: 'Lightning' };
 export const ELEMENT_COLORS: Record<Element, string> = { fire: '#ff7a3d', cold: '#8fd8ff', light: '#b48cff' };
 
-export type SkillType = 'projectile' | 'area' | 'meteor' | 'strike' | 'buff' | 'chain' | 'nova' | 'beam' | 'curse' | 'field' | 'ward' | 'construct' | 'orb';
+export type SkillType = 'projectile' | 'area' | 'meteor' | 'strike' | 'buff' | 'chain' | 'nova' | 'beam' | 'curse' | 'field' | 'ward' | 'construct' | 'orb'
+  /* warrior (melee.ts) */ | 'melee' | 'fissure' | 'leap' | 'cry' | 'aura';
 /** One choice of a skill modifier tier: effect keys are the same as support gem effects plus the
  *  behaviour keys listed in docs/skill-system.md (explode, ground, repeat, extra, killBlast, ...). */
 export interface SkillModDef { id: string; name: string; text: string; fx: Record<string, number> }
@@ -45,6 +47,14 @@ export interface SkillDef {
   speed?: number; zapEvery?: number; zapRange?: number;
   /** construct: seconds between attacks, how many at a time */
   attackEvery?: number; constructs?: number;
+  /** curse: centred on the hero instead of the target (warrior taunts) */
+  self?: boolean;
+  /** % more damage against burning / chilled-or-frozen / shocked targets built into the skill */
+  vsBurning?: number; vsChilled?: number; vsShocked?: number;
+  /** warrior cry: % more damage the hero deals (+ per level) and % less damage taken while it lasts */
+  cryMore?: number; cryMorePerLevel?: number; cryDR?: number;
+  /** melee skills hit enemies this far from the hero (default: class reach) */
+  reach?: number;
   /** active skills: modifier tiers, two choices each (unlocked at MOD_LEVELS) */
   mods?: [SkillModDef, SkillModDef][];
   /** passive skills: stat bonus per level */
@@ -180,11 +190,6 @@ export const ITEM_SIZES = it.sizes;
 export const BAG_W = it.bag.width, BAG_H = it.bag.height;
 export const POUCH_SIZE = it.pouch;
 
-/** Icon file name (without "item-" prefix) for an item base name. */
-export const BASE_ICON: Record<string, string> = Object.fromEntries(
-  Object.values(it.bases).flat().map(b => [b.name, b.icon]),
-);
-
 export const HERO = heroJson as unknown as {
   className: string;
   attributes: Record<Attr, { name: string; description: string }>;
@@ -202,6 +207,71 @@ export const HERO = heroJson as unknown as {
   movement: { walkSpeed: number; kiteSpeed: number; kiteTime: number; kiteCooldown: number; kiteTrigger: number; aggroRange: number; pickupRange: number };
 };
 export const ATTRS = Object.keys(HERO.attributes) as Attr[];
+
+/* ---------- hero classes (classes.json) ---------- */
+export type ClassId = 'sorceress' | 'warrior';
+type HeroBase = typeof HERO.base;
+export interface ClassDef {
+  name: string; pronoun: [string, string]; blurb: string; resource: string; startSkill: string; basic: string; melee: boolean;
+  reach?: number; furyPerSwing?: number; sprite: string | null;
+  attributes?: Record<Attr, { name: string; description: string }>; startAttributes?: Record<Attr, number>;
+  base?: Partial<HeroBase>; perLevel?: Partial<{ life: number; mana: number }>; innate?: Record<string, number>;
+  basicDef?: { name: string; min: number; max: number; perLevel: number; castTimeMult: number };
+  weaponName?: string; weaponBases?: { name: string; icon: string }[];
+  affixText: Record<string, string>; statText: Record<string, string>;
+}
+const cl = classesJson as unknown as { default: ClassId; classes: Record<ClassId, ClassDef> };
+export const CLASSES = cl.classes;
+export const CLASS_IDS = Object.keys(cl.classes) as ClassId[];
+export const DEFAULT_CLASS = cl.default;
+export const isClass = (c: unknown): c is ClassId => typeof c === 'string' && c in CLASSES;
+export const classDef = (c?: string | null): ClassDef => CLASSES[isClass(c) ? c : DEFAULT_CLASS];
+/** Hero numbers of a class: hero.json with the class overrides on top. */
+export interface ClassHero { base: HeroBase; perLevel: typeof HERO.perLevel; startAttributes: Record<Attr, number>; attributes: Record<Attr, { name: string; description: string }>; innate: Record<string, number> }
+const heroCache = new Map<string, ClassHero>();
+export function heroFor(c?: string | null): ClassHero {
+  const id = isClass(c) ? c : DEFAULT_CLASS;
+  let h = heroCache.get(id);
+  if (!h) {
+    const C = CLASSES[id];
+    h = { base: { ...HERO.base, ...C.base }, perLevel: { ...HERO.perLevel, ...C.perLevel }, startAttributes: { ...HERO.startAttributes, ...C.startAttributes },
+      attributes: { ...HERO.attributes, ...C.attributes }, innate: { ...C.innate } };
+    heroCache.set(id, h);
+  }
+  return h;
+}
+/** Trees of a class, in tab order. */
+export const classTrees = (c?: string | null) => Object.keys(TREES).filter(t => (TREES[t].class ?? DEFAULT_CLASS) === (isClass(c) ? c : DEFAULT_CLASS));
+/** Does a skill belong to a class (by its tree)? */
+export const skillOfClass = (id: string, c?: string | null) => !!SKILLS[id] && (TREES[SKILLS[id].tree]?.class ?? DEFAULT_CLASS) === (isClass(c) ? c : DEFAULT_CLASS);
+
+/**
+ * Class whose words the shared texts use (affix names, the weapon slot name, item bases of new drops).
+ * Set by the Sim for the hero it plays. Only names and the base of new weapons depend on it, never numbers.
+ */
+let activeClass: ClassId = DEFAULT_CLASS;
+export const getActiveClass = () => activeClass;
+const AFFIX_BASE_TEXT: Record<string, string> = {};
+export function setActiveClass(c?: string | null) {
+  activeClass = isClass(c) ? c : DEFAULT_CLASS;
+}
+/** Label of a hero-panel line in the words of the active class ("Spell damage" → "Attack damage"). */
+export const classText = (label: string) => CLASSES[activeClass].statText[label] ?? label;
+/** Weapon bases new drops roll for the active class. */
+export const weaponBases = () => CLASSES[activeClass].weaponBases ?? it.bases.weapon;
+/** Icon file name (without "item-" prefix) for an item base name (all classes). */
+export const BASE_ICON: Record<string, string> = Object.fromEntries(
+  [...Object.values(it.bases).flat(), ...Object.values(cl.classes).flatMap(c => c.weaponBases ?? [])].map(b => [b.name, b.icon]),
+);
+// class words: the weapon slot name and renamed affixes follow the active class (see setActiveClass)
+Object.defineProperty(it.slotNames, 'weapon', { get: () => CLASSES[activeClass].weaponName ?? 'Staff', enumerable: true });
+for (const c of Object.values(cl.classes)) for (const k of Object.keys(c.affixText)) {
+  const a = af.affixes[k];
+  if (!a || k in AFFIX_BASE_TEXT) continue;
+  AFFIX_BASE_TEXT[k] = a.text;
+  Object.defineProperty(a, 'text', { get: () => CLASSES[activeClass].affixText[k] ?? AFFIX_BASE_TEXT[k], enumerable: true });
+}
+
 
 const gm = gemsJson as unknown as { maxLevel: number; gems: Record<string, GemDef> };
 export const GEMS = gm.gems;

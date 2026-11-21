@@ -1,14 +1,14 @@
-import { AREAS, ECONOMY, HERO, START_SKILL, UNLOCKED_AT_START } from '../content/index.ts';
+import { AREAS, DEFAULT_CLASS, ECONOMY, HERO, UNLOCKED_AT_START, classDef, heroFor, type ClassId } from '../content/index.ts';
 import { newMeta } from './meta-types.ts';
 import type { CastSlot, LootRules, RiftSave, SaveState } from './types.ts';
 
-export const SAVE_VERSION = 10;
+export const SAVE_VERSION = 11;
 
 /** Sounds are on by default, but quiet. */
 export const DEFAULT_VOLUME = 0.3;
 
-export const emptySlots = (): CastSlot[] => [
-  { id: START_SKILL, cond: 'always' }, { id: null, cond: 'always' }, { id: null, cond: 'always' }, { id: null, cond: 'always' },
+export const emptySlots = (cls: ClassId = DEFAULT_CLASS): CastSlot[] => [
+  { id: classDef(cls).startSkill, cond: 'always' }, { id: null, cond: 'always' }, { id: null, cond: 'always' }, { id: null, cond: 'always' },
 ];
 
 export const defaultLoot = (minR = 0): LootRules => ({
@@ -17,15 +17,16 @@ export const defaultLoot = (minR = 0): LootRules => ({
 
 export const newRiftSave = (): RiftSave => ({ open: false, maxTier: 0, best: {}, atlas: {}, frags: 0, pinnacle: 0, auto: false, cur: null, runs: 0, fails: 0 });
 
-export function newSaveState(): SaveState {
+export function newSaveState(cls: ClassId = DEFAULT_CLASS): SaveState {
   return {
     v: SAVE_VERSION,
+    cls,
     lvl: 1, xp: 0, gold: HERO.startGold,
-    attrs: { ...HERO.startAttributes }, attrPts: 0, skillPts: 1,
-    skills: { [START_SKILL]: 1 },
+    attrs: { ...heroFor(cls).startAttributes }, attrPts: 0, skillPts: 1,
+    skills: { [classDef(cls).startSkill]: 1 },
     sockets: {},
     skillMods: {},
-    slots: emptySlots(),
+    slots: emptySlots(cls),
     equip: { weapon: null, helm: null, armor: null, amulet: null, ring: null },
     bag: [], gems: [], loot: defaultLoot(), mats: { dust: 0, essence: 0, shard: 0 },
     stash: Array.from({ length: ECONOMY.stash.tabs }, () => []),

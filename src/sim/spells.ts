@@ -61,9 +61,12 @@ export class Spells {
         return true;
       }
       case 'curse': {
-        const r = c.radius;
-        sim.emit({ t: 'ring', x: t.x, y: t.y, r0: 0.3, r1: r, dur: 0.6, el: c.el, fill: true });
-        for (const m of alive) if (dist(m, t) <= r) this.hexMon(m, c);
+        const r = c.radius, o = c.def.self ? h : t; // warrior taunts are centred on the hero
+        sim.emit({ t: 'ring', x: o.x, y: o.y, r0: 0.3, r1: r, dur: 0.6, el: c.el, fill: true });
+        for (const m of alive) if (dist(m, o) <= r) {
+          this.hexMon(m, c);
+          if (c.def.chill) { m.chill = Math.max(m.chill, c.chillDur); m.chillEff = Math.max(m.chillEff, c.chillEff); }
+        }
         return true;
       }
       case 'field': {
@@ -119,8 +122,13 @@ export class Spells {
 
   /** An area impact happened (area, nova, meteor, strike): ground patch and repeats from modifiers. */
   onImpact(c: SkillCtx, x: number, y: number, kind: string, sub = false) {
-    if (c.ground) this.addField(c, x, y, c.ground, c.groundDur, 0.5, c.groundDmg, true);
+    this.groundAt(c, x, y);
     if (!sub) for (let i = 1; i <= c.repeat; i++) this.delayed.push({ t: REPEAT_GAP * i, skill: c.id, x, y, mult: c.repeatDmg, kind });
+  }
+
+  /** Ground patch from the "ground" modifier at a point (also used by warrior fissures). */
+  groundAt(c: SkillCtx, x: number, y: number) {
+    if (c.ground) this.addField(c, x, y, c.ground, c.groundDur, 0.5, c.groundDmg, true);
   }
 
   /** A single-target hit landed (projectile, chain jump, beam pulse, construct strike): explosion modifier. */

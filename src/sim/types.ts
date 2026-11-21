@@ -1,4 +1,4 @@
-import type { Attr, Element, MatId, Slot } from '../content/index.ts';
+import type { Attr, ClassId, Element, MatId, Slot } from '../content/index.ts';
 import type { MetaSave, MonMeta } from './meta-types.ts';
 
 /** Item modifier: [affix id, value] or [affix id, value, tier]. */
@@ -52,6 +52,8 @@ export interface LootRules { minR: Record<Slot, number>; keepUniques: boolean; k
 /** Everything that is saved. Plain JSON, versioned (see save.ts). */
 export interface SaveState {
   v: number;
+  /** hero class (classes.json); old saves are sorceresses */
+  cls: ClassId;
   lvl: number; xp: number; gold: number;
   attrs: Record<Attr, number>; attrPts: number; skillPts: number;
   skills: Record<string, number>;
@@ -145,6 +147,8 @@ export type SimEvent =
   /** short fire/cold/lightning beam between two points (Forked Lance) */
   | { t: 'beam'; x0: number; y0: number; x1: number; y1: number; el: Element; dur: number }
   | { t: 'cast'; el: Element }
+  /** warrior: a melee blow from the hero (x, y) at a foe (tx, ty) that cleaves r tiles around it */
+  | { t: 'swing'; x: number; y: number; tx: number; ty: number; el: Element; r: number }
   | { t: 'heroHit' }
   | { t: 'monHit'; id: number }
   | { t: 'monAttack'; id: number }

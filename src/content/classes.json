@@ -1,0 +1,53 @@
+{
+  "_doc": "Hero classes. hero.json holds the shared rules and the sorceress numbers; a class only lists what differs (base, perLevel, startAttributes, attribute texts). startSkill/basic: first skill and the free fallback attack when no slot fires. melee: the hero closes in on targets instead of keeping distance; reach = tiles a melee skill can hit from. affixText/statText rename shared stats for this class (same ids, same effects). weaponName/weaponBases: weapon drops for this class (same slot, same affixes and implicit). sprite: frame prefix once painted art exists (null = placeholder drawn in code).",
+  "default": "sorceress",
+  "classes": {
+    "sorceress": {
+      "name": "Sorceress",
+      "pronoun": ["she", "her"],
+      "blurb": "Casts fire, cold and lightning from a distance and keeps her foes at bay.",
+      "resource": "Mana",
+      "startSkill": "fireball",
+      "basic": "spark",
+      "melee": false,
+      "sprite": "hero",
+      "affixText": {},
+      "statText": {}
+    },
+    "warrior": {
+      "name": "Warrior",
+      "pronoun": ["he", "his"],
+      "blurb": "Wades into the pack with a burning, freezing or thundering weapon. More life, built-in damage reduction, fury instead of mana.",
+      "resource": "Fury",
+      "startSkill": "searblade",
+      "basic": "swing",
+      "melee": true,
+      "reach": 1.9,
+      "furyPerSwing": 3,
+      "sprite": null,
+      "attributes": {
+        "power": { "name": "Power", "description": "+1% attack damage" },
+        "focus": { "name": "Focus", "description": "+1% attack speed, +0.4% crit" },
+        "spirit": { "name": "Spirit", "description": "+1.5 fury, +0.12 fury/s" },
+        "vit": { "name": "Vitality", "description": "+4 life, +0.05 life/s" }
+      },
+      "startAttributes": { "power": 5, "focus": 5, "spirit": 5, "vit": 15 },
+      "base": { "life": 70, "lifePerVit": 4, "lifeRegen": 0.6, "lifeRegenPerVit": 0.05, "mana": 25, "manaPerSpirit": 1.5, "manaRegen": 2.2, "manaRegenPerSpirit": 0.12 },
+      "perLevel": { "life": 8, "mana": 1 },
+      "innate": { "elemDR": 6 },
+      "basicDef": { "name": "Weapon Swing", "min": 2, "max": 5, "perLevel": 0.14, "castTimeMult": 1.15 },
+      "weaponName": "Weapon",
+      "weaponBases": [
+        { "name": "Notched Cleaver", "icon": "notched-cleaver" },
+        { "name": "Iron Maul", "icon": "iron-maul" },
+        { "name": "Grave Blade", "icon": "grave-blade" }
+      ],
+      "affixText": {
+        "spellDmg": "Attack Damage", "castSpeed": "Attack Speed",
+        "addFire": "Fire Damage to Attacks", "addCold": "Cold Damage to Attacks", "addLight": "Lightning Damage to Attacks",
+        "mana": "to Fury", "manaRegen": "Fury per second", "spirit": "to Spirit"
+      },
+      "statText": { "Spell damage": "Attack damage", "Cast time": "Attack time", "Mana": "Fury", "Mana / s": "Fury / s", "Mana potions": "Fury potions", "Cast speed": "Attack speed" }
+    }
+  }
+}
