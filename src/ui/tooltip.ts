@@ -1,6 +1,7 @@
 /** Item tooltips with a stat comparison against the equipped item. */
 import { AFFIXES, GEMS, RARITIES, SKILLS, SLOT_NAMES, UNIQUES, isPassive } from '../content/index.ts';
 import { formatMod, gemFits, gemText, sellValue } from '../sim/formulas.ts';
+import { isPerfect, isUpgrade, itemPower } from '../sim/upgrade.ts';
 import { isGem, type BagItem, type Item, type Mod } from '../sim/types.ts';
 import { esc, itemPic } from './html.ts';
 import { gemColor } from './gemcolor.ts';
@@ -11,9 +12,15 @@ function sumMods(it: Item | null): Record<string, number> {
   return m;
 }
 
+/** Item power line, the same number the green upgrade arrow uses (src/sim/upgrade.ts). */
+export function powerLine(it: Item, cur: Item | null): string {
+  const up = isUpgrade(it, cur);
+  return `<p class="cmppow ${up ? 'up' : ''}" title="Each affix counts as a share of its best possible roll; damage counts a bit more than defense.">Item power <b>${itemPower(it).toFixed(2)}</b>${cur ? ` vs <b>${itemPower(cur).toFixed(2)}</b> equipped` : ''}${up ? ' · ▲ Upgrade' : ''}</p>`;
+}
+
 /** Lines like "▲ +12 to Life" for every stat that changes when swapping `cur` for `it`. */
 export function compareLines(it: Item, cur: Item | null): string {
-  if (!cur) return '<p class="cmpnote">Nothing equipped in this slot.</p>';
+  if (!cur) return powerLine(it, cur) + '<p class="cmpnote">Nothing equipped in this slot.</p>';
   const a = sumMods(it), b = sumMods(cur);
   const keys = [...new Set([...Object.keys(a), ...Object.keys(b)])];
   const rows = keys.map(k => {
@@ -23,13 +30,14 @@ export function compareLines(it: Item, cur: Item | null): string {
     return `<li class="${d > 0 ? 'up' : 'down'}">${d > 0 ? '▲' : '▼'} ${txt}</li>`;
   }).filter(Boolean);
   const lost = cur.u ? `<li class="down">▼ loses: ${esc(UNIQUES[cur.u].effect)}</li>` : '';
-  if (!rows.length && !lost) return '<p class="cmpnote">Same stats as the equipped item.</p>';
-  return `<ul class="cmp">${rows.join('')}${lost}</ul>`;
+  if (!rows.length && !lost) return powerLine(it, cur) + '<p class="cmpnote">Same stats as the equipped item.</p>';
+  return `${powerLine(it, cur)}<ul class="cmp">${rows.join('')}${lost}</ul>`;
 }
 
 const modLine = (m: Mod, imp: boolean) => {
   const t = m[2];
-  return `<li class="${imp ? 'imp' : AFFIXES[m[0]]?.group ?? ''}">${formatMod(m as [string, number])}${t ? `<span class="tier" title="Tier ${t} of 5 (1 is best)">T${t}</span>` : ''}</li>`;
+  const star = !imp && isPerfect(m) ? '<span class="perfect" title="Perfect roll: top tier, top 5% of its range">★</span>' : '';
+  return `<li class="${imp ? 'imp' : AFFIXES[m[0]]?.group ?? ''}"><span>${formatMod(m as [string, number])}${star}</span>${t ? `<span class="tier" title="Tier ${t} of 5 (1 is best)">T${t}</span>` : ''}</li>`;
 };
 
 export function itemTooltip(it: BagItem, equipped: Item | null, actions: string, opts: { compare?: boolean; learned?: string[] } = {}): string {

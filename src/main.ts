@@ -4,6 +4,7 @@ import '@fontsource/alegreya-sans/latin-400.css';
 import '@fontsource/alegreya-sans/latin-500.css';
 import '@fontsource/alegreya-sans/latin-700.css';
 import './ui/styles.css';
+import './ui/feel.css';
 import { Application } from 'pixi.js';
 import { registerSW } from 'virtual:pwa-register';
 import { Scene } from './render/scene.ts';
@@ -13,6 +14,7 @@ import { Sim, TICK } from './sim/sim.ts';
 import { OFFLINE } from './content/index.ts';
 import type { SaveState } from './sim/types.ts';
 import { UI } from './ui/ui.ts';
+import { Sfx } from './ui/audio.ts';
 
 /** At most this many simulation steps per frame; if the device cannot keep up, the game slows down instead of freezing. */
 const MAX_STEPS = 40;
@@ -39,6 +41,7 @@ async function boot() {
   ]);
 
   const scene = new Scene(app);
+  const sfx = new Sfx();
   const ui = new UI({
     sim: () => sim,
     replaceSave: (s: SaveState) => start(s),
@@ -95,7 +98,8 @@ async function boot() {
 
   app.ticker.add(t => {
     const real = Math.min(0.1, t.deltaMS / 1000);
-    acc += real * sim.s.speed;
+    // hit-stop / slow motion only changes how much real time is fed into the fixed-step simulation
+    acc += real * sim.s.speed * scene.timeScale;
     let n = 0;
     while (acc >= TICK && n < MAX_STEPS) { sim.tick(TICK); acc -= TICK; n++; }
     if (n >= MAX_STEPS) acc = 0;
@@ -103,6 +107,7 @@ async function boot() {
     sim.events = [];
     scene.consume(events);
     ui.consume(events);
+    sfx.consume(events, sim.s.settings);
     scene.render(sim, real, acc / TICK, { sheetW: ui.sheetW() });
     ui.frame(real, scene.targetMonster(sim));
   });

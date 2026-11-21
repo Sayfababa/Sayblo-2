@@ -10,6 +10,9 @@ import { GEM_COLOR, gemColor } from '../ui/gemcolor.ts';
 import { TICK, type Sim } from '../sim/sim.ts';
 import type { Monster, SimEvent } from '../sim/types.ts';
 import { discTexture, glowTexture, holeTexture, tex } from './textures.ts';
+import { FeelFx, type Kit } from './feel.ts';
+import { hasPerfect, isUpgrade } from '../sim/upgrade.ts';
+import type { FeelObject } from '../sim/feel.ts';
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -98,7 +101,7 @@ class Layer {
 
 interface MonView { ph: number; hitT: number; lunge: number; deadT: number; dead: boolean; m: Monster; x: number; y: number }
 interface Fx { k: 'burst' | 'ring' | 'bolt'; t: number; dur: number; e: SimEvent; seed: number }
-interface Float { x: number; y: number; text: string; col: string; big?: boolean; t: number }
+interface Float { x: number; y: number; text: string; col: string; big?: boolean; dmg?: boolean; t: number }
 interface Light { x: number; y: number; r: number; c: string; a: number; flat: number }
 
 export interface ViewInfo { /** width covered by the menu sheet on the right (desktop) */ sheetW: number }
@@ -143,9 +146,21 @@ export class Scene {
   settings = { dmgNumbers: true, lootLabels: true };
   /** Screen anchor of each monster this frame, for labels and bars. */
   private anchors = new Map<number, { x: number; y: number; top: number }>();
+  /** work package A: loot beams, hit-stop, shrines, warning circles (see feel.ts) */
+  feel = new FeelFx();
+  private kit: Kit;
+  /** Factor main.ts applies to the time fed into the simulation (hit-stop / slow motion). */
+  get timeScale() { return this.feel.timeScale; }
 
   constructor(app: Application) {
     this.app = app;
+    const self = this;
+    this.kit = {
+      iso: (x, y) => this.iso(x, y), light: (x, y, r, c, a, f) => this.light(x, y, r, c, a, f), shadow: (x, y, rx, ry, a) => this.shadow(x, y, rx, ry, a),
+      get k() { return self.V.k; }, get kt() { return self.V.kt; }, get tw() { return self.V.tw; }, get th() { return self.V.th; }, get time() { return self.time; },
+      get w() { return self.app.screen.width; }, get h() { return self.app.screen.height; },
+      world: this.world, fx: this.fxL, labels: this.labels,
+    };
     this.darkFill.tint = 0x050304;
     this.darkC.addChild(this.darkFill);
     // No full-screen colour filters: Pixi renders filtered containers at resolution 1, which blurs the
@@ -155,18 +170,19 @@ export class Scene {
 
   /** Forget everything that belongs to the old run (after import or reset). */
   reset(sim: Sim) {
-    this.mons.clear(); this.fx = []; this.floats = []; this.zone = -1;
+    this.mons.clear(); this.fx = []; this.floats = []; this.zone = -1; this.feel.reset();
     this.cam.x = sim.hero.x; this.cam.y = sim.hero.y;
   }
 
   /** Feed simulation events (call after the ticks of a frame). */
   consume(events: SimEvent[]) {
+    this.feel.consume(events);
     for (const e of events) {
       switch (e.t) {
         case 'burst': this.fx.push({ k: 'burst', t: 0, dur: e.size >= 150 ? 0.5 : 0.35, e, seed: 0 }); break;
         case 'ring': this.fx.push({ k: 'ring', t: 0, dur: e.dur, e, seed: 0 }); break;
         case 'bolt': this.fx.push({ k: 'bolt', t: 0, dur: 0.28, e, seed: Math.random() * 1000 }); break;
-        case 'float': if (e.dmg && !this.settings.dmgNumbers) break; this.floats.push({ x: e.x + (Math.random() - 0.5) * 0.5, y: e.y + (Math.random() - 0.5) * 0.5, text: e.text, col: e.col, big: e.big, t: 0 }); break;
+        case 'float': if (e.dmg && !this.settings.dmgNumbers) break; this.floats.push({ x: e.x + (Math.random() - 0.5) * 0.5, y: e.y + (Math.random() - 0.5) * 0.5, text: e.text, col: e.col, big: e.big, dmg: e.dmg, t: 0 }); break;
         case 'cast': this.hero.castA = 0.28; this.hero.orb = e.el; break;
         case 'heroHit': this.hero.hit = 0.15; break;
         case 'monHit': { const v = this.mons.get(e.id); if (v) v.hitT = 0.15; break; }
@@ -263,7 +279,8 @@ export class Scene {
 
   /** Draw one frame. `real` is the real time since the last frame, `alpha` the position between two ticks. */
   render(sim: Sim, real: number, alpha: number, view: ViewInfo) {
-    const sdt = real * sim.s.speed;
+    this.feel.update(real);
+    const sdt = real * sim.s.speed * this.feel.timeScale;
     this.time += sdt;
     this.settings = sim.s.settings;
     const w = this.app.screen.width, h = this.app.screen.height;
@@ -279,6 +296,7 @@ export class Scene {
     this.cam.x += (hx - this.cam.x) * l; this.cam.y += (hy - this.cam.y) * l;
     V.ox = (w - view.sheetW) / 2 - (this.cam.x - this.cam.y) * V.tw / 2;
     V.oy = (h - 40) * 0.52 - (this.cam.x + this.cam.y) * V.th / 2;
+    V.ox += this.feel.shakeX; V.oy += this.feel.shakeY; // feel: camera kick
 
     // timers
     const hv = this.hero;
@@ -315,7 +333,7 @@ export class Scene {
     this.drawGround(sim, x0, y0, x1, y1);
 
     // depth-sorted world objects
-    type Item = { z: number; kind: 'decor' | 'drop' | 'mon' | 'hero'; x: number; y: number; type?: string; v?: number; o?: unknown };
+    type Item = { z: number; kind: 'decor' | 'drop' | 'mon' | 'hero' | 'feel'; x: number; y: number; type?: string; v?: number; o?: unknown };
     const items: Item[] = [];
     const area = AREAS[sim.s.zone];
     for (let tx = x0; tx <= x1; tx++) for (let ty = y0; ty <= y1; ty++) {
@@ -341,6 +359,7 @@ export class Scene {
       }
     }
     for (const d of sim.drops) items.push({ z: d.x + d.y - 0.5, kind: 'drop', o: d, x: d.x, y: d.y });
+    for (const o of sim.feel.objects) items.push({ z: o.x + o.y, kind: 'feel', o, x: o.x, y: o.y }); // feel: shrines, chests
     for (const v of this.mons.values()) items.push({ z: v.x + v.y, kind: 'mon', o: v, x: v.x, y: v.y });
     const town = sim.phase === 'town';
     if (!town) items.push({ z: hx + hy, kind: 'hero', x: hx, y: hy });
@@ -351,6 +370,7 @@ export class Scene {
       if (it.kind === 'decor') this.drawDecor(it.type!, px, py, it.v!, !town && it.z > hz && Math.abs(px - hsx) < 60 * k && py - hsy > 0 && py - hsy < 140 * k);
       else if (it.kind === 'mon') this.drawMon(it.o as MonView, px, py);
       else if (it.kind === 'drop') this.drawDrop(it.o as (typeof sim.drops)[number], px, py);
+      else if (it.kind === 'feel') this.feel.drawObject(this.kit, it.o as FeelObject, px, py);
       else this.drawHero(sim, px, py);
     }
 
@@ -364,6 +384,7 @@ export class Scene {
     // lights and spells (additive)
     for (const L of this.lights) this.glow(this.lightL, L.x, L.y, L.r, L.c, L.a, L.flat);
     this.drawSpells(sim, alpha);
+    this.feel.drawFx(this.kit, sim); // feel: loot beams, warning circles, auras, vault, pulses
     for (const v of this.mons.values()) {
       const a = this.anchors.get(v.m.id);
       if (!v.dead && v.m.burn > 0 && a) this.fxImg('fx-flames.jpg', a.x, a.y - 14 * k, 40 * k * (1 + Math.sin(this.time * 14 + v.m.id) * 0.08), { alpha: 0.85 });
@@ -511,7 +532,8 @@ export class Scene {
     const walking = m.walking && !v.dead && !frozen;
     const lift = d.flying ? (6 + Math.sin(t * 2.5) * 4) * k : (walking ? Math.abs(Math.sin(t * 8)) * 3 * k : 0);
     const rot = v.dead ? f * Math.min(1, v.deadT * 3) * 1.2 : (walking && !d.flying ? Math.sin(t * 8) * 0.05 : 0) + (v.lunge > 0 ? 0.14 * f : 0);
-    this.figure(d.sprite + '.png', px, py - lift, H, m.id, {
+    if (d.placeholder) this.feel.drawWretch(this.kit, m, px, py - lift, H, a, v.dead, v.deadT); // feel: no sprite yet
+    else this.figure(d.sprite + '.png', px, py - lift, H, m.id, {
       flip: f !== (d.facesLeft ? -1 : 1), rot, alpha: a, flash: v.hitT / 0.15, chill: frozen ? 0.65 : m.chill > 0 && !v.dead ? 0.35 : 0,
       sy: walking || frozen ? 1 : 1 + Math.sin(t * 2.2) * 0.015,
     });
@@ -605,6 +627,12 @@ export class Scene {
       const tw = t.width + 8;
       box.rect(px - tw / 2, py - 8 * k - 14 * kt, tw, 14 * kt + 2).fill({ color: '#000000', alpha: 0.72 });
       t.position.set(px, py - 8 * k - 7 * kt + 1);
+      // feel: upgrade arrow and perfect-roll star next to the name
+      if (it && !isGem(it)) {
+        let ex = px + tw / 2 + 1;
+        if (isUpgrade(it, sim.s.equip[it.slot])) { const a = L.text('▲', FONT_BODY, '700', lsz, '#6fe36a', true); a.position.set(ex + a.width / 2, py - 8 * k - 7 * kt + 1); ex += a.width + 2; }
+        if (hasPerfect(it)) L.text('★', FONT_BODY, '700', lsz, '#ffe680', true).position.set(ex + lsz / 2, py - 8 * k - 7 * kt + 1);
+      }
     }
     // health bars and names
     for (const v of this.mons.values()) {
@@ -617,14 +645,20 @@ export class Scene {
         g.rect(a.x - bw / 2, by, bw * Math.max(0, m.hp) / m.maxHp, 4 * kt).fill({ color: '#b3262b' });
         if (m.ward > 0) g.rect(a.x - bw / 2, by, bw * m.ward / m.maxHp, 2 * kt).fill({ color: '#a6dcf0' });
       }
-      if (m.rank > 0) L.text(m.name, FONT_DISPLAY, '700', lsz, RANKS[m.rank].color).position.set(a.x, by - 9 * kt);
+      const modLine = m.rank > 0 && m.rank < 3 && m.mods.length > 0; // feel: affix names under the name
+      if (m.rank > 0) L.text(m.name, FONT_DISPLAY, '700', lsz, RANKS[m.rank].color).position.set(a.x, by - (modLine ? 19 : 9) * kt);
+      if (modLine) L.text(m.mods.join(' · '), FONT_BODY, '700', Math.round(9 * kt + 1), '#d9cdb6', true).position.set(a.x, by - 8 * kt);
     }
     // floating numbers
     for (const fl of this.floats) {
       const [px, py] = this.iso(fl.x, fl.y);
-      const t = L.text(fl.text, FONT_BODY, '700', Math.round((fl.big ? 17 : 13) * kt + 1), fl.col, true);
-      t.position.set(px, py - 40 * k - fl.t * 34 * kt);
+      // crits: bigger, with a short pop; other big texts as before
+      const crit = fl.big && fl.dmg;
+      const t = L.text(fl.text, crit ? FONT_DISPLAY : FONT_BODY, '700', Math.round((crit ? 24 : fl.big ? 17 : 13) * kt + 1), fl.col, true);
+      t.position.set(px, py - 40 * k - fl.t * (crit ? 44 : 34) * kt);
       t.alpha = Math.max(0, 1 - fl.t);
+      if (crit) t.scale.set(fl.t < 0.12 ? 1.5 - fl.t / 0.12 * 0.5 : 1);
+      else t.scale.set(1);
     }
   }
 
