@@ -69,7 +69,7 @@ describe('bag grid and gems', () => {
     for (let i = 0; i < 60; i++) sim.takeItem(i % 4 ? gi(rng, 1000 + i, 10, 0, false) : genGem(rng, 1000 + i, 10), true);
     const cells = new Set<string>();
     for (const it of sim.s.bag) {
-      const [w, h] = it.kind === 'gem' ? [1, 1] : ({ weapon: [1, 3], helm: [2, 2], armor: [2, 3], amulet: [1, 1], ring: [1, 1] } as const)[it.slot];
+      const [w, h] = it.kind === 'gem' || it.kind === 'key' ? [1, 1] : ({ weapon: [1, 3], helm: [2, 2], armor: [2, 3], amulet: [1, 1], ring: [1, 1] } as const)[it.slot];
       for (let y = it.by!; y < it.by! + h; y++) for (let x = it.bx!; x < it.bx! + w; x++) {
         expect(cells.has(`${x},${y}`)).toBe(false);
         cells.add(`${x},${y}`);
