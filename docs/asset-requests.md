@@ -74,3 +74,26 @@ Code then: draw `shrine-<id>.png` / `chest-vault.png` in `FeelFx.drawObject` (`s
 ### A3 (optional) – small buff icons for shrines
 
 Not needed yet; the buff bar uses a CSS rune in the shrine colour. If wanted later: 7 icons 64 × 64 in the style of the skill icons (`icon-*.png`), one per shrine, magenta background.
+
+## Package C – Rifts
+
+Placeholders now: Rift Guardians are act I monsters drawn 1.9× bigger (`guardian.scale` in `src/content/rift.json`), which reads well and needs no new art.
+The pinnacle boss **The Hollow Matriarch** reuses Mother Vesper's sprite tinted violet (`"tint"` in `src/content/monsters.json`).
+Keys use the existing `item-key.png` with the tier printed on top. No banner or header pictures for the menus (owner feedback: they take too much room on phones).
+
+### C1 – `assets/sheets/mon-matriarch.png` (pinnacle boss, 2 poses, 3:2, e.g. 1536 × 1024, **magenta `#FF00FF`**)
+
+Format exactly like `docs/ui-assets.md` section 9 and A1 above: 2 columns × 1 row, same figure, same size, same baseline, facing bottom-right, full body, wide margins.
+Cut with `tools/slice_sheets.py` (`MONSTER_POSES`) to `matriarch.png` / `matriarch-attack.png`; then set `"sprite": "matriarch"` and remove `"tint"` for `matriarch` in `src/content/monsters.json`.
+She changes element in code (fire → cold → lightning, the light around her is added by the renderer), so the figure itself stays neutral and dark.
+
+> photorealistic pre-rendered 3D character, gritty dark medieval fantasy, physically realistic cloth, bone and metal, cold moonlit night, soft light from top-left, low saturation, muted tones, high detail, no stylization, character sheet with exactly 2 poses of the same figure side by side, 2 columns x 1 row, same size, same scale, feet on the same baseline, each pose full body and centered in its half with wide empty margins, three-quarter view from about 30 degrees above, facing bottom-right. The Hollow Matriarch: a towering, gaunt abbess-like figure twice the height of a man, in long tattered grey-black ceremonial robes with a high stiff collar, a cracked porcelain-white mask with empty eye holes, a tall crown of broken iron spikes, very long thin arms with black-nailed fingers, a hollow cavity in her chest framed by ribs of dark iron, the robe's hem dissolving into dark smoke-like rags. Left pose: standing tall, arms half raised, palms open. Right pose: casting, leaning forward, one arm thrust out towards the bottom-right, fingers spread. Nothing pink, purple or violet. Flat pure magenta #FF00FF background, evenly lit, no ground, no shadow, no text
+
+Negative: `cartoon, painterly, stylized, cel shading, outlines, saturated colors, glow, particles, fire, ice, lightning, ground, floor, cast shadow, text, frame, cropped`
+
+### C2 (optional) – `assets/sheets/props-rift.png` (rift tear, 2 × 1, landscape 2:1, **magenta `#FF00FF`**)
+
+Not used by the code yet. A world prop for the start and the end of a rift run (where the hero steps in and the loot portal after the guardian).
+Isometric 30° view like A2, object standing centred at the bottom of its cell.
+
+> [style sentence of section 7], isometric view 30 degrees from above, game prop sprite sheet, 2 columns x 1 row, each object centered in its cell with wide spacing, nothing touches the cell edges, flat pure magenta #FF00FF background, no ground plane, no cast shadows, no glow. Column 1 `rift-arch`: a broken ring of ancient black standing stones, man-high, two of them cracked, carved with worn runes, empty dark space between them. Column 2 `rift-arch-lit`: the same ring of stones, unchanged (the code adds the swirling light).

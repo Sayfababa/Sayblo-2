@@ -225,10 +225,11 @@ Benötigt neue Bilder (Prompts folgen, wenn es so weit ist):
 
 ## Phase 5 – Endgame: Rifts
 
-- [ ] Endlos ansteigende Rift-Stufen
-- [ ] **Rift-Schlüssel** als Drop (das Schlüssel-Icon ist schon da), mit Modifikatoren wie „Monster schneller“ oder „+50 % Loot“
-- [ ] Rift-Boss alle 10 Stufen
-- [ ] Persönliche Bestleistung pro Build
+- [x] Endlos ansteigende Rift-Stufen (Formel in `src/content/rift.json`, Stufe 1 = Ende Akt I auf Hölle)
+- [x] **Rift-Schlüssel** als Drop (das Schlüssel-Icon ist schon da), mit Modifikatoren wie „Monster schneller“ oder „+50 % Loot“
+- [x] Rift-Wächter am Ende jeder Rift; Höchst-Boss (The Hollow Matriarch) alle 25 Stufen mit Schlüsselfragmenten und 3 mythischen Uniques
+- [x] Persönliche Bestzeit pro Stufe (noch nicht pro Build), Timer, Atlas (15 Knoten), Auto-Modus
+- [ ] Balance: Hölle selbst ist für die Heldin derzeit nicht schaffbar, damit auch Stufe 1 nicht (siehe Bericht Paket C)
 
 **Fertig, wenn:** Es nach Hölle ein Ziel gibt, das wochenlang trägt.
 
