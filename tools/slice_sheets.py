@@ -296,6 +296,13 @@ MONSTER_POSES = {
     "mon-imp": ("green", ["imp", "imp-attack"], 288),
     "mon-wraith": ("magenta", ["wraith", "wraith-attack"], 320),
     "mon-wretch": ("magenta", ["wretch", "wretch-attack"], 256),
+    "mon-matriarch": ("magenta", ["matriarch", "matriarch-attack"], 384),
+    "mon-tyrant-gallows-field": ("magenta", ["tyrant-gallows-field", "tyrant-gallows-field-attack"], 320),
+    "mon-tyrant-weeping-mire": ("magenta", ["tyrant-weeping-mire", "tyrant-weeping-mire-attack"], 320),
+    "mon-tyrant-cinder-hollow": ("magenta", ["tyrant-cinder-hollow", "tyrant-cinder-hollow-attack"], 320),
+    "mon-tyrant-stormwatch-ruins": ("magenta", ["tyrant-stormwatch-ruins", "tyrant-stormwatch-ruins-attack"], 320),
+    "mon-tyrant-rimefrost-crypt": ("magenta", ["tyrant-rimefrost-crypt", "tyrant-rimefrost-crypt-attack"], 320),
+    "mon-tyrant-pale-chapel": ("magenta", ["tyrant-pale-chapel", "tyrant-pale-chapel-attack"], 320),
 }
 
 

@@ -38,19 +38,19 @@
     "loot": { "count": [2, 3], "minRarity": 2, "affixChance": 0.8, "uniqueChance": 0.12, "goldPiles": [5, 8], "gemChance": 0.6 },
     "list": {
       "gallows-field": {
-        "name": "The Hanged Reeve", "title": "Tyrant of Gallows Field", "monster": "wraith", "scale": 1.45, "tint": "#9fb7c8",
+        "name": "The Hanged Reeve", "title": "Tyrant of Gallows Field", "monster": "tyrant-gallows-field", "scale": 1.45, "tint": "",
         "intro": "The gallows creak. **The Hanged Reeve** drops from its rope, noose still trailing!",
         "mechanic": { "kind": "target", "name": "Noose Drop", "element": "cold", "every": 5, "delay": 1.3, "radius": 1.6, "count": 1, "mult": 2.2 },
         "slots": ["helm", "armor"], "affixes": ["coldRes", "life", "barrier"], "uniques": ["saint", "mourncowl"]
       },
       "weeping-mire": {
-        "name": "Old Brackwater", "title": "Tyrant of Weeping Mire", "monster": "beetle", "scale": 1.7, "tint": "#7f9a6a",
+        "name": "Old Brackwater", "title": "Tyrant of Weeping Mire", "monster": "tyrant-weeping-mire", "scale": 1.7, "tint": "",
         "intro": "The bog heaves. **Old Brackwater** crawls out, crackling with marsh-light!",
         "mechanic": { "kind": "line", "name": "Marsh Lightning", "element": "light", "every": 6, "delay": 1.4, "radius": 1.3, "count": 4, "mult": 1.6 },
         "slots": ["ring", "amulet"], "affixes": ["lightDmg", "shockChance", "lightRes"], "uniques": ["bell", "gravewhisper"]
       },
       "cinder-hollow": {
-        "name": "Ashmaw", "title": "Tyrant of Cinder Hollow", "monster": "hound", "scale": 1.55, "tint": "#ff9a6a",
+        "name": "Ashmaw", "title": "Tyrant of Cinder Hollow", "monster": "tyrant-cinder-hollow", "scale": 1.55, "tint": "",
         "intro": "Embers swirl into a shape. **Ashmaw**, the kiln-hound, howls!",
         "mechanic": { "kind": "ring", "name": "Kiln Ring", "element": "fire", "every": 6.5, "delay": 1.5, "radius": 1.2, "count": 6, "mult": 1.5, "spread": 2.6 },
         "slots": ["weapon", "amulet"], "affixes": ["fireDmg", "firePen", "burnChance"], "uniques": ["lantern", "emberheart"]

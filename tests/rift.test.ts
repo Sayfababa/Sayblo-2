@@ -254,7 +254,7 @@ describe('a rift run', () => {
     const boss = sim.monsters.find(m => m.id === sim.rift.run!.guardian)!;
     expect(boss.def).toBe(RIFT.pinnacle.boss);
     expect(boss.boss).toBeTruthy();
-    expect(boss.tint).toBeTruthy();
+    expect(boss.tint).toBeUndefined(); // own art now (matriarch.png), no tint
     sim.s.loot.keepUniques = true;
     sim.dmgMon(boss, boss.hp + 1);
     const mythic = sim.drops.find(d => d.item && !isKey(d.item) && 'u' in d.item && MYTHIC_UNIQUES.includes(d.item.u!));

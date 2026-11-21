@@ -16,7 +16,7 @@ export const monScale = (m: Monster) => (m.mt?.ty ? TYRANTS[m.mt.ty]?.scale ?? 1
 /** Tint the sprite of a tyrant (reused monster art, recoloured). */
 export function metaTint(m: Monster, s: Sprite) {
   const T = m.mt?.ty ? TYRANTS[m.mt.ty] : null;
-  if (T) s.tint = T.tint;
+  if (T?.tint) s.tint = T.tint; // tyrants with their own art have no tint
   return s;
 }
 
