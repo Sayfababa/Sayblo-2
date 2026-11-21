@@ -3,7 +3,7 @@
  * Storm Lanterns, the Rime Shell and Ashen Hex marks. Reads sim.spells state and 'beam' events only.
  * Built from the existing fx sprites plus code particles; visual randomness stays here (Math.random is fine).
  */
-import { ELEMENT_COLORS, type Element } from '../content/index.ts';
+import { ELEMENT_COLORS, SKILLS, type Element } from '../content/index.ts';
 import { TICK, type Sim } from '../sim/sim.ts';
 import type { SimEvent } from '../sim/types.ts';
 import type { Kit } from './feel.ts';
@@ -16,15 +16,19 @@ const ZPX = 26;
 const GROUND_FX: Record<Element, string> = { fire: 'fx-flames.jpg', cold: 'fx-frost-aura.jpg', light: 'fx-shock-ring.jpg' };
 
 interface Arc { x0: number; y0: number; x1: number; y1: number; el: Element; t: number; dur: number }
+/** Warrior blow: from the hero at a foe, cleave radius around it. */
+interface Swing { x: number; y: number; tx: number; ty: number; el: Element; r: number; t: number; dur: number }
 
 export class SpellFx {
   private arcs: Arc[] = [];
+  private swings: Swing[] = [];
 
   consume(events: SimEvent[]) {
     for (const e of events) if (e.t === 'beam') this.arcs.push({ ...e, t: 0 });
-    else if (e.t === 'clear') this.arcs = [];
+    else if (e.t === 'swing') this.swings.push({ ...e, t: 0, dur: 0.26 }); // warrior
+    else if (e.t === 'clear') { this.arcs = []; this.swings = []; }
   }
-  reset() { this.arcs = []; }
+  reset() { this.arcs = []; this.swings = []; }
 
   private img(K: Kit, file: string, x: number, y: number, w: number, h: number, a: number, rot = 0) {
     const s = K.fx.sprite(tex(file), true);
@@ -84,12 +88,13 @@ export class SpellFx {
     for (const m of sim.monsters) {
       if (!m.hex || m.hp <= 0) continue;
       const [px, py] = K.iso(lerp(m.px, m.x, alpha), lerp(m.py, m.y, alpha)), fade = Math.min(1, m.hex.t / 0.6);
+      const hel = SKILLS[m.hex.skill]?.element ?? 'fire', fire = hel === 'fire'; // warrior taunt: icy marks
       const g = K.fx.graphics(true);
-      g.ellipse(px, py, 17 * k, 7 * k).stroke({ width: 2 * k, color: '#c2461e', alpha: 0.55 * fade });
-      g.ellipse(px, py, 11 * k, 4.5 * k).stroke({ width: 1 * k, color: '#ff9a5a', alpha: 0.35 * fade * (0.7 + Math.sin(t * 6 + m.id) * 0.3) });
+      g.ellipse(px, py, 17 * k, 7 * k).stroke({ width: 2 * k, color: fire ? '#c2461e' : ELC[hel], alpha: 0.55 * fade });
+      g.ellipse(px, py, 11 * k, 4.5 * k).stroke({ width: 1 * k, color: fire ? '#ff9a5a' : '#e6f6ff', alpha: 0.35 * fade * (0.7 + Math.sin(t * 6 + m.id) * 0.3) });
       for (let i = 0; i < 3; i++) {
         const q = (t * 0.7 + i / 3 + m.id * 0.13) % 1;
-        this.glow(K, px + Math.sin(t * 2 + i * 2.1 + m.id) * 10 * k, py - q * 46 * k, 4 * k, '#ff8a3a', (1 - q) * 0.8 * fade);
+        this.glow(K, px + Math.sin(t * 2 + i * 2.1 + m.id) * 10 * k, py - q * 46 * k, 4 * k, fire ? '#ff8a3a' : ELC[hel], (1 - q) * 0.8 * fade);
       }
     }
 
@@ -141,6 +146,33 @@ export class SpellFx {
       g.moveTo(px, y - hh * 1.2).lineTo(px, y - hh * 1.7).stroke({ width: 1.4 * k, color: '#3b3330', alpha: fade });
       this.glow(K, px, y, 10 * k, '#f1e6ff', 0.9 * fade * flick);
       K.light(px, y, 80 * k, ELC.light, 0.4 * fade * flick);
+    }
+
+    // warrior blows: a bright crescent from the hero through the foe, and the cleave circle around it
+    for (const w of this.swings) w.t += real;
+    this.swings = this.swings.filter(w => w.t < w.dur);
+    for (const w of this.swings) {
+      if (town) break;
+      const q = w.t / w.dur, [ax, ay] = K.iso(w.x, w.y), [bx, by] = K.iso(w.tx, w.ty), col = ELC[w.el];
+      const cy = ay - 0.9 * ZPX * k, d = Math.max(26 * k, Math.min(70 * k, Math.hypot(bx - ax, by - cy))), base = Math.atan2(by - 0.6 * ZPX * k - cy, bx - ax);
+      const g = K.fx.graphics(true), a0 = base - 1.1, a1 = a0 + 2.2 * Math.min(1, q * 1.8);
+      g.arc(ax, cy, d, a0, a1).stroke({ width: 7 * k * (1 - q), color: col, alpha: 0.35 * (1 - q), cap: 'round' });
+      g.arc(ax, cy, d, a0, a1).stroke({ width: 2.4 * k, color: '#fff3dc', alpha: 0.9 * (1 - q), cap: 'round' });
+      if (w.r > 0) g.ellipse(bx, by, w.r * K.tw / 2 * (0.6 + q * 0.4), w.r * K.th / 2 * (0.6 + q * 0.4)).stroke({ width: 1.6 * k, color: col, alpha: 0.6 * (1 - q) });
+      K.light(bx, by, 50 * k, col, 0.35 * (1 - q));
+    }
+    // tempest mantle: violet winds circling the warrior
+    for (const a of sim.melee.auras) {
+      if (town) break;
+      const r = sim.ctx(a.skill).radius, rw = r * K.tw / 2, rh = r * K.th / 2, el = SKILLS[a.skill]?.element ?? 'light', col = ELC[el];
+      const fade = Math.min(1, a.t / 0.3, (a.dur - a.t) / 0.5), g = K.fx.graphics(true);
+      g.ellipse(hsx, hsy, rw, rh).stroke({ width: 1.5 * k, color: col, alpha: 0.35 * fade });
+      for (let i = 0; i < 5; i++) {
+        const b = t * 2.6 + i * 1.257, e = b + 0.7;
+        g.moveTo(hsx + Math.cos(b) * rw * 0.85, hsy + Math.sin(b) * rh * 0.85 - 14 * k).lineTo(hsx + Math.cos(e) * rw * 0.95, hsy + Math.sin(e) * rh * 0.95 - 20 * k)
+          .stroke({ width: 2 * k, color: col, alpha: 0.6 * fade, cap: 'round' });
+      }
+      K.light(hsx, hsy - 20 * k, rw * 1.2, col, 0.25 * fade, 0.6);
     }
 
     // rime shell: a dome of ice around the hero

@@ -4,7 +4,7 @@
  * Code format: "GL<version>." + base64url(deflate-raw(JSON)) + "." + checksum.
  * If the browser has no CompressionStream, the payload is stored uncompressed with prefix "GLU<version>.".
  */
-import { AREAS, ATLAS_NODES, ATTRS, DIFFICULTIES, ECONOMY, GEMS, GEM_MAX_LEVEL, KEY_MODS, MAT_IDS, RARITIES, SKILLS, SLOTS, UNIQUES, isPassive } from '../content/index.ts';
+import { AREAS, ATLAS_NODES, ATTRS, DEFAULT_CLASS, DIFFICULTIES, ECONOMY, GEMS, GEM_MAX_LEVEL, KEY_MODS, MAT_IDS, RARITIES, SKILLS, SLOTS, UNIQUES, isClass, isPassive, skillOfClass } from '../content/index.ts';
 import { placeMissing } from './bag.ts';
 import { sanitizeSkillMods } from './skillmods.ts';
 import { DEFAULT_VOLUME, SAVE_VERSION, defaultLoot, newRiftSave, newSaveState } from './state.ts';
@@ -58,6 +58,8 @@ const MIGRATIONS: Record<number, (s: Raw) => Raw> = {
   },
   // v10: skill modifiers (skills package). Skill points stay where they are; no modifier is chosen yet.
   9: s => ({ ...s, v: 10, skillMods: {} }),
+  // v11: hero classes (Warrior package). Every older hero is a sorceress.
+  10: s => ({ ...s, v: 11, cls: 'sorceress' }),
 };
 
 export class SaveError extends Error {}
@@ -80,7 +82,8 @@ export function migrate(raw: unknown): SaveState {
 
 /** Keep only valid values; anything broken falls back to the default of a new game. */
 function sanitize(s: Raw): SaveState {
-  const d = newSaveState();
+  const cls = isClass(s.cls) ? s.cls : DEFAULT_CLASS;
+  const d = newSaveState(cls);
   const num = (x: unknown, def: number, min = -Infinity, max = Infinity) =>
     typeof x === 'number' && Number.isFinite(x) ? Math.min(max, Math.max(min, x)) : def;
   const bool = (x: unknown, def: boolean) => (typeof x === 'boolean' ? x : def);
@@ -92,7 +95,7 @@ function sanitize(s: Raw): SaveState {
   out.attrPts = Math.floor(num(s.attrPts, 0, 0)); out.skillPts = Math.floor(num(s.skillPts, 0, 0));
   const skills = (s.skills || {}) as Raw;
   out.skills = {};
-  for (const k of Object.keys(skills)) if (SKILLS[k]) { const lv = Math.floor(num(skills[k], 0, 0)); if (lv > 0) out.skills[k] = lv; }
+  for (const k of Object.keys(skills)) if (SKILLS[k] && skillOfClass(k, cls)) { const lv = Math.floor(num(skills[k], 0, 0)); if (lv > 0) out.skills[k] = lv; }
   if (!Object.keys(out.skills).length) out.skills = { ...d.skills };
   const slots = Array.isArray(s.slots) ? (s.slots as Raw[]) : [];
   out.slots = d.slots.map((def, i) => {
@@ -119,7 +122,7 @@ function sanitize(s: Raw): SaveState {
   const sockets = (s.sockets || {}) as Record<string, unknown>;
   out.sockets = {};
   for (const [k, arr] of Object.entries(sockets)) {
-    if (!SKILLS[k] || isPassive(k) || !Array.isArray(arr)) continue;
+    if (!SKILLS[k] || isPassive(k) || !skillOfClass(k, cls) || !Array.isArray(arr)) continue;
     out.sockets[k] = [0, 1, 2].map(i => (validGem(arr[i]) ? arr[i] as GemItem : null));
   }
   out.skillMods = sanitizeSkillMods(s.skillMods, out.skills);

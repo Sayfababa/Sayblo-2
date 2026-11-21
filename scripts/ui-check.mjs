@@ -46,6 +46,12 @@ function testSave() {
   s.savedAt = Date.now() - 3 * 3600 * 1000; // offline summary on load
   return JSON.stringify(sim.s);
 }
+/** Warrior package: an end-game warrior (Cinder plan) with points to spend, loaded for the warrior views. */
+function warriorSave() {
+  const s = endgameSave('wfire', 60, 2);
+  s.attrPts = 12; s.skillPts = 2; s.gold = 54321; s.savedAt = Date.now();
+  return JSON.stringify(s);
+}
 
 /* ---------- static server for dist/ ---------- */
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp',
@@ -70,7 +76,7 @@ function inspect() {
     return `${el.tagName.toLowerCase()}${id}${cls}${act}${txt ? ` "${txt}"` : ''}`;
   };
   if (document.documentElement.scrollWidth > W || document.body.scrollWidth > W) out.fail.push(`page is ${document.documentElement.scrollWidth}px wide (screen ${W}px)`);
-  const roots = [...document.querySelectorAll('#sheet:not([hidden]), #tipfloat:not([hidden]), #summary:not([hidden]), #overlay:not([hidden]), .hud-top, .hud-bottom, .mtrack, .mtoasts, .tabs, #target:not([hidden])')];
+  const roots = [...document.querySelectorAll('#sheet:not([hidden]), #tipfloat:not([hidden]), #summary:not([hidden]), #classpick:not([hidden]), #overlay:not([hidden]), .hud-top, .hud-bottom, .mtrack, .mtoasts, .tabs, #target:not([hidden])')];
   const seen = new Set();
   for (const root of roots) for (const el of [root, ...root.querySelectorAll('*')]) {
     if (seen.has(el) || !vis(el)) continue;
@@ -168,13 +174,29 @@ const VIEWS = [
     await click(p, act('closesum')); // a running rift shows its result card first
     await p.waitForTimeout(300);
   }],
+  // warrior package: class choice from Town, then an end-game warrior's menus
+  ['class-pick', async p => { await town('main')(p); await click(p, act('reset')); await click(p, act('reset')); }],
+  ['w-hud', async p => {
+    await click(p, act('clscancel'));
+    await p.evaluate(v => { localStorage.setItem('grimlight-save', v); Storage.prototype.setItem = () => {}; location.reload(); }, wsave).catch(() => {}); // the old page must not save over it
+    await p.waitForFunction(() => document.getElementById('loading')?.hidden && window.grimlight?.sim?.s?.cls === 'warrior', null, { timeout: 30000 });
+    await p.waitForTimeout(1500);
+    await click(p, act('closesum')); // offline summary of the loaded save
+  }],
+  ['w-hero', async p => { await tab('hero')(p); }],
+  ['w-cinder', async p => { await tab('skills')(p); await click(p, act('stree:cinder')); await click(p, act('skillsel:kindleroar')); await p.evaluate(() => { const s = document.querySelector('#sheet'); s.scrollTop = s.scrollHeight / 2; }); }],
+  ['w-rime', async p => { await tab('skills')(p); await click(p, act('stree:rime')); await click(p, act('skillsel:glaciershield')); }],
+  ['w-thunder', async p => { await tab('skills')(p); await click(p, act('stree:thunder')); await click(p, act('skillsel:skyleap')); }],
+  ['w-prio', async p => { await tab('skills')(p); await click(p, act('stree:prio')); }],
+  ['w-bag', async p => { await tab('bag')(p); await click(p, '#p-bag .eqslot.e-weapon'); }],
+  ['w-town', async p => { await town('main')(p); await p.evaluate(() => { const s = document.querySelector('#sheet'); s.scrollTop = s.scrollHeight / 3; }); }],
 ];
 
 /* ---------- run ---------- */
 const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
 const browser = await chromium.launch();
-const save = testSave();
+const save = testSave(), wsave = warriorSave();
 let failed = 0;
 const report = [];
 for (const [w, h] of SIZES) {

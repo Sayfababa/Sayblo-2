@@ -9,7 +9,7 @@ import type { SaveState } from './types.ts';
 
 /** Unique effects that are plain stat changes (the others live where they act: skillCtx, sim, meta.ts). */
 const UNIQUE_MODS: Record<string, Record<string, number>> = {
-  oathbreaker: { plusEmber: 1, plusFrost: 1, plusStorm: 1, allRes: -15 },
+  oathbreaker: { plusEmber: 1, plusFrost: 1, plusStorm: 1, plusCinder: 1, plusRime: 1, plusThunder: 1, allRes: -15 },
   lamplighter: { barrierRegen: 100 },
   ninthbell: { elemDR: 8 },
   choireye: { firePen: 12, coldPen: 12, lightPen: 12 },

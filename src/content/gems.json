@@ -184,7 +184,6 @@
   "addedfire": {
    "name": "Added Fire",
    "requires": [
-    "spell",
     "hit"
    ],
    "mana": 1.2,
@@ -199,7 +198,6 @@
   "addedcold": {
    "name": "Added Cold",
    "requires": [
-    "spell",
     "hit"
    ],
    "mana": 1.2,
@@ -214,7 +212,6 @@
   "addedlight": {
    "name": "Added Lightning",
    "requires": [
-    "spell",
     "hit"
    ],
    "mana": 1.2,
@@ -284,6 +281,39 @@
     ]
    },
    "text": "Buffs, burn, chill and shock from this skill last {duration}% longer."
+  },
+  "multistrike": {
+   "name": "Multistrike",
+   "requires": [
+    "attack",
+    "hit"
+   ],
+   "mana": 1.4,
+   "effects": {
+    "echo": [
+     1,
+     0
+    ],
+    "more": [
+     -20,
+     1
+    ]
+   },
+   "text": "The attack strikes a second time right after. {more}% less damage."
+  },
+  "swift": {
+   "name": "Swift Blows",
+   "requires": [
+    "attack"
+   ],
+   "mana": 1.1,
+   "effects": {
+    "castSpeed": [
+     20,
+     1.5
+    ]
+   },
+   "text": "{castSpeed}% faster attacks."
   }
  }
 }

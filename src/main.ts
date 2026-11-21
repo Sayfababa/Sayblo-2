@@ -10,6 +10,7 @@ import './ui/meta.css';
 import './ui/rift.css';
 import './ui/phone.css'; // UI package: phone density and no-sideways-scroll pass, loaded last
 import './ui/skills.css'; // skills package: skills menu (after phone.css, it sets its own phone sizes)
+import './ui/classes.css'; // warrior package: class choice, fury orb
 import { Application } from 'pixi.js';
 import { registerSW } from 'virtual:pwa-register';
 import { Scene } from './render/scene.ts';
@@ -18,6 +19,8 @@ import { clearLocal, loadLocal, saveLocal } from './sim/save.ts';
 import { Sim, TICK } from './sim/sim.ts';
 import { OFFLINE } from './content/index.ts';
 import type { SaveState } from './sim/types.ts';
+import { newSaveState } from './sim/state.ts';
+import { classDef } from './content/index.ts';
 import { UI } from './ui/ui.ts';
 import { Sfx } from './ui/audio.ts';
 
@@ -32,6 +35,8 @@ async function boot() {
   const loadTxt = document.getElementById('loadtxt')!;
   let sim: Sim;
   let acc = 0;
+  /** first start: nothing is played or saved until a class is picked */
+  let waiting = false;
 
   const app = new Application();
   await app.init({
@@ -52,8 +57,9 @@ async function boot() {
   const sfx = new Sfx();
   const ui = new UI({
     sim: () => sim,
-    replaceSave: (s: SaveState) => start(s),
+    replaceSave: (s: SaveState) => { waiting = false; start(s); },
     wipe: () => { clearLocal(); start(null); },
+    newHero: cls => { waiting = false; clearLocal(); start(newSaveState(cls)); },
   });
 
   function start(save: SaveState | null) {
@@ -62,10 +68,11 @@ async function boot() {
     acc = 0;
     scene.reset(sim);
     ui.clearLog();
-    ui.addLog('The sorceress sets out. She fights on her own: spend points in Hero and Skills, and equip loot from the Bag.', 'lvl');
+    const C = classDef(sim.s.cls), [he] = C.pronoun;
+    ui.addLog(`The ${C.name.toLowerCase()} sets out. ${he[0].toUpperCase() + he.slice(1)} fights on ${C.pronoun[1]} own: spend points in Hero and Skills, and equip loot from the Bag.`, 'lvl');
     ui.consume(sim.events); sim.events = [];
     ui.refreshAll();
-    saveLocal(sim.s);
+    if (!waiting) saveLocal(sim.s);
   }
 
   /**
@@ -103,14 +110,16 @@ async function boot() {
 
   const loaded = loadLocal();
   const lastSaved = loaded?.savedAt ?? 0;
+  waiting = !loaded;
   start(loaded);
+  if (!loaded) ui.pickClass(false); // classes: a new game starts with the class choice; the game waits behind it
   if (lastSaved) await catchUp((Date.now() - lastSaved) / 1000);
   ui.setTab(null);
 
   app.ticker.add(t => {
     const real = Math.min(0.1, t.deltaMS / 1000);
     // hit-stop / slow motion only changes how much real time is fed into the fixed-step simulation
-    acc += real * sim.s.speed * scene.timeScale;
+    acc += waiting ? 0 : real * sim.s.speed * scene.timeScale; // a first start waits for the class choice
     let n = 0;
     while (acc >= TICK && n < MAX_STEPS) { sim.tick(TICK); acc -= TICK; n++; }
     if (n >= MAX_STEPS) acc = 0;
@@ -124,11 +133,11 @@ async function boot() {
   });
 
   // While the tab is hidden the game pauses; the time away is played back as offline progress.
-  const persist = () => { if (!document.hidden) saveLocal(sim.s); };
+  const persist = () => { if (!document.hidden && !waiting) saveLocal(sim.s); };
   let hiddenAt = 0;
   setInterval(persist, 5000);
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { saveLocal(sim.s); hiddenAt = Date.now(); }
+    if (document.hidden) { if (!waiting) saveLocal(sim.s); hiddenAt = Date.now(); }
     else if (hiddenAt) {
       const away = (Date.now() - hiddenAt) / 1000;
       hiddenAt = 0;
@@ -140,7 +149,7 @@ async function boot() {
       }
     }
   });
-  window.addEventListener('pagehide', () => saveLocal(sim.s));
+  window.addEventListener('pagehide', () => { if (!waiting) saveLocal(sim.s); });
   document.getElementById('loading')!.hidden = true;
   // debugging and balancing from the browser console
   Object.assign(window, { grimlight: { get sim() { return sim; }, app } });

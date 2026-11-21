@@ -33,13 +33,12 @@ The coordinator (main session) merges the parts into `claude/ui-assets` and publ
 
 ## Handoff / current state (keep updated)
 
-Merged into `claude/ui-assets` and published (artifact https://claude.ai/artifact/LBgXfG93fk3jLj1qnTwc7k): wave 1 A (feel) + B (economy), wave 2 C (rifts) + D (meta), wave-1 art (Coin-Wretch, shrines, chest, material/ember icons, parcel). Save version on main: **10**.
+Merged into `claude/ui-assets` and published (artifact https://claude.ai/artifact/LBgXfG93fk3jLj1qnTwc7k): wave 1 A (feel) + B (economy), wave 2 C (rifts) + D (meta), wave-1 art (Coin-Wretch, shrines, chest, material/ember icons, parcel). Save version on main: **11**.
 Owner decisions since: no big header pictures in menus (altar/forge pictures removed); rifts open after Mother Vesper on any difficulty, tier 1 = start of Nightmare (`src/content/rift.json`); never horizontal scrolling on phones; gems get their own pouch; each skill tree gets its own page with more customisation; a **Warrior** class comes after the sorceress skill rework, built on the same data-driven system (keep elemental damage only unless the owner decides otherwise).
 
 Running / next:
-- Merged since: UI agent (phone layout, gem pouch v9, `npm run ui-check`), skill agent (24 sorceress skills, modifiers at skill levels 3/6/10/15, one page per tree, `docs/skill-system.md`, save v10).
-- **Warrior agent** running: second class built per `docs/skill-system.md`, elemental melee (trees Cinder/Rime/Thunder), class choice on new game, save v11.
-- Then: **E – Town & idle** and **F – balance/polish**. The UI agent is the contact for owner UI complaints (resume it with SendMessage, or start a new one with this file + `scripts/ui-check.mjs`).
+- Merged: UI agent (phone layout, gem pouch v9, `npm run ui-check`), skill agent (24 sorceress skills, modifiers at skill levels 3/6/10/15, one page per tree, `docs/skill-system.md`, v10), **Warrior** (v11 `cls`, class choice on a new game and in Town › New hero, 24 skills Cinder/Rime/Thunder with types melee/fissure/leap/cry/aura in `src/sim/melee.ts`, `src/content/classes.json`, warrior weapons, +tree affixes by class, placeholder look in code).
+- Next: **E – Town & idle** and **F – balance/polish** (warrior dies more often than the sorceress; cold warrior a bit strong; uniques with sorceress-only effects also drop for the warrior). The UI agent is the contact for owner UI complaints.
 
 Known balance issues for F: Hell is not reachable (monster curve 1.17/1.15 per level too steep); level cap 60 + ember points unreachable (XP curve 1.36× per level); storm builds clearly slower in rifts.
 Art waiting for prompts to the owner: 6 tyrant sheets, `mon-matriarch.png`, rift tear / blood moon / champion casing fx, new skill icons (prompts in `docs/asset-requests.md`). Imp/Wraith prompts: `docs/ui-assets.md` section 9.

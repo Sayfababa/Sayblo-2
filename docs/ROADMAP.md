@@ -240,7 +240,8 @@ Benötigt neue Bilder (Prompts folgen, wenn es so weit ist):
 
 - [ ] Akt II mit neuen Monstern und Gebieten (der Boden „totes Gras“ liegt schon bereit)
 - [ ] Sound und Musik
-- [ ] Weitere Klassen
+- [x] **Zweite Klasse: Krieger** (Warrior). Klassenwahl beim neuen Spiel und in der Stadt („New hero“, ein Speicherplatz), Speicherfeld `cls` (Save v11, alte Stände sind Zauberinnen). Nahkämpfer mit Feuer, Kälte und Blitz (kein physischer Schaden): Bäume Cinder, Rime, Thunder mit je 8 Skills (5 aktiv mit 4 Modifikator-Stufen, 3 passiv), neue Skill-Typen Nahkampf, Erdspalte, Sprung, Kampfschrei, Aura. Er läuft selbst an Gegner heran, weicht nie aus, Sprünge bewegen ihn deterministisch in der Simulation. Mehr Leben, eingebaute Schadensreduktion, „Fury“ statt Mana (nur Name und Farbe; Waffenschwung lädt sie auf). Eigene Waffen-Basen (Cleaver, Maul, Blade), sonst gleiche Items. Daten: `src/content/classes.json`, Sim: `src/sim/melee.ts`. Bilder bisher Platzhalter (`docs/asset-requests.md`, Abschnitt Warrior)
+- [ ] Weitere Klassen (gleicher Aufbau: `docs/skill-system.md`, Abschnitt 6)
 - [ ] Optional: Bestenliste mit Freunden
 
 ---
@@ -252,4 +253,5 @@ Benötigt neue Bilder (Prompts folgen, wenn es so weit ist):
 | Wo sitzen Support-Gems? | **im Skill selbst**, Plätze schalten sich mit dem Skill-Level frei |
 | Inventar | **unterschiedliche Größen wie in Diablo 2**, mit Antippen und Auto-Sortieren fürs Handy |
 | Ausrüstungsplätze | **5** (Waffe, Helm, Rüstung, Amulett, Ring) |
+| Klassen | Zauberin und **Krieger**; nur Feuer, Kälte, Blitz, auch beim Krieger. Ein Speicherplatz: „New hero“ ersetzt den Helden. Items sind geteilt, nur Waffen-Basen je Klasse |
 | Name des Spiels | offen, vorerst „Grimlight“ |

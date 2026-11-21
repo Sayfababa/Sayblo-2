@@ -14,11 +14,26 @@ trees and skills of the same shape. This file is the reference for that.
 ```
 
 - `element`: `fire`, `cold` or `light` (lightning; shown violet). Colours the tab, page and node frame.
-- `class`: the class the tree belongs to (lower case of `hero.json` `className`). For now every tree is shown;
-  when the Warrior exists, the menu filters trees by the hero's class (one line in `TREE_IDS` in `src/ui/skills.ts`).
+- `class`: the class the tree belongs to (an id in `src/content/classes.json`). The skills menu shows only the trees of the
+  hero's class (`classTrees` in `src/content/index.ts`); a save keeps only skills, sockets and slots of its class (`save.ts`).
 - Each tree is one page in the skills menu (tabs + swipe). Order of the keys = order of the tabs.
 - **Synergy**: every point in a skill gives `scaling.synergyPerPoint` % increased damage to the other skills of the same tree.
 - Items with `plusEmber` / `plusFrost` / `plusStorm` add levels to a tree (`TREE_PLUS` in `formulas.ts`; add one per new tree).
+  The warrior trees have no `plus` affix yet (open point: adding three affixes dilutes every drop for both classes).
+
+## 0. Classes
+
+`src/content/classes.json` lists the classes. `hero.json` stays the shared rule book (caps, XP curve, potions, movement) and holds
+the sorceress numbers; a class only lists what differs: `base` and `perLevel` (life, mana and their regen), `startAttributes`,
+attribute texts, `innate` stats (any affix id, e.g. the warrior's `elemDR`), `startSkill`, the free fallback attack `basic`
+(`spark` or `swing`, with `basicDef`), `melee` + `reach`, `resource` ("Mana" / "Fury": only a name; the stat is still mana),
+`weaponName` + `weaponBases` (weapon drops of the class: same slot, implicit and affixes) and `affixText` / `statText`
+(shared stats in the words of the class: "Spell Damage" reads "Attack Damage" for the warrior).
+
+- Save field `cls` (save v11). `newSaveState(cls)`, `heroFor(cls)` (merged numbers), `classDef(cls)`.
+- The Sim calls `setActiveClass(s.cls)`: names (weapon slot, renamed affixes) and the base of new weapon drops follow it. Numbers never do.
+- Tag `attack` is the warrior's `spell`: it gets Power (`spellDmg`) and the flat added damage of items.
+- New game: class choice (`src/ui/classpick.ts`); Town › New hero opens it again (one save slot, so the hero is replaced).
 
 ## 2. Skills
 
@@ -45,8 +60,9 @@ Icon: `public/sprites/icon-<id>.png` (128 px, bronze frame). Missing art: add th
 | Form | `projectile`, `area`, `nova`, `chain`, `strike`, `channel`, `orb`, `construct`, `curse` |
 | Kind | `spell`, `hit` (deals hits: needed for added damage, echo, spread), `duration`, `buff` |
 
-A Warrior adds its own (e.g. `attack`, `melee`, `shout`) and gems that require them. `spell` gets the Power bonus,
-`projectile`/`area` get the matching item affixes.
+The warrior uses `attack` instead of `spell` (gets the Power bonus and added damage the same way), `melee` for blows in reach and
+`shout` for roars and taunts. Gems: `multistrike` (attack + hit: strikes again), `swift` (attack: faster), the added-damage gems need
+only `hit`. `projectile`/`area` get the matching item affixes.
 
 ### Types
 
@@ -64,6 +80,18 @@ A Warrior adds its own (e.g. `attack`, `melee`, `shout`) and gems that require t
 | `construct` | Elemental construct that floats beside the hero for `duration` and strikes the nearest enemy within `range` every `attackEvery` s; `constructs` at a time. | `duration`, `attackEvery`, `range`, `constructs` |
 | `orb` | Slow orb that drifts from the hero towards the target for `duration`, zapping an enemy within `zapRange` every `zapEvery` s. | `speed`, `duration`, `zapEvery`, `zapRange` |
 | `buff` | Frost Armor: timed barrier (`barrierBase`, `barrierPerLevel`, `duration`), chills melee attackers (`meleeChill`). | |
+| `melee` | Warrior blow at a foe in reach (`reach`, default the class reach 1.9): hits it and everything within `radius` of it. Needs a foe in reach to be cast. | `radius`, `reach` |
+| `fissure` | A line from the hero towards the target, `range` long and `width` wide (the `radius` modifier scales both); hits all on it. | `range`, `width` |
+| `leap` | The hero jumps onto the target (up to `range` tiles, `delay` s in the air, moved by the tick) and hits everything within `radius` of the landing. | `range`, `delay`, `radius` |
+| `cry` | Burst around the hero (if `max` > 0) and a timed bonus: `cryMore` % (+`cryMorePerLevel`) more damage dealt, `cryDR` % less taken. | `radius`, `duration`, `cryMore`, `cryMorePerLevel`, `cryDR` |
+| `aura` | Pulses every `tick` s for `duration`, hitting everything within `radius` of the hero. | `radius`, `duration`, `tick` |
+
+`curse` with `self: true` is centred on the hero (warrior taunt); a curse with `chill` also chills. `vsBurning`/`vsChilled`/`vsShocked`
+can sit on a skill itself (Shatterstrike: 50 % more against chilled).
+
+**Melee heroes** (`melee: true` in classes.json, `src/sim/melee.ts`): never kite; a melee skill is only cast when a foe is in reach
+(it hits the condition's target if that one is in reach, else the nearest foe in reach; conditions that name a kind of target, like
+"Elite", wait for it); when nothing fits he swings his weapon (`swing`, gains `furyPerSwing`) or walks to the first foe.
 
 `types` in skills.json says how a type behaves in the cast list:
 
@@ -86,6 +114,7 @@ the target the skill aims at comes from `Sim.target` / `Spells.pick`.
 | Condition | True when | Target |
 |---|---|---|
 | `always`, `enemies2/3/5`, `enemyClose`, `elite` | as named | nearest / the elite |
+| `enemyFar` | no foe within the class reach (for leaps) | nearest foe beyond reach |
 | `notActive` | buff has ≤ 3 s left; construct: fewer than allowed or one about to fade | – |
 | `manaHigh`, `lifeLow`, `barrierLow` | resource above/below 50 % | – |
 | `notChilled`, `notBurning`, `notShocked`, `shocked`, `burning`, `chilled`, `notCursed` | an enemy in that state exists | that enemy |
@@ -140,6 +169,8 @@ Modifier keys (any skill type that makes sense):
 | `curseEffect`, `curseAll`, `curseSpread`, `curseSlow` | curse: % stronger, half value on other elements, jumps on death, % slower enemies |
 | `wardPct`, `wardDR`, `wardNova`, `wardMana`, `wardHeal` | ward: + % life as barrier, + % less damage, burst damage % on cast, % mana / life restored |
 | `barrierPct`, `retaliate`, `wardFreeze`, `breakNova`, `chillAura` | Frost Armor: % more barrier, melee attackers take % damage, % chance to freeze them, nova (% damage) when the barrier breaks, chill aura radius |
+| `cryEffect`, `cryDR` | cry: % stronger damage bonus, + % less damage taken (`wardHeal` / `wardMana` work on cries too) |
+| `reach` | melee: % longer reach |
 
 A new behaviour key: add the field to `SkillCtx` (formulas.ts) and its use in `spells.ts`, list it here and in
 `FX_KEYS` in `tests/skills.test.ts` (the content test refuses unknown keys).
@@ -149,14 +180,17 @@ A new behaviour key: add the field to `SkillCtx` (formulas.ts) and its use in `s
 The sim emits events (`ring`, `burst`, `bolt`, `beam`, `cast`, …) and keeps state the renderer reads
 (`sim.spells.beams/fields/orbs/constructs/shell`, `monster.hex`). `src/render/spells.ts` draws them from the existing
 fx sprites (`public/sprites/fx-*.jpg`, additive) plus code particles; element colours come from `ELEMENT_COLORS`.
-A new class mostly reuses `ring`/`burst`; give each new type one drawing block in `SpellFx.drawFx`.
+A new class mostly reuses `ring`/`burst`; give each new type one drawing block in `SpellFx.drawFx`. Warrior: `swing` events
+(crescent + cleave circle), fissures reuse `beam`, auras are drawn from `sim.melee.auras`, the leap lifts the hero (`sim.melee.leapZ()`).
 
-## 6. Checklist for a new class (Warrior)
+## 6. Checklist for a new class (done for the Warrior)
 
-1. `hero.json`: class name and attributes (a second hero file once classes can be picked).
-2. `skills.json`: 3 trees with `class: "warrior"`, ~8 skills each (5 actives with 4 modifier tiers, 3 passives),
-   start skill, `autoOrder` entries, any new tags, types and conditions.
+1. `classes.json`: an entry with base numbers, attribute texts, start skill, fallback attack, resource name, weapon bases.
+2. `skills.json`: 3 trees with `class: "<id>"`, 8 skills each (5 actives with 4 modifier tiers, 3 passives),
+   `autoOrder` entries, any new tags, types and conditions.
 3. Gems for new tags in `gems.json`; `plusX` affixes for the new trees.
 4. Icons: placeholders in `tools/slice_sheets.py`, prompts in `docs/asset-requests.md`.
 5. New types/keys: code as described above, with tests in `tests/skills.test.ts`.
-6. Balance with `npm run sim -- 60 <seed> <plan>` after adding plans to `scripts/endgame.ts` (`PLANS`, `MOD_PICKS`).
+6. Balance with `npm run sim -- 60 <seed> <plan>` after adding plans to `scripts/endgame.ts` (`PLANS`, `MOD_PICKS`; plans starting
+   with `w` play a warrior, see `planClass`).
+7. Hero art: a 4-pose sheet cut by `slice_hero` in `tools/slice_sheets.py`, `sprite` in classes.json; until then a code placeholder.

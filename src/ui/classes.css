@@ -1,0 +1,21 @@
+/* Warrior package: class choice and the warrior's fury orb. */
+.classpick{z-index:9;overflow-y:auto;place-items:start center}
+.clsbox{max-width:420px;margin:auto 0}
+.clsbox h2{margin:0;text-align:center}
+.clsgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.clscard{display:grid;gap:6px;justify-items:center;align-content:start;text-align:center;padding:10px 8px;min-width:0;
+  background:var(--panel2);border:1px solid var(--line2);border-radius:6px;color:var(--bone);cursor:pointer}
+.clscard:hover,.clscard:focus-visible{border-color:var(--gold)}
+.clscard b{font-family:var(--f-display);color:var(--gold);font-size:1.05rem}
+.clscard .d{color:var(--muted);font-size:.8rem;line-height:1.3}
+.clscard .chips{display:flex;flex-wrap:wrap;gap:4px;justify-content:center}
+.clscard .btn{pointer-events:none;min-height:40px;display:inline-flex;align-items:center}
+.clsart{position:relative;height:132px;width:100%;display:grid;place-items:end center;overflow:hidden;
+  background:radial-gradient(ellipse at 50% 80%,rgba(255,200,140,.12),transparent 70%)}
+.clsart img{height:128px;width:auto;max-width:100%;object-fit:contain}
+.clsart small{position:absolute;left:0;right:0;top:2px;font-size:.65rem;color:var(--muted)}
+/* placeholder warrior: the sorceress sprite tinted bronze and broadened until hero-warrior.png exists */
+.clsart.ph-warrior img{filter:sepia(.8) saturate(1.4) hue-rotate(-12deg) brightness(.9);transform:scaleX(1.18)}
+/* fury: the mana orb burns orange-red for the warrior */
+body[data-cls="warrior"] .orb.mana .globe i{filter:hue-rotate(160deg) saturate(1.35) brightness(1.05)}
+@media (max-width:359px){.clsgrid{grid-template-columns:1fr}}

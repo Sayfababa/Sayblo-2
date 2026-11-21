@@ -7,6 +7,7 @@
     { "tier": 1, "level": 38, "weight": 2 }
   ],
   "roll": [0.8, 1],
+  "_cls": "affixes with cls only roll for heroes of that class (the +tree affixes)",
   "_slotKinds": "which kinds of affix each slot can roll: weapons hit, armour protects, jewellery does both",
   "slotKinds": {
     "weapon": ["offense", "mana"],
@@ -34,9 +35,12 @@
     "firePen":    { "group": "prefix", "kind": "offense", "name": "Scorching",   "text": "Fire Penetration",          "percent": true,  "base": 2,   "perLevel": 0.35, "weight": 3, "slots": ["weapon", "amulet", "ring"] },
     "coldPen":    { "group": "prefix", "kind": "offense", "name": "Piercing",    "text": "Cold Penetration",          "percent": true,  "base": 2,   "perLevel": 0.35, "weight": 3, "slots": ["weapon", "amulet", "ring"] },
     "lightPen":   { "group": "prefix", "kind": "offense", "name": "Arcing",      "text": "Lightning Penetration",     "percent": true,  "base": 2,   "perLevel": 0.35, "weight": 3, "slots": ["weapon", "amulet", "ring"] },
-    "plusEmber":  { "group": "prefix", "kind": "offense", "name": "Kindled",     "text": "to Ember Skills",           "percent": false, "base": 1,   "perLevel": 0.03, "weight": 12, "slots": ["weapon", "amulet"], "minLevel": 6, "rare": 0.35 },
-    "plusFrost":  { "group": "prefix", "kind": "offense", "name": "Wintry",      "text": "to Frost Skills",           "percent": false, "base": 1,   "perLevel": 0.03, "weight": 12, "slots": ["weapon", "amulet"], "minLevel": 6, "rare": 0.35 },
-    "plusStorm":  { "group": "prefix", "kind": "offense", "name": "Thundering",  "text": "to Storm Skills",           "percent": false, "base": 1,   "perLevel": 0.03, "weight": 12, "slots": ["weapon", "amulet"], "minLevel": 6, "rare": 0.35 },
+    "plusEmber":  { "group": "prefix", "kind": "offense", "name": "Kindled",     "text": "to Ember Skills",           "percent": false, "base": 1,   "perLevel": 0.03, "weight": 12, "slots": ["weapon", "amulet"], "minLevel": 6, "rare": 0.35, "cls": "sorceress" },
+    "plusFrost":  { "group": "prefix", "kind": "offense", "name": "Wintry",      "text": "to Frost Skills",           "percent": false, "base": 1,   "perLevel": 0.03, "weight": 12, "slots": ["weapon", "amulet"], "minLevel": 6, "rare": 0.35, "cls": "sorceress" },
+    "plusStorm":  { "group": "prefix", "kind": "offense", "name": "Thundering",  "text": "to Storm Skills",           "percent": false, "base": 1,   "perLevel": 0.03, "weight": 12, "slots": ["weapon", "amulet"], "minLevel": 6, "rare": 0.35, "cls": "sorceress" },
+    "plusCinder": { "group": "prefix", "kind": "offense", "name": "Searing",     "text": "to Cinder Skills",          "percent": false, "base": 1,   "perLevel": 0.03, "weight": 12, "slots": ["weapon", "amulet"], "minLevel": 6, "rare": 0.35, "cls": "warrior" },
+    "plusRime":   { "group": "prefix", "kind": "offense", "name": "Hoary",       "text": "to Rime Skills",            "percent": false, "base": 1,   "perLevel": 0.03, "weight": 12, "slots": ["weapon", "amulet"], "minLevel": 6, "rare": 0.35, "cls": "warrior" },
+    "plusThunder": { "group": "prefix", "kind": "offense", "name": "Pealing",    "text": "to Thunder Skills",         "percent": false, "base": 1,   "perLevel": 0.03, "weight": 12, "slots": ["weapon", "amulet"], "minLevel": 6, "rare": 0.35, "cls": "warrior" },
 
     "fireRes":    { "group": "suffix", "kind": "defense", "name": "Ash Warding", "text": "Fire Resist",               "percent": true,  "base": 5,   "perLevel": 1.2,  "weight": 1 },
     "coldRes":    { "group": "suffix", "kind": "defense", "name": "Thaw",        "text": "Cold Resist",               "percent": true,  "base": 5,   "perLevel": 1.2,  "weight": 1 },

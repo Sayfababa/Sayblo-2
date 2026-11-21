@@ -4,7 +4,7 @@
  * Positions are interpolated between simulation ticks, so motion stays smooth at any frame rate.
  */
 import { Application, ColorMatrixFilter, Container, Graphics, Matrix, RenderTexture, Sprite, Text, TextStyle, Texture, TilingSprite } from 'pixi.js';
-import { AREAS, BASE_ICON, ELEMENT_COLORS, GEMS, MONSTERS, PROPS, RANKS, RARITIES, SKILLS, type Element } from '../content/index.ts';
+import { AREAS, BASE_ICON, ELEMENT_COLORS, GEMS, MONSTERS, PROPS, RANKS, RARITIES, SKILLS, classDef, type Element } from '../content/index.ts';
 import { isEquip, isGem, isKey } from '../sim/types.ts';
 import { GEM_COLOR, gemColor } from '../ui/gemcolor.ts';
 import { TICK, type Sim } from '../sim/sim.ts';
@@ -513,21 +513,56 @@ export class Scene {
     'hero-idle': [-0.159, 0.841], 'hero-cast': [0.068, 0.978], 'hero-walk1': [-0.119, 0.82], 'hero-walk2': [-0.112, 0.81],
   };
 
+  /** Weapon head of every warrior pose (printed by tools/slice_sheets.py for hero-warrior.png; guesses until then). */
+  private static readonly WEAPON_TIP: Record<string, [number, number]> = {
+    'warrior-idle': [0.2, 0.8], 'warrior-strike': [0.3, 0.5], 'warrior-walk1': [0.2, 0.8], 'warrior-walk2': [0.2, 0.8],
+  };
+
   private drawHero(sim: Sim, px: number, py: number) {
-    const k = this.V.k, H0 = sim.hero, hv = this.hero, f = H0.f;
+    const k = this.V.k, H0 = sim.hero, hv = this.hero, f = H0.f, C = classDef(sim.s.cls);
     const bob = H0.walking ? Math.abs(Math.sin(hv.anim * 10)) * 1.5 * k : 0;
-    const fr = hv.castA > 0 ? 'hero-cast' : H0.walking ? (Math.floor(hv.anim * 5) % 2 ? 'hero-walk1' : 'hero-walk2') : 'hero-idle';
+    const lift = sim.melee.leapZ() * 26 * k; // warrior: height while leaping
+    // classes: painted frames of the class (sprite prefix in classes.json); a warrior without art borrows the hero
+    // sprite, tinted bronze and broadened, and gets a weapon drawn in code (placeholder until hero-warrior.png exists)
+    const pre = C.sprite ?? 'hero', ph = !C.sprite && C.melee;
+    const strike = pre === 'hero' ? 'cast' : 'strike';
+    const fr = `${pre}-${hv.castA > 0 ? strike : H0.walking ? (Math.floor(hv.anim * 5) % 2 ? 'walk1' : 'walk2') : 'idle'}`;
     // all poses share one canvas that also holds the raised staff, so the body is ~75 % of it
-    const H = 104 * k, armor = (sim.buffs.frostarmor ?? 0) > 0;
+    const H = 104 * k * (ph ? 1.08 : 1), armor = (sim.buffs.frostarmor ?? 0) > 0;
     if (armor) this.world.graphics().ellipse(px, py, 18 * k, 8 * k).stroke({ width: 1.5 * k, color: '#a6dcf0', alpha: 0.55 });
-    this.shadow(px, py, 15 * k, 6 * k, 0.5);
-    this.figure(fr + '.png', px, py - bob * 1.5, H, 0, { flip: f < 0, flash: hv.hit / 0.15, fs: 0.3, sy: H0.walking ? 1 : 1 + Math.sin(hv.anim * 2.2) * 0.012 });
+    this.shadow(px, py, 15 * k * (1 - lift / (90 * k)), 6 * k, 0.5);
+    py -= lift;
+    this.figure(fr + '.png', px, py - bob * 1.5, H, 0, { flip: f < 0, flash: hv.hit / 0.15, fs: 0.3, sy: H0.walking ? 1 : 1 + Math.sin(hv.anim * 2.2) * 0.012, sx: ph ? 1.2 : 1, tint: ph ? '#d7a77a' : undefined });
     const casting = hv.castA > 0;
-    const [tx, ty] = Scene.STAFF_TIP[fr];
-    this.light(px + f * H * tx, py - bob * 1.5 - H * ty, (casting ? 80 : 22) * k, casting ? ELC[hv.orb] : '#a36bff', casting ? 0.6 : 0.3);
+    if (C.melee) {
+      const el = SKILLS[sim.s.slots.find(x => x.id)?.id ?? '']?.element ?? 'fire';
+      const [tx, ty] = ph ? this.drawWeapon(px, py - bob * 1.5, H, f, casting ? 1 - hv.castA / 0.28 : -1, el) : Scene.WEAPON_TIP[fr] ?? [0.2, 0.8];
+      const wx = ph ? tx : px + f * H * tx, wy = ph ? ty : py - bob * 1.5 - H * ty;
+      this.light(wx, wy, (casting ? 70 : 24) * k, ELC[casting ? hv.orb : el], casting ? 0.55 : 0.3);
+    } else {
+      const [tx, ty] = Scene.STAFF_TIP[fr];
+      this.light(px + f * H * tx, py - bob * 1.5 - H * ty, (casting ? 80 : 22) * k, casting ? ELC[hv.orb] : '#a36bff', casting ? 0.6 : 0.3);
+    }
     if (armor) this.light(px, py - H * 0.35, 40 * k, '#8fd8ff', 0.08);
-    // small warm light radius around her feet keeps the dark figure readable on dark ground
-    this.light(px, py + 2 * k, 75 * k, '#ffd9a8', 0.16, 0.45);
+    // small warm light radius around the feet keeps the dark figure readable on dark ground
+    this.light(px, py + lift + 2 * k, 75 * k, '#ffd9a8', 0.16, 0.45);
+  }
+
+  /**
+   * Placeholder warrior weapon: haft and glowing head drawn in code, raised over the shoulder while idle and
+   * swung down in front of him during a strike (q = 0..1, -1 = not striking). Returns the head in screen px.
+   */
+  private drawWeapon(px: number, py: number, H: number, f: number, q: number, el: Element): [number, number] {
+    const k = this.V.k, hand = { x: px + f * H * 0.1, y: py - H * 0.42 };
+    const a = q < 0 ? -1.25 + Math.sin(this.hero.anim * 2) * 0.04 : -1.6 + Math.sin(Math.min(1, q * 1.4) * Math.PI / 2) * 2.3;
+    const len = H * 0.5, dx = Math.cos(a) * f, dy = Math.sin(a);
+    const head = { x: hand.x + dx * len, y: hand.y + dy * len };
+    const g = this.world.graphics();
+    g.moveTo(hand.x - dx * H * 0.06, hand.y - dy * H * 0.06).lineTo(head.x, head.y).stroke({ width: 3 * k, color: '#4a3424' });
+    const nx = -dy * f, ny = dx * f, w = H * 0.11;
+    g.poly([head.x - dx * w * 0.6, head.y - dy * w * 0.6, head.x + nx * w, head.y + ny * w, head.x + dx * w * 0.5, head.y + dy * w * 0.5, head.x - nx * w * 0.35, head.y - ny * w * 0.35])
+      .fill({ color: '#8e8880' }).stroke({ width: 1.2 * k, color: ELC[el], alpha: 0.9 });
+    return [head.x, head.y];
   }
 
   private drawMon(v: MonView, px: number, py: number) {

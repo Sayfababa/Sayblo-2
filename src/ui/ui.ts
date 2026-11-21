@@ -4,8 +4,9 @@
  */
 import {
   ACT_NAME, AREAS, ATTRS, BAG_H, BAG_W, CONDITIONS, DIFFICULTIES, GEMS, HERO, RANKS, SKILLS, SLOT_NAMES,
-  TREES, isPassive, type Attr, type Slot,
+  TREES, classDef, classText, heroFor, isPassive, type Attr, type ClassId, type Slot,
 } from '../content/index.ts';
+import { ClassPick } from './classpick.ts';
 import { itemSize, canPlace } from '../sim/bag.ts';
 import { gemFits, potionPrice, respecCost, sellValue } from '../sim/formulas.ts';
 import { SaveError, exportCode, importCode } from '../sim/save.ts';
@@ -31,6 +32,8 @@ export interface GameHooks {
   sim(): Sim;
   replaceSave(s: SaveState): void;
   wipe(): void;
+  /** start a new hero of a class (replaces the current one) */
+  newHero(cls: ClassId): void;
 }
 
 export class UI {
@@ -68,6 +71,8 @@ export class UI {
   private meta = new MetaUI(() => this.sim);
   /** rifts and atlas (rift.ts) */
   private rift = new RiftUI(() => this.sim);
+  /** class choice for a new hero (classpick.ts) */
+  private classPick = new ClassPick(c => { this.resetArm = false; this.game.newHero(c); });
 
   constructor(game: GameHooks) {
     this.game = game;
@@ -81,6 +86,9 @@ export class UI {
     document.addEventListener('input', e => this.onInput(e));
   }
   private get sim() { return this.game.sim(); }
+  /** Open the class choice; on a first start the game waits behind it (see main.ts). */
+  pickClass(cancelable: boolean) { this.classPick.show(cancelable); }
+  get choosing() { return this.classPick.open; }
   private get s() { return this.sim.s; }
 
   /** Width of the menu sheet that covers the right side of the scene (desktop only). */
@@ -111,6 +119,8 @@ export class UI {
     this.lastPot = ''; this.lastBuffs = '';
     this.selBag = null; this.selEq = null; this.moveMode = false;
     this.skills.forget(); // skills menu
+    document.body.dataset.cls = this.s.cls; // classes: fury orb colour (classes.css)
+    $('#hcls').textContent = classDef(this.s.cls).name;
     this.draw();
   }
 
@@ -200,7 +210,7 @@ export class UI {
     if (this.lastPot !== pk) {
       this.lastPot = pk;
       $('#hppot').innerHTML = `<img src="${spriteUrl('item-potion-hp.png')}" alt="Health potions">${s.hpPot}`;
-      $('#mppot').innerHTML = `<img src="${spriteUrl('item-potion-mp.png')}" alt="Mana potions">${s.mpPot}`;
+      $('#mppot').innerHTML = `<img src="${spriteUrl('item-potion-mp.png')}" alt="${classDef(s.cls).resource} potions">${s.mpPot}`;
     }
     this.drawBuffs();
     this.meta.draw(); // meta: bounty tracker, toasts
@@ -248,10 +258,10 @@ export class UI {
     const plus = Object.entries(st.plus).filter(([, v]) => v).map(([t, v]) => row(`+ ${TREES[t].name} skills`, `+${v}`)).join('');
     $('#p-hero').innerHTML = `
       ${phead(`Lv ${s.lvl}${titleText(s) ? ` <small class="htitle">${esc(titleText(s))}</small>` : ''}`, s.attrPts ? `${ic('attrpt', 'Attribute points')}<b class="gold">${s.attrPts}</b>&nbsp;pts` : 'No points')}
-      <div class="well attrs">${ATTRS.map(k => { const A = HERO.attributes[k]; const dis = s.attrPts ? '' : 'disabled'; return `<div class="attr"><span class="an"><b>${A.name}</b><small class="d">${A.description}</small></span><span class="v">${st.a[k]}</span>
+      <div class="well attrs">${ATTRS.map(k => { const A = heroFor(s.cls).attributes[k]; const dis = s.attrPts ? '' : 'disabled'; return `<div class="attr"><span class="an"><b>${A.name}</b><small class="d">${A.description}</small></span><span class="v">${st.a[k]}</span>
         <span class="updn"><button class="btn sq" data-act="attr:${k}:1" ${dis} aria-label="Add point to ${A.name}">+</button><button class="btn sq" data-act="attr:${k}:5" ${s.attrPts >= 5 ? '' : 'disabled'} aria-label="Add 5 points to ${A.name}">+5</button></span></div>`; }).join('')}</div>
       <details class="grp" open><summary>Offense</summary><div class="kv">
-        ${row('Spell damage', `+${st.spellDmg}%`)}${row('Cast time', `${sim.ctx('fireball').castTime.toFixed(2)}s`)}
+        ${row(classText('Spell damage'), `+${st.spellDmg}%`)}${row(classText('Cast time'), `${sim.ctx(classDef(s.cls).startSkill).castTime.toFixed(2)}s`)}
         ${row('Fire damage', `+${st.el.fire}%`, 'fire')}${row('Fire penetration', `${st.pen.fire}%`, 'fire')}
         ${row('Cold damage', `+${st.el.cold}%`, 'cold')}${row('Cold penetration', `${st.pen.cold}%`, 'cold')}
         ${row('Lightning damage', `+${st.el.light}%`, 'light')}${row('Lightning pen.', `${st.pen.light}%`, 'light')}
@@ -262,7 +272,7 @@ export class UI {
       </div></details>
       <details class="grp" open><summary>Defense</summary><div class="kv">
         ${row('Life', String(st.maxLife))}${row('Life / s', st.lifeRegen.toFixed(1))}
-        ${row('Mana', String(st.maxMana))}${row('Mana / s', st.manaRegen.toFixed(1))}
+        ${row(classText('Mana'), String(st.maxMana))}${row(classText('Mana / s'), st.manaRegen.toFixed(1))}
         ${row('Barrier (items)', String(st.barrier))}${row('Dodge', `${st.dodge}%`)}
         ${st.barrierRegen ? row('Barrier recharge', `+${st.barrierRegen}%`) : ''}${st.elemDR ? row('Damage reduction', `${st.elemDR}%`) : ''}
         ${row('Fire resist', res('fire'), 'fire')}${row('Cold resist', res('cold'), 'cold')}
@@ -385,6 +395,7 @@ export class UI {
   /* ----- town ----- */
   private pTown() {
     const s = this.s, price = potionPrice(s.lvl), rc = respecCost(s.lvl), P = HERO.potions;
+    const C = classDef(s.cls), res = C.resource.toLowerCase(); // classes: the warrior drinks fury potions
     const diffs = DIFFICULTIES.map((d, i) => `<button class="btn diffbtn ${i === s.difficulty ? 'primary' : ''}" data-act="diff:${i}" ${s.progress[i] ? '' : 'disabled'} aria-pressed="${i === s.difficulty}">${ic(s.progress[i] ? DIFF_ICON[i] : 'lock')}${d.name}</button>`).join('');
     const fuse = this.fuseRows();
     const head = `${phead('Town', `${matsHeader(s)}${ic('gold', 'Gold')}<span class="gold" id="towngold">${fmt(s.gold)}</span>`)}${this.eco.nav()}`;
@@ -396,20 +407,20 @@ export class UI {
       <div class="row" style="justify-content:flex-start">${diffs}</div>
       <p class="hint">${DIFFICULTIES.map(d => `${d.name}: monsters +${d.levelAdd} levels, resistances ${d.resPenalty}%`).join(' · ')}. Beat Mother Vesper to open the next one.</p>
       <h3>Merchant</h3>
-      <div class="kv"><div><span>Health potions</span>${s.hpPot}</div><div><span>Mana potions</span>${s.mpPot}</div></div>
+      <div class="kv"><div><span>Health potions</span>${s.hpPot}</div><div><span>${C.resource} potions</span>${s.mpPot}</div></div>
       <div class="row" style="justify-content:flex-start">
         <button class="btn" data-act="buy:hp:5">Buy 5 health · ${price * 5}g</button>
-        <button class="btn" data-act="buy:mp:5">Buy 5 mana · ${price * 5}g</button></div>
-      <p class="hint" id="townmsg">Health potions restore ${P.life * 100}% life, mana potions ${P.mana * 100}% mana. ${P.cooldown}s cooldown each.</p>
+        <button class="btn" data-act="buy:mp:5">Buy 5 ${res} · ${price * 5}g</button></div>
+      <p class="hint" id="townmsg">Health potions restore ${P.life * 100}% life, ${res} potions ${P.mana * 100}% ${res}. ${P.cooldown}s cooldown each.</p>
       <h3>Gem cutter</h3>
       ${fuse || '<p class="hint">Bring three support gems of the same kind and level to fuse them into one of the next level.</p>'}
       <h3>Potion belt</h3>
       <label class="range" for="hpTh"><span>Drink health potion below</span><b id="hpThv">${s.hpTh}%</b><input type="range" id="hpTh" min="10" max="90" step="5" value="${s.hpTh}"></label>
-      <label class="range" for="mpTh"><span>Drink mana potion below</span><b id="mpThv">${s.mpTh}%</b><input type="range" id="mpTh" min="5" max="90" step="5" value="${s.mpTh}"></label>
+      <label class="range" for="mpTh"><span>Drink ${res} potion below</span><b id="mpThv">${s.mpTh}%</b><input type="range" id="mpTh" min="5" max="90" step="5" value="${s.mpTh}"></label>
       <h3>Behaviour</h3>
       <label class="check" for="autoAdvance"><input type="checkbox" id="autoAdvance" ${s.autoAdvance ? 'checked' : ''}> Move to the next area after clearing one</label>
       <label class="check" for="autoReturn"><input type="checkbox" id="autoReturn" ${s.autoReturn ? 'checked' : ''}> After dying, return to the previous area automatically</label>
-      <label class="check" for="kite"><input type="checkbox" id="kite" ${s.kite ? 'checked' : ''}> Keep distance from melee enemies (kiting)</label>
+      ${C.melee ? '' : `<label class="check" for="kite"><input type="checkbox" id="kite" ${s.kite ? 'checked' : ''}> Keep distance from melee enemies (kiting)</label>`}
       <h3>${ic('settings')}Display</h3>
       <label class="check" for="dmgNumbers"><input type="checkbox" id="dmgNumbers" ${s.settings.dmgNumbers ? 'checked' : ''}> Show damage numbers</label>
       <label class="check" for="lootLabels"><input type="checkbox" id="lootLabels" ${s.settings.lootLabels ? 'checked' : ''}> Show loot names on the ground</label>
@@ -432,8 +443,9 @@ export class UI {
         <li>New: salvage, crafting embers at the forge, corruption altar, gambling vendor, loot rules, stash.</li>
         <li>New: bounty board, area tyrants, area events, unique codex with imprints, ember points after level 60, feats and titles.</li>
                 <li>New: endless rifts with keys and modifiers, timer, Rift Guardian, atlas, pinnacle boss with mythic uniques (Town › Rifts, open after Mother Vesper; add ?dev to the URL to test).</li>
+        <li>New: a second class, the Warrior (Town › New hero): melee with fire, cold and lightning, 24 skills of his own.</li>
         <li>Not yet: sets. Numbers are a first guess for testing, not balanced.</li></ul></div>
-      <div class="row"><span class="hint">Start a new hero. This deletes the current one.</span><button class="btn sm" data-act="reset">${this.resetArm ? 'Tap again to wipe' : 'Start over'}</button></div>`;
+      <div class="row"><span class="hint">Start a new hero and pick a class. This deletes the current ${esc(C.name.toLowerCase())}.</span><button class="btn sm" data-act="reset">${this.resetArm ? 'Tap again, then pick' : 'New hero'}</button></div>`;
   }
 
   /* ---------- input ---------- */
@@ -534,9 +546,9 @@ export class UI {
           setTimeout(() => { this.resetArm = false; this.sim.dirty.add('town'); }, 4000);
           break;
         }
-        this.resetArm = false;
-        this.game.wipe();
+        this.setTab(null); this.classPick.show(true); // classes: the hero is replaced once a class is picked
         break;
+      case 'clspick': case 'clscancel': this.classPick.click(a, x); if (a === 'clscancel') { this.resetArm = false; D.add('town'); } break;
       default: if (!this.rift.click(a, x) && !this.eco.click(a, x, y)) this.meta.click(a, x, y);
     }
     this.draw();
@@ -639,7 +651,7 @@ export class UI {
     }
     if (!this.importArm) {
       this.importArm = true;
-      this.setImportMsg(`Code is valid: ${HERO.className} level ${save.lvl}, ${fmt(save.gold)} gold.`, 'msg-good');
+      this.setImportMsg(`Code is valid: ${classDef(save.cls).name} level ${save.lvl}, ${fmt(save.gold)} gold.`, 'msg-good');
       this.sim.dirty.add('town');
       this.draw();
       return;
@@ -648,8 +660,8 @@ export class UI {
     this.importDraft = '';
     this.exportText = '';
     this.game.replaceSave(save);
-    this.setImportMsg(`Loaded: ${HERO.className} level ${save.lvl}.`, 'msg-good');
-    this.addLog(`Save code loaded: ${HERO.className} level ${save.lvl}.`, 'lvl');
+    this.setImportMsg(`Loaded: ${classDef(save.cls).name} level ${save.lvl}.`, 'msg-good');
+    this.addLog(`Save code loaded: ${classDef(save.cls).name} level ${save.lvl}.`, 'lvl');
   }
 }
 

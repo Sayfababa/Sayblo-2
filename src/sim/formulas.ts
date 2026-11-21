@@ -1,7 +1,7 @@
 /** Pure game formulas. No state, no randomness: easy to test and to use in balancing scripts. */
 import {
   AFFIXES, DIFFICULTIES, RIFT, ELEMENTS, GEMS, HERO, ITEMS, MONSTERS, MONSTER_SCALING, RANKS, SKILLS, SKILL_SCALING, SPARK, STATES,
-  TREES, isPassive, type Attr, type Element, type SkillDef,
+  TREES, classDef, heroFor, isPassive, type Attr, type Element, type SkillDef,
 } from '../content/index.ts';
 import { metaMods, metaPost } from './metastats.ts';
 import { activeMods } from './skillmods.ts';
@@ -20,7 +20,7 @@ export const monsterXp = (L: number, rank: number, diff = 0) =>
   Math.round(MONSTER_SCALING.xpBase * Math.pow(MONSTER_SCALING.xpGrowth, L - 1) * RANKS[rank].xp * DIFFICULTIES[diff].xpMult);
 
 const EL_KEY: Record<Element, string> = { fire: 'fire', cold: 'cold', light: 'light' };
-const TREE_PLUS: Record<string, string> = { ember: 'plusEmber', frost: 'plusFrost', storm: 'plusStorm' };
+const TREE_PLUS: Record<string, string> = { ember: 'plusEmber', frost: 'plusFrost', storm: 'plusStorm', cinder: 'plusCinder', rime: 'plusRime', thunder: 'plusThunder' };
 
 /** Experience is reduced when the hero is far above the monster level. */
 export const xpFactor = (heroLvl: number, monLvl: number) =>
@@ -54,6 +54,8 @@ export function calcStats(s: SaveState): Stats {
   const uniques = new Set<string>();
   for (const it of Object.values(s.equip)) if (it) { for (const [k, v] of it.mods) add(k, v); if (it.u) uniques.add(it.u); if (it.ipr) uniques.add(it.ipr); }
   metaMods(s, uniques, add); // meta: ember points, feat bonuses, stat-like unique effects
+  const CH = heroFor(s.cls); // classes: base numbers and innate bonuses of the hero's class
+  for (const [k, v] of Object.entries(CH.innate)) add(k, v);
   const plus: Record<string, number> = {};
   for (const t of Object.keys(TREES)) plus[t] = m[TREE_PLUS[t]] || 0;
   for (const [id, sk] of Object.entries(SKILLS)) {
@@ -61,14 +63,14 @@ export function calcStats(s: SaveState): Stats {
     const lv = effLevel(s, plus, id);
     if (lv) for (const [k, v] of Object.entries(sk.stats)) add(k, v * lv);
   }
-  const g = (k: string) => m[k] || 0, B = HERO.base, C = HERO.caps, pen = DIFFICULTIES[s.difficulty]?.resPenalty ?? 0;
+  const g = (k: string) => m[k] || 0, B = CH.base, C = HERO.caps, pen = DIFFICULTIES[s.difficulty]?.resPenalty ?? 0;
   const a = { power: s.attrs.power + g('power'), focus: s.attrs.focus + g('focus'), spirit: s.attrs.spirit + g('spirit'), vit: s.attrs.vit + g('vit') };
   const raw = (k: Element) => g(EL_KEY[k] + 'Res') + g('allRes');
   const res = (k: Element) => clamp(raw(k) + pen, C.resMin, C.res);
   return metaPost({ // meta: final touches of ember points and unique effects
     mods: m, a, plus, uniques,
-    maxLife: Math.round((B.life + a.vit * B.lifePerVit + (s.lvl - 1) * HERO.perLevel.life + g('life')) * (1 + g('lifePct') / 100)),
-    maxMana: Math.round(B.mana + a.spirit * B.manaPerSpirit + (s.lvl - 1) * HERO.perLevel.mana + g('mana')),
+    maxLife: Math.round((B.life + a.vit * B.lifePerVit + (s.lvl - 1) * CH.perLevel.life + g('life')) * (1 + g('lifePct') / 100)),
+    maxMana: Math.round(B.mana + a.spirit * B.manaPerSpirit + (s.lvl - 1) * CH.perLevel.mana + g('mana')),
     manaRegen: B.manaRegen + a.spirit * B.manaRegenPerSpirit + g('manaRegen'),
     lifeRegen: B.lifeRegen + a.vit * B.lifeRegenPerVit + g('lifeRegen'),
     castSpeed: a.focus + g('castSpeed'),
@@ -87,6 +89,8 @@ export function calcStats(s: SaveState): Stats {
 }
 
 export const castTime = (st: Stats) => 1 / (1 + st.castSpeed / 100);
+/** Free fallback attacks (not in skills.json): Staff Spark and the warrior's Weapon Swing. */
+export const isBasic = (id: string) => id === 'spark' || id === 'swing';
 
 /** Value of a gem effect at a gem level. */
 export const gemValue = (gem: string, key: string, lvl: number) => {
@@ -142,11 +146,21 @@ export interface SkillCtx {
   ticks: number; curse: number; wardPct: number; wardDR: number;
   /** construct count, attack/zap/pulse rate factor, extra targets per zap, number of orbs */
   constructs: number; rate: number; arcs: number; orbs: number;
+  /* ----- warrior (melee.ts) ----- */
+  /** melee reach in tiles (0 = not a melee skill) */
+  reach: number;
+  /** cry: % more damage dealt and % less damage taken while it lasts */
+  cryMore: number; cryDR: number;
 }
 
 export function skillCtx(s: SaveState, st: Stats, id: string): SkillCtx {
-  const spark = id === 'spark';
-  const def = (spark ? { ...SPARK, tree: '', abbr: '', reqLevel: 1, row: 0, description: '', tags: ['spell', 'projectile', 'lightning'], mana: 0, cooldown: 0 } : SKILLS[id]) as SkillDef;
+  // the free fallback attack of the class: Staff Spark, or the warrior's Weapon Swing in the element of his first skill
+  const spark = isBasic(id), swing = id === 'swing';
+  const W = classDef(s.cls).basicDef, swingEl: Element = SKILLS[s.slots.find(x => x.id)?.id ?? '']?.element ?? 'fire';
+  const basicDef = swing && W ? { name: W.name, element: swingEl, type: 'melee', min: W.min, max: W.max, perLevel: W.perLevel, castTimeMult: W.castTimeMult, tags: ['attack', 'melee', 'hit', swingEl === 'light' ? 'lightning' : swingEl] }
+    : { ...SPARK, tags: ['spell', 'projectile', 'lightning'] };
+  const def = (spark ? { ...basicDef, tree: '', abbr: '', reqLevel: 1, row: 0, description: '', mana: 0, cooldown: 0 } : SKILLS[id]) as SkillDef;
+  const B0 = basicDef as { perLevel: number; castTimeMult: number };
   const lvl = spark ? 1 : Math.max(1, effLevel(s, st.plus, id));
   const tags = new Set(def.tags || []);
   const g: Record<string, number> = {};
@@ -169,7 +183,9 @@ export function skillCtx(s: SaveState, st: Stats, id: string): SkillCtx {
   const U = st.uniques;
   let syn = 0;
   if (!spark) for (const k in SKILLS) if (k !== id && SKILLS[k].tree === def.tree) syn += s.skills[k] || 0;
-  const generic = (tags.has('spell') ? st.spellDmg : 0) + (tags.has('projectile') ? mod('projDmg') : 0) + (tags.has('area') ? mod('areaDmg') : 0) + syn * SKILL_SCALING.synergyPerPoint;
+  // warrior attacks use the same damage stat as spells (Power, "Attack Damage" in his words)
+  const skillTag = tags.has('spell') || tags.has('attack');
+  const generic = (skillTag ? st.spellDmg : 0) + (tags.has('projectile') ? mod('projDmg') : 0) + (tags.has('area') ? mod('areaDmg') : 0) + syn * SKILL_SCALING.synergyPerPoint;
   let more = g.more ?? 1;
   let projectiles = 1 + G('projectiles'), chains = (def.jumps || 0) + Math.round(G('chains'));
   if (id === 'fireball' && U.has('lantern')) { projectiles += 2; manaMult *= 1.5; }
@@ -180,19 +196,19 @@ export function skillCtx(s: SaveState, st: Stats, id: string): SkillCtx {
   const durMult = Math.max(0.2, 1 + G('duration') / 100);
   const addRange = (v: number): [number, number] => [v * 0.6, v * 1.4];
   const added: Record<Element, [number, number]> = {
-    fire: addRange(G('addFire') + (tags.has('spell') ? mod('addFire') : 0)),
-    cold: addRange(G('addCold') + (tags.has('spell') ? mod('addCold') : 0)),
-    light: addRange(G('addLight') + (tags.has('spell') ? mod('addLight') : 0)),
+    fire: addRange(G('addFire') + (skillTag ? mod('addFire') : 0)),
+    cold: addRange(G('addCold') + (skillTag ? mod('addCold') : 0)),
+    light: addRange(G('addLight') + (skillTag ? mod('addLight') : 0)),
   };
   const S = STATES;
   const baseMana = def.mana || 0;
   return {
     id, def, lvl, tags, el: def.element,
     mana: Math.round(baseMana * (1 + SKILL_SCALING.manaPerLevel * (lvl - 1)) * manaMult * (1 - G('manaLess') / 100)),
-    castTime: castTime(st) * (spark ? SPARK.castTimeMult : 1) / (1 + G('castSpeed') / 100)
+    castTime: castTime(st) * (spark ? B0.castTimeMult : 1) / (1 + G('castSpeed') / 100)
       * (def.type === 'beam' ? (def.channel || 1) * (1 + G('ticks') / (def.ticks || 1)) : 1),
     cooldown: (def.cooldown || 0) * Math.max(0.2, 1 - G('cdLess') / 100),
-    levelMult: spark ? 1 + SPARK.perLevel * (s.lvl - 1) : 1 + SKILL_SCALING.damagePerLevel * (lvl - 1),
+    levelMult: spark ? 1 + B0.perLevel * (s.lvl - 1) : 1 + SKILL_SCALING.damagePerLevel * (lvl - 1),
     inc: { fire: generic + st.el.fire, cold: generic + st.el.cold, light: generic + st.el.light },
     more, added,
     critChance: Math.min(HERO.caps.crit + 15, st.crit + (def.critBonus || 0) + G('critBonus')),
@@ -213,7 +229,7 @@ export function skillCtx(s: SaveState, st: Stats, id: string): SkillCtx {
     shockedCold: U.has('gravewhisper') ? 0.25 : 0,
     meteorNova: id === 'meteor' && U.has('stormcaller'),
     g, projSpeed: (def.projectileSpeed || 10) * (1 + G('projSpeed') / 100),
-    vs: { burning: mod('vsBurning') + G('vsBurning'), chilled: mod('vsChilled') + G('vsChilled'), shocked: mod('vsShocked') + G('vsShocked') },
+    vs: { burning: mod('vsBurning') + G('vsBurning') + (def.vsBurning || 0), chilled: mod('vsChilled') + G('vsChilled') + (def.vsChilled || 0), shocked: mod('vsShocked') + G('vsShocked') + (def.vsShocked || 0) },
     freezeMult: 1 + (mod('freezeDur') + G('freezeDur')) / 100, critAilment: G('critAilment') > 0,
     explode: G('explode'), explodeDmg: G('explodeDmg') / 100,
     ground: G('ground'), groundDur: G('groundDur') * durMult, groundDmg: G('groundDmg') / 100,
@@ -226,6 +242,9 @@ export function skillCtx(s: SaveState, st: Stats, id: string): SkillCtx {
     wardDR: Math.min(80, (def.wardDR || 0) + G('wardDR')),
     constructs: (def.constructs || 0) + Math.round(G('constructs')), rate: 1 + G('rate') / 100,
     arcs: Math.round(G('arcs')), orbs: 1 + Math.round(G('orbs')),
+    reach: def.type === 'melee' ? (def.reach || classDef(s.cls).reach || 1.9) * (1 + G('reach') / 100) : 0,
+    cryMore: ((def.cryMore || 0) + (def.cryMorePerLevel || 0) * (lvl - 1)) * (1 + G('cryEffect') / 100),
+    cryDR: Math.min(50, (def.cryDR || 0) + G('cryDR')),
   };
 }
 
