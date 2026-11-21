@@ -1,0 +1,63 @@
+/* Rifts, keys, atlas and the rift result card (src/ui/rift.ts). Compact on purpose: no banner pictures. */
+
+/* key icon: the painted key with its tier on top */
+.keyicon{position:relative;display:inline-grid;place-items:center}
+.keyicon img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 0 4px rgba(180,140,255,.55))}
+.keyicon b{position:absolute;right:1px;bottom:0;font-size:.68rem;line-height:1;color:#e9dcff;text-shadow:0 0 3px #000,0 1px 2px #000;font-variant-numeric:tabular-nums}
+.tippic.keyicon{width:44px;height:44px}
+.bi.key{background:rgba(110,70,190,.22);border-color:rgba(170,130,255,.4)}
+.bi.key .pic{width:100%;height:100%}
+.ftile.rkey{background:rgba(110,70,190,.22);border-color:rgba(170,130,255,.4)}
+.ftile.rkey .pic{width:100%;height:100%}
+.ftile.rkey .ftag{color:var(--bad);right:2px;top:0}
+
+/* key modifiers */
+.kmods{list-style:none;margin:0;padding:0;display:grid;gap:3px;font-size:.86rem}
+.kmods .hazard{color:#f08a80}
+.kmods .boon{color:var(--good)}
+.krew{margin:0;font-size:.8rem;color:#e8cc5c}
+.skulls{color:var(--bad);letter-spacing:.05em}
+.skulls.safe{color:var(--muted)}
+
+/* rift view */
+.rstat{grid-template-columns:repeat(2,minmax(0,1fr))}
+.rcur{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 8px;border:1px solid rgba(170,130,255,.35);background:rgba(110,70,190,.12);font-size:.86rem}
+.rkeys .ftile{width:48px;height:48px}
+.rkdetail{display:grid;gap:6px;padding:8px;border:1px solid rgba(170,130,255,.35);background:#0f0b0c}
+.btn.wide{width:100%;min-height:44px}
+.rbest{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
+.devrow .updn{display:flex;align-items:center;gap:6px}
+#p-town .row .btn,#p-town .rcur .btn{min-height:40px}
+
+/* atlas: three columns of nodes, top to bottom */
+.atlas{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.acol{display:grid;gap:6px;align-content:start}
+.acol h4{margin:0;text-align:center;font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.anode{position:relative;min-height:52px;padding:4px 4px 6px;display:grid;gap:2px;place-items:center;text-align:center;font-size:.74rem;line-height:1.1;
+  color:var(--muted);background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)}
+.anode i{font-style:normal;font-size:.62rem;letter-spacing:.1em;color:#8c7cc0}
+.anode.can{color:var(--bone);border-color:rgba(170,130,255,.4)}
+.anode.on{color:#e9dcff;background:rgba(110,70,190,.22);border-color:rgba(170,130,255,.55)}
+.anode.full{box-shadow:inset 0 0 8px rgba(180,140,255,.35)}
+.anode.sel{outline:2px solid var(--title);outline-offset:1px}
+.acol .anode:not(:last-child)::after{content:"";position:absolute;left:50%;bottom:-7px;width:1px;height:6px;background:rgba(170,130,255,.35)}
+.adetail{display:grid;gap:6px;padding:8px;border:1px solid var(--line2);background:#0f0b0c}
+.adetail p{margin:0;font-size:.88rem}
+
+/* six town tabs on a phone */
+.towntabs button{font-size:.62rem;letter-spacing:0}
+
+/* HUD */
+#zmeta.late{color:#f08a80;opacity:1}
+#zprog.rift{background:linear-gradient(90deg,#7a52d6,#b48cff)}
+.buff.riftbuff{border-color:rgba(170,130,255,.5)}
+.buff.riftbuff .skulls{font-size:.7rem}
+
+/* result card */
+.riftres .rrows,.riftres .rloot{list-style:none;margin:0;padding:0;display:grid;gap:3px}
+.riftres .rrows li{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);padding:2px 0;font-size:.9rem}
+.riftres .rrows li span{color:var(--muted)}
+.riftres .rrows li.good b{color:var(--good)}
+.riftres .rrows li.bad b{color:var(--bad)}
+.riftres .rloot li{font-size:.86rem}
+.riftres.fail h2{color:var(--bad)}

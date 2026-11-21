@@ -14,6 +14,8 @@ import {
 } from './formulas.ts';
 import { Feel } from './feel.ts';
 import { LEVEL_CAP, Meta } from './meta.ts';
+import { Rift, keyName } from './rift.ts';
+import { Mythic } from './mythic.ts';
 import { genGem, genItem } from './items.ts';
 import { disposeItem } from './economy.ts';
 import { lootFate } from './loot.ts';
@@ -21,7 +23,7 @@ import { isUpgrade } from './upgrade.ts';
 import { Rng } from './rng.ts';
 import { emptySlots, newSaveState } from './state.ts';
 import {
-  isGem, type BagItem, type Drop, type Echo, type GemItem, type Hero, type Monster, type Phase, type Projectile,
+  isEquip, isGem, isKey, type BagItem, type Drop, type Echo, type GemItem, type Hero, type Monster, type Phase, type Projectile,
   type SaveState, type SimEvent, type SkillShot, type Strike,
 } from './types.ts';
 
@@ -78,6 +80,9 @@ export class Sim {
   feel = new Feel(this);
   /** work package D: bounties, tyrants, area events, codex, ember points, feats (see meta.ts) */
   meta = new Meta(this);
+  /** work package C: rifts, keys, atlas, pinnacle (see rift.ts) and the mythic uniques (mythic.ts) */
+  rift = new Rift(this);
+  mythic = new Mythic(this);
   private uid = 1;
   private ctxCache = new Map<string, SkillCtx>();
 
@@ -91,6 +96,7 @@ export class Sim {
     if (this.blockedSlots().length) this.autoOrder();
     this.meta.init(); // meta: fill the bounty board, first event timer
     this.enterZone(Math.min(this.s.zone, this.unlocked - 1));
+    this.rift.resume(); // rift: a run in progress starts again
   }
 
   /* ---------- helpers ---------- */
@@ -103,11 +109,15 @@ export class Sim {
   get mana() { return this.s.mana ?? 0; }
   get diff() { return DIFFICULTIES[this.s.difficulty]; }
   get unlocked() { return Math.max(1, this.s.progress[this.s.difficulty] || 1); }
-  areaLevel(i = this.s.zone) { return AREAS[i].level + this.diff.levelAdd; }
+  /** Monster level of an area (no index: where the hero is, a rift tier included). */
+  areaLevel(i?: number) { return (i == null ? this.rift.level() : null) ?? AREAS[i ?? this.s.zone].level + this.diff.levelAdd; }
+  /** Area whose look the renderer uses (a rift borrows one). */
+  get lookZone() { return this.rift.look(); }
 
   recalc() {
     this.st = calcStats(this.s);
     this.feel.applyStats(this.st); // feel: shrine buffs
+    this.rift.applyStats(this.st); this.mythic.applyStats(this.st); // rift: resistance penalty, key mods; mythic uniques
     this.ctxCache.clear();
     if (this.s.life != null) this.s.life = Math.min(this.s.life, this.st.maxLife);
     if (this.s.mana != null) this.s.mana = Math.min(this.s.mana, this.st.maxMana);
@@ -132,10 +142,10 @@ export class Sim {
 
   mkMon(def: string, L: number, rank: number, x: number, y: number): Monster {
     const d = MONSTERS[def], rng = this.rng, diff = this.s.difficulty;
-    const hp = monsterHp(def, L, rank, diff);
+    const hp = this.rift.monHp(def, rank) ?? monsterHp(def, L, rank, diff); // rift: tier scaling
     const m: Monster = {
       id: this.nextUid(), def, L, rank, el: d.element, name: d.name, sub: '',
-      hp, maxHp: hp, dmg: monsterDmg(def, L, rank, diff), atkTime: d.attackTime, mv: d.moveSpeed,
+      hp, maxHp: hp, dmg: this.rift.monDmg(def, rank) ?? monsterDmg(def, L, rank, diff), atkTime: d.attackTime, mv: d.moveSpeed,
       range: d.ranged || MONSTER_SCALING.meleeRange, atkT: rng.range(0.3, d.attackTime),
       chill: 0, chillEff: 0, burn: 0, burnDps: 0, frozen: 0, freezeCd: 0, shock: 0, shockEff: 0,
       mods: [], ward: 0, maxWard: 0, vamp: 0,
@@ -162,21 +172,24 @@ export class Sim {
       m.boss = { phase: 0, specT: d.boss.special.first };
     }
     this.feel.initMon(m); // feel: champion affixes
+    this.rift.initMon(m); // rift: key modifiers
     return m;
   }
 
   /** Spawn a wave ahead of the hero (`extra` more monsters in a vault). Returns its centre. */
   spawnWave(extra = 0) {
     const z = AREAS[this.s.zone], h = this.hero, rng = this.rng, L = this.areaLevel();
-    const n = 1 + rng.int(0, 2 + Math.min(2, Math.floor(this.s.zone / 2))) + extra;
+    const rw = this.rift.wave(extra); // rift: mixed monsters, bigger packs
+    const n = rw ? rw.n : 1 + rng.int(0, 2 + Math.min(2, Math.floor(this.s.zone / 2))) + extra;
+    const eliteC = rw ? rw.elite : WAVES.eliteChance, champC = rw ? rw.champ : WAVES.championChance;
     const sd = WAVES.spawnDistance;
     const cx = h.x + this.dir.x * sd, cy = h.y + this.dir.y * sd, px = -this.dir.y, py = this.dir.x;
     this.monsters = [];
     for (let i = 0; i < n; i++) {
       const r = rng.next();
-      const rank = r < WAVES.eliteChance ? 2 : r < WAVES.eliteChance + WAVES.championChance ? 1 : 0;
+      const rank = r < eliteC ? 2 : r < eliteC + champC ? 1 : 0;
       const o = rng.range(-2.6, 2.6), f = rng.range(-1, 1.6);
-      this.monsters.push(this.mkMon(rng.pick(z.pool), L + (rank ? 1 : 0), rank, cx + px * o + this.dir.x * f, cy + py * o + this.dir.y * f));
+      this.monsters.push(this.mkMon(rng.pick(rw ? rw.pool : z.pool), L + (rank ? 1 : 0), rank, cx + px * o + this.dir.x * f, cy + py * o + this.dir.y * f));
     }
     for (const m of this.monsters) if (m.rank === 2) this.log(`An elite appears: **${m.name}** (${m.sub})`, 'r2');
     if (!extra) this.feel.onWave(cx, cy); // feel: shrines and treasure creature
@@ -204,7 +217,15 @@ export class Sim {
   }
 
   enterZone(i: number) {
-    this.s.zone = i; this.wave = 0; this.bossSpawned = false; this.monsters = []; this.projectiles = []; this.strikes = []; this.echoes = [];
+    this.rift.leave(); // rift: leaving an unfinished rift spends the key
+    this.s.zone = i;
+    this.clearArea();
+    const dn = this.s.difficulty ? ` · ${this.diff.name}` : '';
+    this.log(`Entering **${AREAS[i].name}**${dn} (monster level ${this.areaLevel(i)}).`);
+  }
+  /** Empty the current map (also used when a rift starts). */
+  clearArea() {
+    this.wave = 0; this.bossSpawned = false; this.monsters = []; this.projectiles = []; this.strikes = []; this.echoes = [];
     this.feel.reset(); // feel
     this.meta.reset(); // meta: tyrant and trapped champion leave
     while (this.drops.length) this.pickup(this.drops[0]);
@@ -212,8 +233,6 @@ export class Sim {
     this.phase = 'walk'; this.wps = [this.fwd(4)];
     this.dirty.add('zones');
     this.emit({ t: 'clear' });
-    const dn = this.s.difficulty ? ` · ${this.diff.name}` : '';
-    this.log(`Entering **${AREAS[i].name}**${dn} (monster level ${this.areaLevel(i)}).`);
   }
 
   private startWalk() {
@@ -239,6 +258,7 @@ export class Sim {
   private nextWave() {
     const z = AREAS[this.s.zone];
     if (this.feel.onNextWave()) return; // feel: vault waves
+    if (this.rift.nextWave()) return; // rift: progress bar and guardian instead of area waves
     if (this.meta.onNextWave()) return; // meta: the area tyrant
     this.wave++;
     if (this.wave > z.waves) {
@@ -257,6 +277,7 @@ export class Sim {
       this.dirty.add('zones');
     }
     if (z.boss) {
+      this.rift.onActBoss(d); // rift: Mother Vesper on Hell opens the rifts
       const next = DIFFICULTIES[d + 1];
       if (next && !s.progress[d + 1]) {
         s.progress[d + 1] = 1;
@@ -420,7 +441,7 @@ export class Sim {
   private hitMon(m: Monster, c: SkillCtx, mult: number, small = false) {
     if (m.hp <= 0) return;
     const r = () => this.rng.next();
-    const { dmg, crit } = hitDamage(c, r, mult);
+    const { dmg, crit } = hitDamage(c, r, mult * this.mythic.hitMult(m)); // mythic: Pyrewright's Rod
     if (m.shock > 0 && c.shockedCold) dmg.cold += total(dmg) * c.shockedCold;
     const fin = afterRes(dmg, m.res, c.pen, m.shock > 0 ? 1 + m.shockEff : 1);
     const n = Math.max(1, Math.round(total(fin)));
@@ -485,7 +506,7 @@ export class Sim {
   }
 
   monHit(dmg: number, el: Element, name: string, mult = 1, label?: string, vampMon?: Monster) {
-    if (this.phase !== 'fight') return;
+    if (this.phase !== 'fight' || this.mythic.untouchable > 0) return; // mythic: Mantle of the Unburied
     const st = this.st, h = this.hero, s = this.s;
     if (!label && this.rng.next() * 100 < st.dodge) { this.float(h.x, h.y, 'Dodge', '#86c46f'); return; }
     let d = afterHeroRes(dmg * this.rng.range(0.85, 1.15) * mult, st.res[el]) * (1 - st.elemDR / 100);
@@ -542,20 +563,22 @@ export class Sim {
     m.hp = 0;
     const s = this.s, rk = RANKS[m.rank], rng = this.rng, D = ITEMS.drops, diff = this.diff, F = this.feel;
     s.kills++; this.run.kills++;
-    this.gainXp(Math.round(monsterXp(m.L, m.rank, s.difficulty) * xpFactor(s.lvl, m.L) * F.xpMult()));
+    const R = this.rift; // rift: key rewards (experience, gold, rarity, item quantity)
+    this.gainXp(Math.round(monsterXp(m.L, m.rank, s.difficulty) * xpFactor(s.lvl, m.L) * F.xpMult() * R.xpMult()));
     const metaLoot = this.meta.onKill(m); // meta: bounties, feats, tyrant counter and loot, events
     if (!F.onKill(m, overkill) || !metaLoot) return; // feel: treasure creature, mirror images, death blasts
     if (m.rank >= 1) this.log(`${rk.name} **${m.name}** slain.`, m.rank >= 2 ? 'r2' : '');
     if (m.rank > 0 || rng.chance(D.goldChance + F.goldChanceAdd()))
-      this.drops.push({ id: this.nextUid(), x: m.x + rng.range(-0.5, 0.5), y: m.y + rng.range(-0.5, 0.5), gold: Math.round(m.L * rng.range(D.goldPerLevel[0], D.goldPerLevel[1]) * rk.gold * diff.goldMult * F.goldMult() * this.meta.goldMult()) });
+      this.drops.push({ id: this.nextUid(), x: m.x + rng.range(-0.5, 0.5), y: m.y + rng.range(-0.5, 0.5), gold: Math.round(m.L * rng.range(D.goldPerLevel[0], D.goldPerLevel[1]) * rk.gold * diff.goldMult * F.goldMult() * this.meta.goldMult() * R.goldMult()) });
     let n = 0, minR = 0, gemChance = D.gemChance;
     if (m.rank === 0) n = rng.chance(D.itemChance + F.itemChanceAdd()) ? 1 : 0;
     else {
       const rule = m.rank === 1 ? D.champion : m.rank === 2 ? D.elite : D.boss;
       n = rng.int(rule.count[0], rule.count[1]); minR = rule.minRarity; gemChance = rule.gemChance;
     }
+    n = R.qty(n);
     for (let i = 0; i < n; i++) {
-      const it = genItem(rng, this.itemId(), m.L, minR, m.rank === 3, F.rarityBoost() + this.meta.rarityBoost());
+      const it = genItem(rng, this.itemId(), m.L, minR, m.rank === 3, F.rarityBoost() + this.meta.rarityBoost() + R.rarity());
       this.meta.onItem(it); // meta: found items for bounties and feats
       // loot filter rules (loot.ts): items not kept are sold or salvaged on the spot
       const fate = lootFate(s.loot, it, s.equip);
@@ -577,6 +600,7 @@ export class Sim {
         this.dmgMon(o, v);
       }
     }
+    R.onKill(m); this.mythic.onKill(); // rift: progress, guardian, keys; mythic: Seal of the Endless Stair
   }
 
   private gainXp(x: number) {
@@ -597,6 +621,7 @@ export class Sim {
 
   private die() {
     const s = this.s, D = HERO.death;
+    this.rift.onDeath(); this.mythic.reset(); // rift: the run fails, the key is lost
     s.deaths++; this.run.deaths++;
     const xl = Math.floor(s.xp * D.xpLoss), gl = Math.floor(s.gold * D.goldLoss);
     s.xp -= xl; s.gold -= gl;
@@ -676,12 +701,13 @@ export class Sim {
     this.monsters = this.monsters.filter(m => m.hp > 0);
     if (this.phase === 'town') {
       h.walking = false;
-      if (s.autoReturn) { this.townT -= dt; if (this.townT <= 0) this.enterZone(this.returnZone); }
+      if (s.autoReturn) { this.townT -= dt; if (this.townT <= 0 && !this.rift.townDone()) this.enterZone(this.returnZone); } // rift: auto mode
       return;
     }
     this.regen(dt);
     this.feel.tick(dt); // feel: shrine buffs, vault timer, death blasts, loot events
     this.meta.tick(dt); // meta: events, tyrant mechanics, feats, shrine bounties
+    this.rift.tick(dt); this.mythic.tick(dt); // rift: timer; mythic: stacks
     for (const k in this.cd) if (this.cd[k] > 0) this.cd[k] -= dt;
     if ((this.buffs.frostarmor ?? 0) > 0) {
       this.buffs.frostarmor -= dt;
@@ -733,6 +759,7 @@ export class Sim {
       if (m.frozen > 0) { m.frozen -= dt; m.walking = false; continue; }
       if (this.meta.monStep(m)) continue; // meta: trapped champion stays in its casing
       if (this.feel.monStep(m, dt)) continue; // feel: treasure creature flees; monster affixes
+      this.rift.monStep(m, dt); // rift: guardian mechanics
       const d = dist(m, h), slow = m.chill > 0 ? 1 - m.chillEff : 1;
       const dsx = (h.x - h.y) - (m.x - m.y);
       if (Math.abs(dsx) > 0.05) m.f = dsx > 0 ? 1 : -1;
@@ -753,7 +780,7 @@ export class Sim {
       if (d < 0.8) { const p = (0.8 - d) / 2; a.x -= (dx / d) * p; a.y -= (dy / d) * p; b.x += (dx / d) * p; b.y += (dy / d) * p; }
     }
     this.potions();
-    if (this.life <= 0) { this.die(); return; }
+    if (this.life <= 0 && !this.mythic.cheatDeath()) { this.die(); return; } // mythic: Mantle of the Unburied
     this.monsters = this.monsters.filter(m => m.hp > 0);
     if (!this.monsters.length && !this.strikes.length && !this.feel.busy()) { this.echoes = []; this.startWalk(); }
   }
@@ -786,10 +813,11 @@ export class Sim {
     this.dirty.add('bag');
     if (!quiet) {
       if (isGem(it)) this.log(`Picked up **${this.itemName(it)}** (support gem).`, 'gem');
+      else if (isKey(it)) this.log(`Picked up a **${keyName(it)}**${it.mods.length ? ` (${it.mods.length} modifier${it.mods.length > 1 ? 's' : ''})` : ''}.`, 'r2');
       else this.log(`Picked up **${it.name}** (${RARITIES[it.r].name} ${SLOT_NAMES[it.slot]}).${isUpgrade(it, s.equip[it.slot]) ? ' ▲ Upgrade' : ''}`, 'r' + it.r);
     }
   }
-  itemName(it: BagItem) { return isGem(it) ? `${GEMS[it.gem].name} (Lv ${it.lvl})` : it.name; }
+  itemName(it: BagItem) { return isGem(it) ? `${GEMS[it.gem].name} (Lv ${it.lvl})` : isKey(it) ? keyName(it) : it.name; }
   private bagRoomFor(it: BagItem) { return !!findSpot(this.s.bag, it) || !!findSpot(autoSort(this.s.bag.slice().map(x => ({ ...x }))), it); }
   /** Place an item into the bag without selling anything. Returns false if there is no room. */
   private putInBag(it: BagItem): boolean {
@@ -878,7 +906,7 @@ export class Sim {
 
   equip(itemId: number) {
     const s = this.s, it = s.bag.find(i => i.id === itemId);
-    if (!it || isGem(it) || it.unid) return;
+    if (!isEquip(it) || it.unid) return;
     s.bag.splice(s.bag.indexOf(it), 1);
     const old = s.equip[it.slot];
     s.equip[it.slot] = it;
@@ -907,7 +935,7 @@ export class Sim {
   sellLow() {
     const s = this.s;
     let g = 0, n = 0;
-    s.bag = s.bag.filter(it => { if (!isGem(it) && it.r < 2) { g += sellValue(it); n++; return false; } return true; });
+    s.bag = s.bag.filter(it => { if (isEquip(it) && it.r < 2) { g += sellValue(it); n++; return false; } return true; });
     s.gold += g; this.dirty.add('bag');
     this.log(`Sold ${n} items for ${g} gold.`);
   }

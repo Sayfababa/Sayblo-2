@@ -21,6 +21,20 @@
         ],
         "special": { "name": "Pale Toll", "first": 6, "every": 8, "mult": 2.5, "radius": 7 }
       }
+    },
+    "matriarch": { "name": "The Hollow Matriarch", "element": "fire", "hp": 1, "dmg": 1, "attackTime": 1.5, "moveSpeed": 1.05, "sprite": "vesper", "height": 175, "ranged": 6, "tint": "#b9a6ff",
+      "boss": {
+        "title": "Pinnacle of the Rift",
+        "res": { "fire": 0.35, "cold": 0.2, "light": 0.2 },
+        "intro": "**The Hollow Matriarch** steps out of the rift. Fire, then frost, then storm: she wears every element in turn.",
+        "phases": [
+          { "belowHp": 0.66, "element": "cold", "res": { "fire": 0.2, "cold": 0.35, "light": 0.2 },
+            "message": "The Matriarch's flames turn to rime. Cold wind fills the rift." },
+          { "belowHp": 0.33, "element": "light", "res": { "fire": 0.2, "cold": 0.2, "light": 0.35 },
+            "message": "Violet storms crack around the Matriarch. She is almost broken!" }
+        ],
+        "special": { "name": "Hollow Toll", "first": 8, "every": 10, "mult": 1.8, "radius": 7 }
+      }
     }
   },
   "ranks": [

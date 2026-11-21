@@ -4,11 +4,11 @@
  * Code format: "GL<version>." + base64url(deflate-raw(JSON)) + "." + checksum.
  * If the browser has no CompressionStream, the payload is stored uncompressed with prefix "GLU<version>.".
  */
-import { AREAS, ATTRS, DIFFICULTIES, ECONOMY, GEMS, GEM_MAX_LEVEL, MAT_IDS, RARITIES, SKILLS, SLOTS, UNIQUES, isPassive } from '../content/index.ts';
+import { AREAS, ATLAS_NODES, ATTRS, DIFFICULTIES, ECONOMY, GEMS, GEM_MAX_LEVEL, KEY_MODS, MAT_IDS, RARITIES, SKILLS, SLOTS, UNIQUES, isPassive } from '../content/index.ts';
 import { placeMissing } from './bag.ts';
-import { DEFAULT_VOLUME, SAVE_VERSION, defaultLoot, newSaveState } from './state.ts';
+import { DEFAULT_VOLUME, SAVE_VERSION, defaultLoot, newRiftSave, newSaveState } from './state.ts';
 import { newMeta, sanitizeMeta } from './meta-types.ts';
-import type { BagItem, GemItem, Item, SaveState } from './types.ts';
+import type { BagItem, GemItem, Item, KeyItem, RiftSave, SaveState } from './types.ts';
 
 export const STORAGE_KEY = 'grimlight-save';
 
@@ -45,6 +45,8 @@ const MIGRATIONS: Record<number, (s: Raw) => Raw> = {
   5: s => ({ ...s, v: 6, settings: { ...((s.settings as Raw) || {}), sound: true, volume: DEFAULT_VOLUME } }),
   // v7: meta progression (work package D): bounty board, tyrant counters, codex, ember points, feats
   6: s => ({ ...s, v: 7, meta: newMeta() }),
+  // v8: rifts (work package C). Nothing is unlocked yet: Mother Vesper has to fall (again) to open them.
+  7: s => ({ ...s, v: 8, rift: newRiftSave() }),
 };
 
 export class SaveError extends Error {}
@@ -97,6 +99,11 @@ function sanitize(s: Raw): SaveState {
     const g = x as GemItem;
     return !!g && g.kind === 'gem' && typeof g.id === 'number' && !!GEMS[g.gem] && Number.isInteger(g.lvl) && g.lvl >= 1 && g.lvl <= GEM_MAX_LEVEL;
   };
+  const validKey = (x: unknown): x is KeyItem => {
+    const k = x as KeyItem;
+    return !!k && k.kind === 'key' && typeof k.id === 'number' && Number.isInteger(k.tier) && k.tier >= 1 && Array.isArray(k.mods) && k.mods.every(m => !!KEY_MODS[m]);
+  };
+  const validBag = (x: unknown): x is BagItem => validItem(x) || validGem(x) || validKey(x);
   const sockets = (s.sockets || {}) as Record<string, unknown>;
   out.sockets = {};
   for (const [k, arr] of Object.entries(sockets)) {
@@ -106,7 +113,7 @@ function sanitize(s: Raw): SaveState {
   const equip = (s.equip || {}) as Raw;
   out.equip = { weapon: null, helm: null, armor: null, amulet: null, ring: null };
   for (const k of SLOTS) { const it = equip[k]; if (validItem(it) && it.slot === k) out.equip[k] = it; }
-  out.bag = (Array.isArray(s.bag) ? s.bag : []).filter((x): x is BagItem => validItem(x) || validGem(x));
+  out.bag = (Array.isArray(s.bag) ? s.bag : []).filter(validBag);
   placeMissing(out.bag);
   const loot = (s.loot || {}) as Raw, minR = (loot.minR || {}) as Raw;
   out.loot = defaultLoot();
@@ -117,7 +124,7 @@ function sanitize(s: Raw): SaveState {
   for (const k of MAT_IDS) out.mats[k] = Math.floor(num(mats[k], 0, 0));
   const stash = Array.isArray(s.stash) ? s.stash : [];
   out.stash = Array.from({ length: ECONOMY.stash.tabs }, (_, i) => {
-    const tab = (Array.isArray(stash[i]) ? stash[i] : []).filter((x: unknown): x is BagItem => validItem(x) || validGem(x));
+    const tab = (Array.isArray(stash[i]) ? stash[i] : []).filter(validBag);
     placeMissing(tab);
     return tab;
   });
@@ -136,12 +143,29 @@ function sanitize(s: Raw): SaveState {
   out.mana = s.mana == null ? null : num(s.mana, 0, 0);
   out.barrier = num(s.barrier, 0, 0);
   out.kills = Math.floor(num(s.kills, 0, 0)); out.deaths = Math.floor(num(s.deaths, 0, 0));
+  out.rift = sanitizeRift((s.rift || {}) as Raw, num, bool);
   const maxId = Math.max(0, ...out.bag.map(i => i.id), ...out.stash.flat().map(i => i.id), ...Object.values(out.equip).filter((i): i is Item => !!i).map(i => i.id),
     ...Object.values(out.sockets).flat().filter((g): g is GemItem => !!g).map(g => g.id));
   out.nextId = Math.max(Math.floor(num(s.nextId, 1, 1)), maxId + 1);
   out.savedAt = num(s.savedAt, 0, 0);
   out.meta = sanitizeMeta(s.meta);
   out.v = SAVE_VERSION;
+  return out;
+}
+
+function sanitizeRift(r: Raw, num: (x: unknown, def: number, min?: number, max?: number) => number, bool: (x: unknown, def: boolean) => boolean): RiftSave {
+  const out = newRiftSave();
+  out.open = bool(r.open, false); out.auto = bool(r.auto, false);
+  out.maxTier = Math.floor(num(r.maxTier, 0, 0));
+  out.frags = Math.floor(num(r.frags, 0, 0)); out.pinnacle = Math.floor(num(r.pinnacle, 0, 0));
+  out.runs = Math.floor(num(r.runs, 0, 0)); out.fails = Math.floor(num(r.fails, 0, 0));
+  for (const [t, v] of Object.entries((r.best || {}) as Raw)) if (/^\d+$/.test(t) && +t >= 1) { const x = num(v, 0, 0); if (x > 0) out.best[t] = x; }
+  for (const [id, v] of Object.entries((r.atlas || {}) as Raw)) if (ATLAS_NODES[id]) { const n = Math.floor(num(v, 0, 0, ATLAS_NODES[id].max)); if (n > 0) out.atlas[id] = n; }
+  const c = r.cur as Raw | null;
+  if (c && typeof c === 'object' && Array.isArray(c.mods) && (c.mods as unknown[]).every(m => typeof m === 'string' && !!KEY_MODS[m])) {
+    const tier = Math.floor(num(c.tier, 0, 0)), theme = Math.floor(num(c.theme, 0, 0, AREAS.length - 1)), pin = Math.floor(num(c.pin, 0, 0));
+    if (tier >= 1) out.cur = { tier, mods: c.mods as string[], theme, ...(pin ? { pin } : {}) };
+  }
   return out;
 }
 

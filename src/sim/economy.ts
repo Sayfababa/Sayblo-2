@@ -10,7 +10,7 @@ import { addMats, applyEmber, canAfford, corrupt, corruptCost, gambleItem, gambl
 import { sellValue } from './formulas.ts';
 import type { Fate } from './loot.ts';
 import type { Sim } from './sim.ts';
-import { isGem, type BagItem, type Item, type SaveState } from './types.ts';
+import { isEquip, type BagItem, type Item, type SaveState } from './types.ts';
 
 export const matText = (m: Mats) => MAT_IDS.filter(k => m[k]).map(k => `${m[k]} ${k}`).join(', ');
 
@@ -18,7 +18,7 @@ function payMats(s: SaveState, cost: Mats) { for (const k of MAT_IDS) s.mats[k] 
 
 /** Get rid of an item that is not kept: salvage (gems are always sold) or sell. Returns gold gained. */
 export function disposeItem(s: SaveState, it: BagItem, fate: Fate): number {
-  if (fate === 'salvage' && !isGem(it)) { s.mats = addMats(s.mats, salvageYield(it)) as SaveState['mats']; unlockCodex(s, it); return 0; }
+  if (fate === 'salvage' && isEquip(it)) { s.mats = addMats(s.mats, salvageYield(it)) as SaveState['mats']; unlockCodex(s, it); return 0; }
   const g = sellValue(it);
   s.gold += g;
   return g;
@@ -28,7 +28,7 @@ export function disposeItem(s: SaveState, it: BagItem, fate: Fate): number {
 export function findItem(s: SaveState, id: number): { it: Item; where: 'equip' | 'bag' } | null {
   for (const it of Object.values(s.equip)) if (it && it.id === id) return { it, where: 'equip' };
   const b = s.bag.find(i => i.id === id);
-  return b && !isGem(b) ? { it: b, where: 'bag' } : null;
+  return b && isEquip(b) ? { it: b, where: 'bag' } : null;
 }
 
 function changed(sim: Sim, where: 'equip' | 'bag') {
@@ -39,7 +39,7 @@ function changed(sim: Sim, where: 'equip' | 'bag') {
 /* ---------- salvage ---------- */
 export function salvage(sim: Sim, id: number): string | null {
   const s = sim.s, i = s.bag.findIndex(x => x.id === id), it = s.bag[i];
-  if (!it || isGem(it)) return 'Gems cannot be salvaged.';
+  if (!isEquip(it)) return 'Only equipment can be salvaged.';
   const y = salvageYield(it);
   s.bag.splice(i, 1);
   s.mats = addMats(s.mats, y) as SaveState['mats'];
@@ -53,7 +53,7 @@ export function salvageBelow(sim: Sim, r: number): { n: number; mats: Mats } {
   const s = sim.s;
   let mats: Mats = {}, n = 0;
   s.bag = s.bag.filter(it => {
-    if (isGem(it) || it.r >= r) return true;
+    if (!isEquip(it) || it.r >= r) return true;
     mats = addMats(mats, salvageYield(it)); n++;
     unlockCodex(s, it); // meta: codex
     return false;

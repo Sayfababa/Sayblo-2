@@ -15,7 +15,7 @@ import { xpNeeded } from '../sim/formulas.ts';
 import { LEVEL_CAP, bonusText, emberBar, emberFree, featValue, tyrantKey } from '../sim/meta.ts';
 import type { Bounty } from '../sim/meta-types.ts';
 import type { Sim } from '../sim/sim.ts';
-import { isGem, type Item, type SaveState, type SimEvent } from '../sim/types.ts';
+import { isEquip, type Item, type SaveState, type SimEvent } from '../sim/types.ts';
 import { spriteUrl } from '../render/textures.ts';
 import { esc, fmt, ic, itemPic, richText } from './html.ts';
 import { matList } from './economy.ts';
@@ -147,7 +147,7 @@ export class MetaUI {
       const U = UNIQUES[this.selU];
       const list: { it: Item; eq: boolean }[] = [
         ...(s.equip[U.slot] ? [{ it: s.equip[U.slot]!, eq: true }] : []),
-        ...s.bag.filter((x): x is Item => !isGem(x) && x.slot === U.slot).map(it => ({ it, eq: false })),
+        ...s.bag.filter((x): x is Item => isEquip(x) && x.slot === U.slot).map(it => ({ it, eq: false })),
       ];
       const tiles = list.map(({ it, eq }) => {
         const why = imprintBlock(s, it, this.selU!);

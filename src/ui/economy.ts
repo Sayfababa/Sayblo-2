@@ -10,15 +10,15 @@ import { canAfford, corruptBlock, corruptCost, craftBlock, craftCost, emberBlock
 import { corruptItem, findItem, forge, fromStash, gamble, gambleLevel, identify, salvageBelow, sortStash, toStash } from '../sim/economy.ts';
 import { formatMod } from '../sim/formulas.ts';
 import type { Sim } from '../sim/sim.ts';
-import { isGem, type BagItem, type Item, type SaveState } from '../sim/types.ts';
+import { isEquip, isGem, type BagItem, type Item, type SaveState } from '../sim/types.ts';
 import { spriteUrl } from '../render/textures.ts';
-import { esc, fmt, ic, itemPic } from './html.ts';
+import { bagCls, esc, fmt, ic, itemPic } from './html.ts';
 import { gemColor } from './gemcolor.ts';
 import { corruptNote, itemTooltip, modMark } from './tooltip.ts';
 
-export type TownView = 'main' | 'forge' | 'altar' | 'vendor' | 'stash' | 'board' | 'codex';
+export type TownView = 'main' | 'forge' | 'altar' | 'vendor' | 'stash' | 'board' | 'codex' | 'rift';
 // board and codex are rendered by meta.ts (work package D)
-const VIEWS: [TownView, string][] = [['main', 'Town'], ['forge', 'Forge'], ['altar', 'Altar'], ['vendor', 'Vendor'], ['stash', 'Stash'], ['board', 'Board'], ['codex', 'Codex']];
+const VIEWS: [TownView, string][] = [['main', 'Town'], ['forge', 'Forge'], ['altar', 'Altar'], ['vendor', 'Vendor'], ['stash', 'Stash'], ['board', 'Board'], ['codex', 'Codex'], ['rift', 'Rifts']];
 type Dropdown = (key: string, label: string, cur: string, options: [string, string, string?][]) => string;
 
 /* ---------- small shared pieces ---------- */
@@ -95,7 +95,7 @@ export class EconomyUI {
     const s = this.s;
     return [
       ...SLOTS.map(k => s.equip[k]).filter((x): x is Item => !!x).map(it => ({ it, eq: true })),
-      ...s.bag.filter((x): x is Item => !isGem(x)).map(it => ({ it, eq: false })),
+      ...s.bag.filter(isEquip).map(it => ({ it, eq: false })),
     ];
   }
   private selected(): Item | null {
@@ -180,7 +180,7 @@ export class EconomyUI {
   /* ---------- stash ---------- */
   private grid(items: BagItem[], from: 'stash' | 'bag'): string {
     return `<div class="bagwell"><div class="bag" style="--cols:${BAG_W};--rows:${BAG_H}">${items.map(it => {
-      const [w, h] = itemSize(it), r = isGem(it) ? 'gem' : 'r' + it.r, sel = this.stSel?.id === it.id;
+      const [w, h] = itemSize(it), r = bagCls(it), sel = this.stSel?.id === it.id;
       return `<button class="bi ${r} ${sel ? 'sel' : ''}" style="--x:${it.bx};--y:${it.by};--w:${w};--h:${h}${isGem(it) ? `;--gc:${gemColor(it.gem)}` : ''}" data-act="ssel:${from}:${it.id}" aria-label="${esc(this.sim.itemName(it))}">${itemPic(it, 'pic', true)}</button>`;
     }).join('')}</div></div>`;
   }
@@ -196,7 +196,7 @@ export class EconomyUI {
         const act = sel.from === 'stash'
           ? `<button class="btn primary" data-act="fromstash:${it.id}">To bag</button>`
           : `<button class="btn primary" data-act="tostash:${it.id}">To stash ${names[this.tab]}</button>`;
-        tip = itemTooltip(it, null, act, { learned: Object.keys(s.skills) });
+        tip = itemTooltip(it, null, act, { learned: Object.keys(s.skills), save: s });
       }
     }
     return `${tabs}
@@ -292,7 +292,7 @@ export class EconomyUI {
   salvageRow(): string {
     const s = this.s;
     const btn = (r: number) => {
-      const list = s.bag.filter((i): i is Item => !isGem(i) && i.r < r);
+      const list = s.bag.filter((i): i is Item => isEquip(i) && i.r < r);
       const armed = this.salvArm === r;
       return `<button class="btn ${armed ? 'primary danger' : ''}" data-act="salvbelow:${r}" ${list.length ? '' : 'disabled'}>${armed ? `Sure? ${list.length}` : `${RARITIES[r].name} (${list.length})`}</button>`;
     };

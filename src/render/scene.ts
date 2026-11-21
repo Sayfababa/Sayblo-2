@@ -5,7 +5,7 @@
  */
 import { Application, ColorMatrixFilter, Container, Graphics, Matrix, RenderTexture, Sprite, Text, TextStyle, Texture, TilingSprite } from 'pixi.js';
 import { AREAS, BASE_ICON, ELEMENT_COLORS, GEMS, MONSTERS, PROPS, RANKS, RARITIES, SKILLS, type Element } from '../content/index.ts';
-import { isGem } from '../sim/types.ts';
+import { isEquip, isGem, isKey } from '../sim/types.ts';
 import { GEM_COLOR, gemColor } from '../ui/gemcolor.ts';
 import { TICK, type Sim } from '../sim/sim.ts';
 import type { Monster, SimEvent } from '../sim/types.ts';
@@ -264,12 +264,13 @@ export class Scene {
 
   /** Sprite with feet at (px, py) and height H. flash/chill blend the sprite towards white/ice blue. */
   private figure(file: string, px: number, py: number, H: number, id: number,
-    o: { flip?: boolean; rot?: number; sx?: number; sy?: number; alpha?: number; flash?: number; fs?: number; chill?: number } = {}) {
+    o: { flip?: boolean; rot?: number; sx?: number; sy?: number; alpha?: number; flash?: number; fs?: number; chill?: number; tint?: string } = {}) {
     const t = tex(file), s = this.world.sprite(t);
     s.anchor.set(0.5, 1); s.position.set(px, py);
     const sc = H / t.height;
     s.scale.set(sc * (o.flip ? -1 : 1) * (o.sx ?? 1), sc * (o.sy ?? 1));
     s.rotation = o.rot ?? 0; s.alpha = o.alpha ?? 1;
+    if (o.tint) s.tint = o.tint;
     const a2 = o.flash && o.flash > 0 ? Math.min(1, o.flash) * (o.fs ?? 0.45) : 0, a1 = o.chill ?? 0;
     if (a1 || a2) {
       let f = this.filters.get(id);
@@ -292,7 +293,7 @@ export class Scene {
     if (!w || !h) return;
     const k0 = clamp(Math.min(w / 620, h / 560), 0.9, 1.3), k = k0 * ZOOM, V = this.V;
     V.k = k; V.kt = k0 * 0.85; V.tw = 64 * k; V.th = 32 * k;
-    if (sim.s.zone !== this.zone) { this.zone = sim.s.zone; }
+    if (sim.lookZone !== this.zone) { this.zone = sim.lookZone; }
 
     // interpolated hero position and camera
     const H0 = sim.hero, hx = lerp(H0.px, H0.x, alpha), hy = lerp(H0.py, H0.y, alpha);
@@ -340,7 +341,7 @@ export class Scene {
     // depth-sorted world objects
     type Item = { z: number; kind: 'decor' | 'drop' | 'mon' | 'hero' | 'feel'; x: number; y: number; type?: string; v?: number; o?: unknown };
     const items: Item[] = [];
-    const area = AREAS[sim.s.zone];
+    const area = AREAS[sim.lookZone]; // rift: borrowed area look
     for (let tx = x0; tx <= x1; tx++) for (let ty = y0; ty <= y1; ty++) {
       const [ax, ay] = this.iso(tx, ty);
       if (ax < -V.tw || ax > w + V.tw || ay < -V.th * 2 || ay > h + V.th) continue;
@@ -403,10 +404,10 @@ export class Scene {
   }
 
   private drawGround(sim: Sim, x0: number, y0: number, x1: number, y1: number) {
-    const V = this.V, area = AREAS[sim.s.zone];
+    const V = this.V, area = AREAS[sim.lookZone];
     const mip = (t: Texture) => { t.source.autoGenerateMipmaps = true; t.source.updateMipmaps?.(); return t; };
-    if (this.groundZone !== sim.s.zone) {
-      this.groundZone = sim.s.zone;
+    if (this.groundZone !== sim.lookZone) {
+      this.groundZone = sim.lookZone;
       this.groundC.removeChildren().forEach(c => { if (c !== this.decalC) c.destroy(); });
       this.decals.forEach(d => d.destroy()); this.decals = [];
       // mipmaps keep the zoomed-out ground from shimmering into fine grain
@@ -533,14 +534,14 @@ export class Scene {
     px += lg;
     if (m.rank >= 1 && !v.dead) this.world.graphics().ellipse(px, py, 15 * s, 6 * s).stroke({ width: 1.5 * k, color: rk.color, alpha: 0.7 * a });
     this.shadow(px, py, 11 * s, 4.5 * s, 0.45 * a);
-    const H = d.height * k * rk.size * monScale(m); // meta: tyrants are bigger
+    const H = d.height * k * rk.size * monScale(m) * (m.scale ?? 1); // meta: tyrants, rift: guardians are bigger
     const frozen = m.frozen > 0 && !v.dead;
     const walking = m.walking && !v.dead && !frozen;
     const lift = d.flying ? (6 + Math.sin(t * 2.5) * 4) * k : (walking ? Math.abs(Math.sin(t * 8)) * 3 * k : 0);
     const rot = v.dead ? f * Math.min(1, v.deadT * 3) * 1.2 : (walking && !d.flying ? Math.sin(t * 8) * 0.05 : 0) + (v.lunge > 0 ? 0.14 * f : 0);
     metaTint(m, this.figure((d.runSprite && walking ? d.runSprite : d.sprite) + '.png', px, py - lift, H, m.id, { // meta: tyrant tint
       flip: f !== (d.facesLeft ? -1 : 1), rot, alpha: a, flash: v.hitT / 0.15, chill: frozen ? 0.65 : m.chill > 0 && !v.dead ? 0.35 : 0,
-      sy: walking || frozen ? 1 : 1 + Math.sin(t * 2.2) * 0.015,
+      sy: walking || frozen ? 1 : 1 + Math.sin(t * 2.2) * 0.015, tint: m.tint,
     }));
     if (frozen) this.light(px, py - H * 0.5, 40 * k, '#bfeaff', 0.35);
     if (m.shock > 0 && !v.dead) this.light(px + Math.sin(this.time * 31 + m.id) * 6 * k, py - H * (0.3 + 0.4 * Math.abs(Math.sin(this.time * 17 + m.id))), 28 * k, ELC.light, 0.35 + 0.25 * Math.abs(Math.sin(this.time * 23 + m.id)));
@@ -561,9 +562,10 @@ export class Scene {
       return;
     }
     const sz = (d.gold ? 22 : 30) * k;
-    const file = d.gold ? 'item-gold.png' : `item-${BASE_ICON[it!.base]}.png`;
+    const file = d.gold ? 'item-gold.png' : isKey(it) ? 'item-key.png' : `item-${BASE_ICON[it!.base]}.png`;
     this.shadow(px, py, sz * 0.35, sz * 0.14, 0.45);
-    if (it) this.light(px, py - sz * 0.4, (18 + it.r * 8) * k, RARITIES[it.r].color, it.r ? 0.45 : 0.15);
+    const r = isEquip(it) ? it.r : isKey(it) ? 2 : 0;
+    if (it) this.light(px, py - sz * 0.4, (18 + r * 8) * k, RARITIES[r].color, r ? 0.45 : 0.15);
     const s = this.world.sprite(tex(file));
     s.anchor.set(0.5, 0); s.position.set(px, py - sz * 0.85); s.width = s.height = sz;
   }
@@ -626,14 +628,14 @@ export class Scene {
     for (const d of (sim.s.settings.lootLabels ? sim.drops : [])) {
       const [px, py] = this.iso(d.x, d.y);
       const it = d.item;
-      const txt = d.gold ? d.gold + ' Gold' : isGem(it) ? GEMS[it.gem].name : it!.name;
+      const txt = d.gold ? d.gold + ' Gold' : isGem(it) ? GEMS[it.gem].name : isKey(it) ? `Rift Key T${it.tier}` : it!.name;
       const box = L.box();
-      const t = L.text(txt, FONT_BODY, '700', lsz, d.gold ? '#d8d0c2' : isGem(it) ? GEM_COLOR : RARITIES[it!.r].color);
+      const t = L.text(txt, FONT_BODY, '700', lsz, d.gold ? '#d8d0c2' : isGem(it) ? GEM_COLOR : RARITIES[isEquip(it) ? it.r : 2].color);
       const tw = t.width + 8;
       box.rect(px - tw / 2, py - 8 * k - 14 * kt, tw, 14 * kt + 2).fill({ color: '#000000', alpha: 0.72 });
       t.position.set(px, py - 8 * k - 7 * kt + 1);
       // feel: upgrade arrow and perfect-roll star next to the name
-      if (it && !isGem(it)) {
+      if (isEquip(it)) {
         let ex = px + tw / 2 + 1;
         if (isUpgrade(it, sim.s.equip[it.slot])) { const a = L.text('▲', FONT_BODY, '700', lsz, '#6fe36a', true); a.position.set(ex + a.width / 2, py - 8 * k - 7 * kt + 1); ex += a.width + 2; }
         if (hasPerfect(it)) L.text('★', FONT_BODY, '700', lsz, '#ffe680', true).position.set(ex + lsz / 2, py - 8 * k - 7 * kt + 1);
