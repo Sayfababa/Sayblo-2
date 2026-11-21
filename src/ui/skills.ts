@@ -140,7 +140,7 @@ export class SkillsUI {
     const tabs = TREE_IDS().map(t => `<button role="tab" class="t-${TREES[t].element}" data-act="stree:${t}" aria-selected="${this.page === t}">${esc(TREES[t].name)}${dot(t) ? '<i class="dot"></i>' : ''}</button>`).join('')
       + `<button role="tab" data-act="stree:prio" aria-selected="${this.page === 'prio'}" title="Cast priority">Order${sim.blockedSlots().length ? '<i class="dot bad"></i>' : ''}</button>`;
     const pts = s.skillPts ? `<span class="skpts" title="Skill points">${ic('skillpt', 'Skill points')}<b>${s.skillPts}</b></span>` : '';
-    const head = `<div class="skhead"><div class="sktabs" role="tablist" aria-label="Skill trees">${tabs}</div>${pts}<button class="close" data-act="close" aria-label="Close menu"></button></div>`;
+    const head = `<div class="phead skhead"><div class="sktabs" role="tablist" aria-label="Skill trees">${tabs}</div>${pts}<button class="close" data-act="close" aria-label="Close menu"></button></div>`;
     if (this.page === 'prio') return head + this.prioView(dropdown);
     return head + this.treePage(this.page) + this.detail(this.sel) +
       `<p class="hint">Swipe left or right to change the tree. Each point in a skill adds ${SKILL_SCALING.synergyPerPoint}% increased damage to the other skills of its tree.</p>`;
