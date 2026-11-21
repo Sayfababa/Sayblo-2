@@ -3,7 +3,7 @@
  * Talks to the simulation only through its public state and action methods.
  */
 import {
-  ACT_NAME, AREAS, ATTRS, BAG_H, BAG_W, CONDITIONS, DIFFICULTIES, GEMS, HERO, ITEMS, RANKS, SKILLS, SLOT_NAMES,
+  ACT_NAME, AREAS, ATTRS, BAG_H, BAG_W, CONDITIONS, DIFFICULTIES, GEMS, HERO, RANKS, SKILLS, SLOT_NAMES,
   SOCKET_LEVELS, TREES, isPassive, skillMaxLevel, type Attr, type Slot,
 } from '../content/index.ts';
 import { itemSize, canPlace } from '../sim/bag.ts';
@@ -15,6 +15,8 @@ import { spriteUrl } from '../render/textures.ts';
 import { $, duration, esc, fmt, ic, itemPic, phead, richText, skillIcon } from './html.ts';
 import { itemTooltip } from './tooltip.ts';
 import { gemColor } from './gemcolor.ts';
+import { EconomyUI, lootRulesHtml, matsHeader, matsKey, salvageBtn } from './economy.ts';
+import { salvage } from '../sim/economy.ts';
 
 const SHEET_W = 460;
 const DIFF_ICON = ['normal', 'nightmare', 'hell'];
@@ -54,6 +56,8 @@ export class UI {
   private sellMode = false;
   private sellSel = new Set<number>();
   private drag: { from: number; to: number; id: number; y0: number } | null = null;
+  /** forge, altar, vendor, stash and the economy parts of the bag (economy.ts) */
+  private eco = new EconomyUI(() => this.sim);
 
   constructor(game: GameHooks) {
     this.game = game;
@@ -200,6 +204,7 @@ export class UI {
     $('#dot-skills').hidden = !s.skillPts;
     const tg = document.getElementById('towngold');
     if (tg) tg.textContent = fmt(s.gold);
+    for (const mb of document.querySelectorAll<HTMLElement>('.matbar')) if (mb.dataset.k !== matsKey(s)) mb.outerHTML = matsHeader(s);
     const p = this.tab;
     if (p && sim.dirty.has(p)) { this.renderPanel(p); sim.dirty.delete(p); }
   }
@@ -400,7 +405,7 @@ export class UI {
         }).join('');
         tip = itemTooltip(sel, null, `${quick}<button class="btn" data-act="move">${this.moveMode ? 'Cancel move' : 'Move'}</button><button class="btn" data-act="sell:${sel.id}">${ic('sell')}Sell · ${sellValue(sel)}g</button>`, { learned });
       } else {
-        tip = itemTooltip(sel, s.equip[sel.slot], `<button class="btn primary" data-act="equip:${sel.id}">Equip</button><button class="btn" data-act="move">${this.moveMode ? 'Cancel move' : 'Move'}</button><button class="btn" data-act="sell:${sel.id}">${ic('sell')}Sell · ${sellValue(sel)}g</button>`, { compare: true });
+        tip = itemTooltip(sel, s.equip[sel.slot], `${sel.unid ? `<button class="btn primary" data-act="ident:${sel.id}">Identify</button>` : `<button class="btn primary" data-act="equip:${sel.id}">Equip</button>`}<button class="btn" data-act="move">${this.moveMode ? 'Cancel move' : 'Move'}</button><button class="btn" data-act="sell:${sel.id}">${ic('sell')}Sell · ${sellValue(sel)}g</button>${salvageBtn(sel)}`, { compare: !sel.unid });
       }
     } else if (this.selEq && s.equip[this.selEq]) {
       tip = itemTooltip(s.equip[this.selEq]!, null, `<button class="btn" data-act="unequip:${this.selEq}">Take off</button>`);
@@ -408,12 +413,11 @@ export class UI {
     this.showTip(tip);
     const used = s.bag.reduce((n, it) => { const [w, h] = itemSize(it); return n + w * h; }, 0);
     const sellSum = [...this.sellSel].reduce((n, id) => { const it = s.bag.find(i => i.id === id); return n + (it ? sellValue(it) : 0); }, 0);
-    const filterOpts = ITEMS.filterNames.map((n, i) => [String(i), n] as [string, string]);
     const tools = this.sellMode
       ? `<div class="sellbar"><span>${this.sellSel.size ? `<b>${this.sellSel.size}</b> selected · <span class="gold">${fmt(sellSum)}</span>` : 'Tap items to select them'}</span>
           <span class="updn"><button class="btn" data-act="sellpick:low">Select Normal & Magic</button><button class="btn" data-act="sellmode">Cancel</button>
           <button class="btn primary" data-act="sellsel" ${this.sellSel.size ? '' : 'disabled'}>${ic('sell')}Sell ${this.sellSel.size || ''}</button></span></div>`
-      : `<div class="row"><span class="hint">${used} / ${BAG_W * BAG_H} cells${this.moveMode ? ' · tap a green spot to place the item' : ' · tap an item for details'}</span>
+      : `<div class="bagmats"><span class="hint">Materials</span>${matsHeader(s)}</div><div class="row"><span class="hint">${used} / ${BAG_W * BAG_H} cells${this.moveMode ? ' · tap a green spot to place the item' : ' · tap an item for details'}</span>
           <span class="updn"><button class="btn" data-act="sortbag">${ic('sort')}Sort</button><button class="btn" data-act="sellmode" ${s.bag.length ? '' : 'disabled'}>${ic('sell')}Sell…</button></span></div>`;
     $('#p-bag').innerHTML = `
       ${phead('Inventory', `${ic('gold', 'Gold')}<span class="gold">${fmt(s.gold)}</span>`)}
@@ -421,9 +425,9 @@ export class UI {
       ${tools}
       <div class="bagwell"><div class="bag ${this.sellMode ? 'selling' : ''}" style="--cols:${BAG_W};--rows:${BAG_H}">${items}${cells}</div></div>
       ${this.bagMsg ? `<p class="hint bad">${esc(this.bagMsg)}</p>` : ''}
-      <p class="hint">Staffs take 1×3 cells, armor 2×3, helms 2×2, amulets, rings and gems 1×1. When the bag is full, the least valuable item is sold.</p>
-      <div class="row filterrow"><span>Pick up</span>${this.dropdown('filter', 'Pick-up filter', String(Math.min(...Object.values(s.loot.minR))), filterOpts)}</div>
-      <p class="hint">Items below the filter are sold on the spot. Gems are always kept.</p>`;
+      <p class="hint">Staffs take 1×3 cells, armor 2×3, helms 2×2, amulets, rings and gems 1×1.</p>
+      ${this.sellMode ? '' : this.eco.salvageRow()}
+      ${lootRulesHtml(s, (k, l, c, o) => this.dropdown(k, l, c, o))}`;
     this.placeTip();
   }
 
@@ -451,8 +455,11 @@ export class UI {
     const s = this.s, sim = this.sim, price = potionPrice(s.lvl), rc = respecCost(s.lvl), P = HERO.potions;
     const diffs = DIFFICULTIES.map((d, i) => `<button class="btn diffbtn ${i === s.difficulty ? 'primary' : ''}" data-act="diff:${i}" ${s.progress[i] ? '' : 'disabled'} aria-pressed="${i === s.difficulty}">${ic(s.progress[i] ? DIFF_ICON[i] : 'lock')}${d.name}</button>`).join('');
     const fuse = sim.fusable().map(([g, l, n]) => `<div class="row"><span style="color:${gemColor(g)}">${esc(GEMS[g].name)} Lv ${l} ×${n}</span><button class="btn" data-act="fuse:${g}:${l}">Fuse 3 → Lv ${l + 1} · ${sim.fuseCost(l)}g</button></div>`).join('');
+    const head = `${phead('Town', `${matsHeader(s)}${ic('gold', 'Gold')}<span class="gold" id="towngold">${fmt(s.gold)}</span>`)}${this.eco.nav()}`;
+    const eco = this.eco.render();
+    if (eco != null) { $('#p-town').innerHTML = head + eco; return; }
     $('#p-town').innerHTML = `
-      ${phead('Town', `${ic('gold', 'Gold')}<span class="gold" id="towngold">${fmt(s.gold)}</span>`)}
+      ${head}
       <h3>Difficulty</h3>
       <div class="row" style="justify-content:flex-start">${diffs}</div>
       <p class="hint">${DIFFICULTIES.map(d => `${d.name}: monsters +${d.levelAdd} levels, resistances ${d.resPenalty}%`).join(' · ')}. Beat Mother Vesper to open the next one.</p>
@@ -489,7 +496,8 @@ export class UI {
       </div>
       <div class="scope"><h3>About this version</h3>
         <ul><li>New: 15 skills incl. passives, burn/chill/freeze/shock, 17 support gems with sockets and gem fusing, affix tiers, +skill items, 7 uniques with special effects, bag grid, Nightmare and Hell, offline progress (50%, up to 8 hours).</li>
-        <li>Not yet: sets, crafting, rifts. Numbers are a first guess for testing, not balanced.</li></ul></div>
+        <li>New: salvage, crafting embers at the forge, corruption altar, gambling vendor, loot rules, stash.</li>
+        <li>Not yet: sets, rifts. Numbers are a first guess for testing, not balanced.</li></ul></div>
       <div class="row"><span class="hint">Start a new hero. This deletes the current one.</span><button class="btn sm" data-act="reset">${this.resetArm ? 'Tap again to wipe' : 'Start over'}</button></div>`;
   }
 
@@ -525,7 +533,7 @@ export class UI {
         // ddpick:slot:2:fireball · ddpick:cond:2:always · ddpick:filter:3
         if (x === 'slot') sim.setSlotSkill(+y, z || null);
         else if (x === 'cond') sim.setSlotCond(+y, z);
-        else if (x === 'filter') for (const k of Object.keys(s.loot.minR) as Slot[]) s.loot.minR[k] = +y;
+        else this.eco.pick(x, y, z);
         this.openDD = null; D.add(this.tab ?? 'skills');
         break;
       }
@@ -578,6 +586,7 @@ export class UI {
       case 'equip': sim.equip(+x); this.selBag = null; D.add('slots'); break;
       case 'unequip': if (!sim.unequip(x as Slot)) this.bagMsg = 'No room in the bag.'; else this.selEq = null; D.add('bag'); break;
       case 'sell': sim.sell(+x); this.selBag = null; break;
+      case 'salv': salvage(sim, +x); this.selBag = null; break;
       case 'sellLow': sim.sellLow(); break;
       case 'buy': { const err = sim.buyPotions(x as 'hp' | 'mp', +y); if (err) this.townMsg(err); break; }
       case 'fuse': { const err = sim.fuseGems(x, +y); if (err) this.townMsg(err); D.add('town'); break; }
@@ -596,6 +605,7 @@ export class UI {
         this.resetArm = false;
         this.game.wipe();
         break;
+      default: this.eco.click(a, x, y);
     }
     this.draw();
   }
@@ -640,6 +650,7 @@ export class UI {
     if (t.id === 'zonesel') sim.selectZone(+t.value);
     else if (t.dataset.slot != null) sim.setSlotSkill(+t.dataset.slot, t.value || null);
     else if (t.dataset.cond != null) sim.setSlotCond(+t.dataset.cond, t.value);
+    else if (this.eco.change(t)) { /* loot rules */ }
     else if (t.id === 'autoAdvance') s.autoAdvance = t.checked;
     else if (t.id === 'autoReturn') s.autoReturn = t.checked;
     else if (t.id === 'kite') s.kite = t.checked;

@@ -208,7 +208,7 @@ describe('gambling vendor', () => {
     sim.s.gold = 100000;
     const r = gamble(sim, 'helm');
     expect(r.err).toBeNull();
-    expect(sim.s.gold).toBe(100000 - gamblePrice(sim.areaLevel(), 'helm'));
+    expect(sim.s.gold).toBe(100000 - gamblePrice(sim.areaLevel(sim.unlocked - 1), 'helm'));
     const it = sim.s.bag.find(i => i.id === r.item!.id) as Item;
     expect(it.unid).toBe(true);
     sim.equip(it.id);

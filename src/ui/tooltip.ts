@@ -27,10 +27,14 @@ export function compareLines(it: Item, cur: Item | null): string {
   return `<ul class="cmp">${rows.join('')}${lost}</ul>`;
 }
 
-const modLine = (m: Mod, imp: boolean) => {
+const modLine = (m: Mod, imp: boolean, mark = '') => {
   const t = m[2];
-  return `<li class="${imp ? 'imp' : AFFIXES[m[0]]?.group ?? ''}">${formatMod(m as [string, number])}${t ? `<span class="tier" title="Tier ${t} of 5 (1 is best)">T${t}</span>` : ''}</li>`;
+  return `<li class="${imp ? 'imp' : AFFIXES[m[0]]?.group ?? ''} ${mark}">${formatMod(m as [string, number])}${t ? `<span class="tier" title="Tier ${t} of 5 (1 is best)">T${t}</span>` : ''}</li>`;
 };
+/** Extra class for a mod line: corrupted (added or doubled by the altar) or protected by Sealing Wax. */
+export const modMark = (it: Item, i: number) => (i === it.cm ? 'cor' : i === it.wax ? 'waxed' : '');
+/** Corruption / seal notes under the mods. */
+export const corruptNote = (it: Item) => (it.cor ? `<p class="corrupt">Corrupted${it.seal ? ' · sealed, cannot be crafted' : ''}</p>` : '');
 
 export function itemTooltip(it: BagItem, equipped: Item | null, actions: string, opts: { compare?: boolean; learned?: string[] } = {}): string {
   if (isGem(it)) {
@@ -46,11 +50,18 @@ export function itemTooltip(it: BagItem, equipped: Item | null, actions: string,
       <div class="tipact">${actions}</div></div>`;
   }
   const rar = RARITIES[it.r];
+  if (it.unid) return `<div class="tip unid" style="--rc:${rar.color}">
+    <div class="tiphead">${itemPic(it, 'tippic')}<div><b class="tipname" style="color:${rar.color}">Unidentified ${SLOT_NAMES[it.slot]}</b>
+      <div class="tipbase">${rar.name} ${SLOT_NAMES[it.slot]} · ${esc(it.base)} · item level ${it.L}</div></div></div>
+    <ul class="mods">${it.mods.slice(0, it.imp).map(m => modLine(m, true)).join('')}</ul>
+    <p class="tipsub">Its affixes are hidden. Identify it to see what you got.</p>
+    <div class="tipact">${actions}</div></div>`;
   return `<div class="tip" style="--rc:${rar.color}">
     <div class="tiphead">${itemPic(it, 'tippic')}<div><b class="tipname" style="color:${rar.color}">${esc(it.name)}</b>
       <div class="tipbase">${rar.name} ${SLOT_NAMES[it.slot]}${it.r ? ' · ' + esc(it.base) : ''} · item level ${it.L}</div></div></div>
-    <ul class="mods">${it.mods.map((m, i) => modLine(m, i < it.imp)).join('')}</ul>
+    <ul class="mods">${it.mods.map((m, i) => modLine(m, i < it.imp, modMark(it, i))).join('')}</ul>
     ${it.u ? `<p class="unique">${esc(UNIQUES[it.u].effect)}</p>` : ''}
+    ${corruptNote(it)}
     ${opts.compare ? `<div class="vs"><h4>Compared with equipped</h4>${compareLines(it, equipped)}</div>` : ''}
     <div class="tipact">${actions}</div></div>`;
 }

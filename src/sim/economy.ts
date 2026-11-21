@@ -91,7 +91,8 @@ export function corruptItem(sim: Sim, id: number): { err: string | null; text?: 
 }
 
 /* ---------- gambling vendor ---------- */
-export const gambleLevel = (sim: Sim) => sim.areaLevel();
+/** Gambling uses the level of the deepest area reached on the current difficulty. */
+export const gambleLevel = (sim: Sim) => sim.areaLevel(sim.unlocked - 1);
 export function gamble(sim: Sim, slot: Slot): { err: string | null; item?: Item } {
   const s = sim.s, L = gambleLevel(sim), price = gamblePrice(L, slot);
   if (s.gold < price) return { err: `Not enough gold. You need ${price}.` };
