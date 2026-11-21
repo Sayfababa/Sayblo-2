@@ -2,7 +2,7 @@ import { AREAS, ECONOMY, HERO, START_SKILL, UNLOCKED_AT_START } from '../content
 import { newMeta } from './meta-types.ts';
 import type { CastSlot, LootRules, RiftSave, SaveState } from './types.ts';
 
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 9;
 
 /** Sounds are on by default, but quiet. */
 export const DEFAULT_VOLUME = 0.3;
@@ -26,7 +26,7 @@ export function newSaveState(): SaveState {
     sockets: {},
     slots: emptySlots(),
     equip: { weapon: null, helm: null, armor: null, amulet: null, ring: null },
-    bag: [], loot: defaultLoot(), mats: { dust: 0, essence: 0, shard: 0 },
+    bag: [], gems: [], loot: defaultLoot(), mats: { dust: 0, essence: 0, shard: 0 },
     stash: Array.from({ length: ECONOMY.stash.tabs }, () => []),
     hpPot: HERO.potions.start, mpPot: HERO.potions.start, hpTh: HERO.potions.lifeThreshold, mpTh: HERO.potions.manaThreshold,
     difficulty: 0, progress: [Math.min(UNLOCKED_AT_START, AREAS.length), 0, 0],

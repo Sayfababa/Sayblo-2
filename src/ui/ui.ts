@@ -18,6 +18,8 @@ import { itemTooltip } from './tooltip.ts';
 import { gemColor } from './gemcolor.ts';
 import { EconomyUI, lootRulesHtml, matsHeader, matsKey, salvageBtn } from './economy.ts';
 import { salvage } from '../sim/economy.ts';
+import { pouchPick } from '../sim/pouch.ts';
+import { pouchCount, pouchHtml, pouchTip } from './pouch.ts';
 import { bagBadges, feelBuffs, soundInput, soundSettings } from './feel.ts';
 import { MetaUI, metaBuffs, titleText, tyrantInfo, xpBar } from './meta.ts';
 
@@ -57,6 +59,9 @@ export class UI {
   /** open custom dropdown, e.g. "slot:2", "cond:0", "filter" */
   private openDD: string | null = null;
   private sellMode = false;
+  /** bag panel: equipment grid or gem pouch, and the selected gem stack ("quick|2") */
+  private bagView: 'items' | 'gems' = 'items';
+  private selGem: string | null = null;
   private sellSel = new Set<number>();
   private drag: { from: number; to: number; id: number; y0: number } | null = null;
   /** forge, altar, vendor, stash and the economy parts of the bag (economy.ts) */
@@ -242,8 +247,8 @@ export class UI {
     const res = (e: 'fire' | 'cold' | 'light') => `${st.res[e]}%${st.rawRes[e] + sim.diff.resPenalty > st.res[e] ? ` <small class="over">(${st.rawRes[e] + sim.diff.resPenalty})</small>` : ''}`;
     const plus = Object.entries(st.plus).filter(([, v]) => v).map(([t, v]) => row(`+ ${TREES[t].name} skills`, `+${v}`)).join('');
     $('#p-hero').innerHTML = `
-      ${phead(`${HERO.className}${titleText(s) ? ` <small class="htitle">${esc(titleText(s))}</small>` : ''} · Level ${s.lvl}`, s.attrPts ? `${ic('attrpt', 'Attribute points')}<b class="gold">${s.attrPts}</b> to spend` : 'No points left')}
-      <div class="well attrs">${ATTRS.map(k => { const A = HERO.attributes[k]; const dis = s.attrPts ? '' : 'disabled'; return `<div class="attr"><span>${A.name}</span><span class="v">${st.a[k]}</span><span class="d">${A.description}</span>
+      ${phead(`Lv ${s.lvl}${titleText(s) ? ` <small class="htitle">${esc(titleText(s))}</small>` : ''}`, s.attrPts ? `${ic('attrpt', 'Attribute points')}<b class="gold">${s.attrPts}</b>&nbsp;pts` : 'No points')}
+      <div class="well attrs">${ATTRS.map(k => { const A = HERO.attributes[k]; const dis = s.attrPts ? '' : 'disabled'; return `<div class="attr"><span class="an"><b>${A.name}</b><small class="d">${A.description}</small></span><span class="v">${st.a[k]}</span>
         <span class="updn"><button class="btn sq" data-act="attr:${k}:1" ${dis} aria-label="Add point to ${A.name}">+</button><button class="btn sq" data-act="attr:${k}:5" ${s.attrPts >= 5 ? '' : 'disabled'} aria-label="Add 5 points to ${A.name}">+5</button></span></div>`; }).join('')}</div>
       <details class="grp" open><summary>Offense</summary><div class="kv">
         ${row('Spell damage', `+${st.spellDmg}%`)}${row('Cast time', `${sim.ctx('fireball').castTime.toFixed(2)}s`)}
@@ -382,14 +387,15 @@ export class UI {
 
   private gemPicker(skill: string, i: number): string {
     const sim = this.sim, cur = sim.socketsOf(skill)[i];
-    const gems = this.s.bag.filter(isGem).sort((a, b) => Number(gemFits(b.gem, skill)) - Number(gemFits(a.gem, skill)) || b.lvl - a.lvl);
+    const gems = pouchPick(this.s.gems).sort( // gem pouch: one gem per kind + level
+      (a, b) => Number(gemFits(b.gem, skill)) - Number(gemFits(a.gem, skill)) || b.lvl - a.lvl);
     const list = gems.map(g => {
       const fits = gemFits(g.gem, skill), dup = sim.socketsOf(skill).some((o, j) => o && j !== i && o.gem === g.gem);
       return `<button class="gemopt" data-act="sock:${skill}:${i}:${g.id}" ${fits && !dup ? '' : 'disabled'} style="--gc:${gemColor(g.gem)}">${itemPic(g, 'sockpic')}
         <span><b>${esc(GEMS[g.gem].name)}</b> <small>Lv ${g.lvl}</small><br><small>${fits ? (dup ? 'Already in this skill.' : esc(gemText(g))) : `Does not fit: needs ${GEMS[g.gem].requires.join(', ')}`}</small></span></button>`;
     }).join('');
     return `<div class="picker">${cur ? `<button class="btn sm" data-act="unsock:${skill}:${i}">Take ${esc(GEMS[cur.gem].name)} out</button>` : ''}
-      ${list || '<p class="hint">No support gems in the bag yet. Champions, elites and bosses drop them more often.</p>'}</div>`;
+      ${list || '<p class="hint">No support gems in the pouch yet. Champions, elites and bosses drop them more often.</p>'}</div>`;
   }
 
   /* ----- bag ----- */
@@ -415,7 +421,8 @@ export class UI {
       return `<button class="bi ${r} ${it.id === this.selBag ? 'sel' : ''} ${picked ? 'picked' : ''}" style="--x:${it.bx};--y:${it.by};--w:${w};--h:${h}${isGem(it) ? `;--gc:${gemColor(it.gem)}` : ''}" data-act="bagsel:${it.id}" aria-label="${esc(sim.itemName(it))}" ${this.sellMode ? `aria-pressed="${picked}"` : ''}>${itemPic(it, 'pic', true)}${bagBadges(it, s.equip)}</button>`;
     }).join('');
     let tip = '';
-    if (this.sellMode) tip = '';
+    if (this.bagView === 'gems') tip = pouchTip(sim, this.selGem); // gem pouch (pouch.ts)
+    else if (this.sellMode) tip = '';
     else if (sel) {
       const learned = Object.keys(s.skills);
       if (isGem(sel)) {
@@ -436,22 +443,31 @@ export class UI {
     this.showTip(tip);
     const used = s.bag.reduce((n, it) => { const [w, h] = itemSize(it); return n + w * h; }, 0);
     const sellSum = [...this.sellSel].reduce((n, id) => { const it = s.bag.find(i => i.id === id); return n + (it ? sellValue(it) : 0); }, 0);
+    const gemsView = this.bagView === 'gems';
+    // one compact bar: Items / Gems toggle on the left, Sort and Sell on the right (materials and cell count sit in the header)
+    const views = `<div class="subtabs bagtabs" role="tablist"><button role="tab" aria-selected="${!gemsView}" data-act="bview:items">Items</button><button role="tab" aria-selected="${gemsView}" data-act="bview:gems">Gems<small> ${s.gems.length}</small></button></div>`;
     const tools = this.sellMode
-      ? `<div class="sellbar"><span>${this.sellSel.size ? `<b>${this.sellSel.size}</b> selected · <span class="gold">${fmt(sellSum)}</span>` : 'Tap items to select them'}</span>
-          <span class="updn"><button class="btn" data-act="sellpick:low">Select Normal & Magic</button><button class="btn" data-act="sellmode">Cancel</button>
-          <button class="btn primary" data-act="sellsel" ${this.sellSel.size ? '' : 'disabled'}>${ic('sell')}Sell ${this.sellSel.size || ''}</button></span></div>`
-      : `<div class="bagmats"><span class="hint">Materials</span>${matsHeader(s)}</div><div class="row"><span class="hint">${used} / ${BAG_W * BAG_H} cells${this.moveMode ? ' · tap a green spot to place the item' : ' · tap an item for details'}</span>
-          <span class="updn"><button class="btn" data-act="sortbag">${ic('sort')}Sort</button><button class="btn" data-act="sellmode" ${s.bag.length ? '' : 'disabled'}>${ic('sell')}Sell…</button></span></div>`;
+      ? `<div class="sellbar"><span>${this.sellSel.size ? `<b>${this.sellSel.size}</b> · <span class="gold">${fmt(sellSum)}</span>` : 'Tap items'}</span>
+          <span class="updn"><button class="btn" data-act="sellpick:low">Normal+Magic</button><button class="btn" data-act="sellmode">Cancel</button>
+          <button class="btn primary" data-act="sellsel" ${this.sellSel.size ? '' : 'disabled'}>Sell${this.sellSel.size ? ' ' + this.sellSel.size : ''}</button></span></div>`
+      : `<div class="bagbar">${views}${gemsView ? '' : `<span class="updn"><button class="btn" data-act="sortbag" aria-label="Sort the bag">${ic('sort')}Sort</button><button class="btn" data-act="sellmode" ${s.bag.length ? '' : 'disabled'}>${ic('sell')}Sell</button></span>`}</div>`;
+    const count = gemsView ? `<span class="bagcount" title="Gems in the pouch">${pouchCount(sim)}</span>` : `<span class="bagcount" title="Bag cells used">${used}/${BAG_W * BAG_H}</span>`;
     $('#p-bag').innerHTML = `
-      ${phead('Inventory', `${ic('gold', 'Gold')}<span class="gold">${fmt(s.gold)}</span>`)}
-      <div class="doll" style="--hero:url('${spriteUrl('hero-idle.png')}')">${eqSlot('weapon')}${eqSlot('helm')}${eqSlot('armor')}${eqSlot('amulet')}${eqSlot('ring')}</div>
+      ${phead(`Bag ${count}`, `${matsHeader(s)}${ic('gold', 'Gold')}<span class="gold">${fmt(s.gold)}</span>`)}
+      ${gemsView ? '' : `<div class="doll" style="--hero:url('${spriteUrl('hero-idle.png')}')">${eqSlot('weapon')}${eqSlot('helm')}${eqSlot('armor')}${eqSlot('amulet')}${eqSlot('ring')}</div>`}
       ${tools}
-      <div class="bagwell"><div class="bag ${this.sellMode ? 'selling' : ''}" style="--cols:${BAG_W};--rows:${BAG_H}">${items}${cells}</div></div>
+      ${this.moveMode && !gemsView ? '<p class="hint">Tap a green spot to place the item.</p>' : ''}
+      ${gemsView ? pouchHtml(sim, this.selGem) : `<div class="bagwell"><div class="bag ${this.sellMode ? 'selling' : ''}" style="--cols:${BAG_W};--rows:${BAG_H}">${items}${cells}</div></div>`}
       ${this.bagMsg ? `<p class="hint bad">${esc(this.bagMsg)}</p>` : ''}
-      <p class="hint">Staffs take 1×3 cells, armor 2×3, helms 2×2, amulets, rings and gems 1×1.</p>
-      ${this.sellMode ? '' : this.eco.salvageRow()}
-      ${lootRulesHtml(s, (k, l, c, o) => this.dropdown(k, l, c, o))}`;
+      ${gemsView ? `<p class="hint">Gems never take bag cells. Socket them in Skills; three of a kind and level fuse into one of the next level.</p>${this.fuseRows()}` : `${this.sellMode ? '' : this.eco.salvageRow()}
+      ${lootRulesHtml(s, (k, l, c, o) => this.dropdown(k, l, c, o))}`}`;
     this.placeTip();
+  }
+
+  /** Gem cutter rows (town and gem pouch): every kind + level with three or more gems. */
+  private fuseRows(): string {
+    const sim = this.sim;
+    return sim.fusable().map(([g, l, n]) => `<div class="row fuserow"><span style="color:${gemColor(g)}">${esc(GEMS[g].name)} Lv ${l} ×${n}</span><button class="btn" data-act="fuse:${g}:${l}">Fuse 3 → Lv ${l + 1} · ${fmt(sim.fuseCost(l))}g</button></div>`).join('');
   }
 
   /** Item tooltip: floats next to the menu on wide screens, card above the tab bar on phones. */
@@ -475,9 +491,9 @@ export class UI {
 
   /* ----- town ----- */
   private pTown() {
-    const s = this.s, sim = this.sim, price = potionPrice(s.lvl), rc = respecCost(s.lvl), P = HERO.potions;
+    const s = this.s, price = potionPrice(s.lvl), rc = respecCost(s.lvl), P = HERO.potions;
     const diffs = DIFFICULTIES.map((d, i) => `<button class="btn diffbtn ${i === s.difficulty ? 'primary' : ''}" data-act="diff:${i}" ${s.progress[i] ? '' : 'disabled'} aria-pressed="${i === s.difficulty}">${ic(s.progress[i] ? DIFF_ICON[i] : 'lock')}${d.name}</button>`).join('');
-    const fuse = sim.fusable().map(([g, l, n]) => `<div class="row"><span style="color:${gemColor(g)}">${esc(GEMS[g].name)} Lv ${l} ×${n}</span><button class="btn" data-act="fuse:${g}:${l}">Fuse 3 → Lv ${l + 1} · ${sim.fuseCost(l)}g</button></div>`).join('');
+    const fuse = this.fuseRows();
     const head = `${phead('Town', `${matsHeader(s)}${ic('gold', 'Gold')}<span class="gold" id="towngold">${fmt(s.gold)}</span>`)}${this.eco.nav()}`;
     const eco = this.eco.view === 'rift' ? this.rift.render() : this.meta.townView(this.eco.view) ?? this.eco.render(); // rift, meta: board, codex
     if (eco != null) { $('#p-town').innerHTML = head + eco; return; }
@@ -572,7 +588,10 @@ export class UI {
         this.sellSel.clear(); this.sellMode = false; D.add('bag');
         break;
       }
-      case 'tipclose': this.selBag = null; this.selEq = null; this.moveMode = false; D.add('bag'); break;
+      case 'tipclose': this.selBag = null; this.selEq = null; this.selGem = null; this.moveMode = false; D.add('bag'); break;
+      case 'bview': this.bagView = x as 'items' | 'gems'; this.selBag = null; this.selEq = null; this.selGem = null; this.moveMode = false; this.sellMode = false; this.sellSel.clear(); this.bagMsg = ''; D.add('bag'); break;
+      case 'gstack': this.selGem = this.selGem === x ? null : x; this.bagMsg = ''; D.add('bag'); break;
+      case 'gsell': sim.sellGem(+x); break;
       case 'tab': this.setTab(x as Tab); break;
       case 'close': this.setTab(null); break;
       case 'closesum': $('#summary').hidden = true; break;
@@ -615,7 +634,7 @@ export class UI {
       case 'salv': salvage(sim, +x); this.selBag = null; break;
       case 'sellLow': sim.sellLow(); break;
       case 'buy': { const err = sim.buyPotions(x as 'hp' | 'mp', +y); if (err) this.townMsg(err); break; }
-      case 'fuse': { const err = sim.fuseGems(x, +y); if (err) this.townMsg(err); D.add('town'); break; }
+      case 'fuse': { const err = sim.fuseGems(x, +y); if (err) { this.townMsg(err); this.bagMsg = err; } D.add('town'); D.add('bag'); break; }
       case 'diff': sim.setDifficulty(+x); break;
       case 'respec': { const err = sim.respec(); if (err) this.townMsg(err); break; }
       case 'return': sim.returnFromTown(); break;

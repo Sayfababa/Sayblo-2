@@ -77,6 +77,9 @@ describe('bag grid and gems', () => {
       }
     }
     expect(sim.s.gold).toBeGreaterThan(30);
+    // gems never take bag cells: all 15 went into the pouch
+    expect(sim.s.bag.some(x => x.kind === 'gem')).toBe(false);
+    expect(sim.s.gems).toHaveLength(15);
   });
   it('sockets only fitting gems and fuses three into one', () => {
     const sim = new Sim(undefined, { seed: 12, headless: true });
@@ -90,6 +93,7 @@ describe('bag grid and gems', () => {
     for (let i = 0; i < 3; i++) sim.takeItem(g(600 + i, 'quick', 2), true);
     sim.s.gold = 1000;
     expect(sim.fuseGems('quick', 2)).toBe(null);
-    expect(sim.s.bag.filter(x => x.kind === 'gem' && x.gem === 'quick').map(x => (x as { lvl: number }).lvl)).toEqual([3]);
+    expect(sim.s.gems.filter(x => x.gem === 'quick').map(x => x.lvl)).toEqual([3]);
+    expect(sim.s.bag.some(x => x.kind === 'gem')).toBe(false);
   });
 });

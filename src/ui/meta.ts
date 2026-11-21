@@ -93,7 +93,7 @@ export class MetaUI {
     const s = this.s, bs = s.meta.bounties;
     const done = bs.filter(bountyDone).length;
     const track = s.meta.tracker
-      ? `<button class="mtrk open" data-act="mtrack" aria-label="Hide bounty tracker">${bs.map(b => `<span class="${bountyDone(b) ? 'done' : ''}"><i style="--p:${(b.have / b.need).toFixed(3)}"></i>${esc(bountyText(b))} <b>${bountyDone(b) ? '✓' : `${b.have}/${b.need}`}</b></span>`).join('')}</button>`
+      ? `<button class="mtrk open" data-act="mtrack" aria-label="Hide bounty tracker">${bs.map(b => `<span class="${bountyDone(b) ? 'done' : ''}"><i style="--p:${(b.have / b.need).toFixed(3)}"></i><em>${esc(bountyText(b))}</em> <b>${bountyDone(b) ? '✓' : `${b.have}/${b.need}`}</b></span>`).join('')}</button>`
       : `<button class="mtrk" data-act="mtrack" aria-label="Show bounty tracker">Bounties${done ? ` <b>${done} done</b>` : ''}</button>`;
     if (track !== this.lastTrack) { this.lastTrack = track; tr.innerHTML = track; }
     for (const t of this.toasts) t.t -= dt;

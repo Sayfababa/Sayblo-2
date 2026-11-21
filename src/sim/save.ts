@@ -47,6 +47,14 @@ const MIGRATIONS: Record<number, (s: Raw) => Raw> = {
   6: s => ({ ...s, v: 7, meta: newMeta() }),
   // v8: rifts (work package C). Nothing is unlocked yet: Mother Vesper has to fall (again) to open them.
   7: s => ({ ...s, v: 8, rift: newRiftSave() }),
+  // v9: gem pouch (UI package): support gems leave the bag grid and the stash and go into their own pouch
+  8: s => {
+    const isG = (x: unknown) => !!x && (x as GemItem).kind === 'gem';
+    const bag = Array.isArray(s.bag) ? (s.bag as unknown[]) : [];
+    const stash = Array.isArray(s.stash) ? (s.stash as unknown[]).map(t => (Array.isArray(t) ? t : [])) : [];
+    const gems = [...bag, ...stash.flat()].filter(isG).map(g => { const { bx: _x, by: _y, ...rest } = g as GemItem; return rest; });
+    return { ...s, v: 9, gems, bag: bag.filter(x => !isG(x)), stash: stash.map(t => t.filter(x => !isG(x))) };
+  },
 };
 
 export class SaveError extends Error {}
@@ -103,7 +111,8 @@ function sanitize(s: Raw): SaveState {
     const k = x as KeyItem;
     return !!k && k.kind === 'key' && typeof k.id === 'number' && Number.isInteger(k.tier) && k.tier >= 1 && Array.isArray(k.mods) && k.mods.every(m => !!KEY_MODS[m]);
   };
-  const validBag = (x: unknown): x is BagItem => validItem(x) || validGem(x) || validKey(x);
+  // gems live in the gem pouch (out.gems), never in the bag or the stash
+  const validBag = (x: unknown): x is BagItem => validItem(x) || validKey(x);
   const sockets = (s.sockets || {}) as Record<string, unknown>;
   out.sockets = {};
   for (const [k, arr] of Object.entries(sockets)) {
@@ -115,6 +124,7 @@ function sanitize(s: Raw): SaveState {
   for (const k of SLOTS) { const it = equip[k]; if (validItem(it) && it.slot === k) out.equip[k] = it; }
   out.bag = (Array.isArray(s.bag) ? s.bag : []).filter(validBag);
   placeMissing(out.bag);
+  out.gems = (Array.isArray(s.gems) ? s.gems : []).filter(validGem).map(g => { const { bx: _x, by: _y, ...rest } = g; return rest; });
   const loot = (s.loot || {}) as Raw, minR = (loot.minR || {}) as Raw;
   out.loot = defaultLoot();
   for (const k of SLOTS) out.loot.minR[k] = Math.floor(num(minR[k], 0, 0, RARITIES.length - 1));
@@ -144,7 +154,7 @@ function sanitize(s: Raw): SaveState {
   out.barrier = num(s.barrier, 0, 0);
   out.kills = Math.floor(num(s.kills, 0, 0)); out.deaths = Math.floor(num(s.deaths, 0, 0));
   out.rift = sanitizeRift((s.rift || {}) as Raw, num, bool);
-  const maxId = Math.max(0, ...out.bag.map(i => i.id), ...out.stash.flat().map(i => i.id), ...Object.values(out.equip).filter((i): i is Item => !!i).map(i => i.id),
+  const maxId = Math.max(0, ...out.bag.map(i => i.id), ...out.stash.flat().map(i => i.id), ...out.gems.map(g => g.id), ...Object.values(out.equip).filter((i): i is Item => !!i).map(i => i.id),
     ...Object.values(out.sockets).flat().filter((g): g is GemItem => !!g).map(g => g.id));
   out.nextId = Math.max(Math.floor(num(s.nextId, 1, 1)), maxId + 1);
   out.savedAt = num(s.savedAt, 0, 0);

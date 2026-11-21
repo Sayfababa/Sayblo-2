@@ -1,0 +1,124 @@
+/* Phone density and "never sideways" pass (UI package). Loaded last, so it wins over the other sheets.
+   Target: 390 px wide, about 664 px visible (the artifact viewer eats the top of the screen).
+   Checked by scripts/ui-check.mjs. */
+
+/* ---------- nothing may ever scroll sideways ---------- */
+html,body,.stage{overflow:hidden;overflow:clip}
+.sheet{overflow-x:hidden;overflow-y:auto}
+.panel>*,.tipfloat>*,.sumbox>*{min-width:0}
+.row>*{min-width:0}
+.row>.hint{flex:1 1 160px}
+.kv div>span{min-width:0;overflow-wrap:anywhere}
+.tipact .btn{white-space:normal;text-align:center}
+
+/* ---------- header plaque ---------- */
+.phead h2 small{font-family:var(--f-body);font-weight:400;letter-spacing:0;text-transform:none}
+.bagcount{font-size:.72rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.pright{gap:0}
+.pright .matbar{gap:5px;margin-right:6px}
+
+/* ---------- hero: attribute rows = name (+ what it does) · value · one button group ---------- */
+.attr{grid-template-columns:minmax(0,1fr) auto auto;gap:8px;padding:4px 0}
+.attr .an{display:grid;min-width:0;line-height:1.2}
+.attr .an b{font-weight:700}
+.attr .an .d{font-size:.72rem;color:var(--muted)}
+.attr .v{min-width:2.2em;font-size:.95rem}
+.attr .updn{flex-wrap:nowrap;gap:4px}
+.kv{grid-template-columns:repeat(auto-fill,minmax(min(150px,100%),1fr))}
+
+/* ---------- bag ---------- */
+.bagbar{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.bagbar .updn{flex-wrap:nowrap;gap:4px}
+.bagtabs{flex:0 1 auto;gap:4px;min-width:0}
+.bagtabs button{flex:0 1 auto;min-width:0;padding:0 8px}
+.bagtabs small{font-family:var(--f-body);font-weight:700;color:var(--muted)}
+.sellbar .updn{flex-wrap:wrap;gap:4px}
+/* gem pouch: tiles with level (bottom right) and count (top right) */
+.pouch{display:grid;grid-template-columns:repeat(auto-fill,minmax(48px,1fr));gap:4px;padding:6px;
+  border:10px solid transparent;border-image:url(/sprites/ui-well.png) 40 / 10px stretch;background:rgba(0,0,0,.45);background-clip:padding-box}
+.gstack{position:relative;aspect-ratio:1;min-height:44px;padding:4px;display:grid;place-items:center;
+  background:color-mix(in srgb,var(--gc) 14%,rgba(0,0,0,.4));border:1px solid color-mix(in srgb,var(--gc) 35%,transparent)}
+.gstack .pic{width:100%;height:100%}
+.gstack .gn{position:absolute;right:2px;top:0;font-size:.7rem;color:var(--bone);text-shadow:0 1px 2px #000,0 0 3px #000;font-variant-numeric:tabular-nums}
+.gstack.sel{outline:2px solid var(--title);outline-offset:-1px;box-shadow:0 0 10px rgba(205,181,138,.6)}
+.fuserow{font-size:.85rem}
+
+/* ---------- town: eight sub-tabs in one row ---------- */
+.towntabs{flex-wrap:nowrap;gap:2px}
+/* forge and altar item picker: once an item is chosen it shrinks to two rows that scroll down, never sideways */
+.ftiles.strip{flex-wrap:wrap;overflow-x:hidden;overflow-y:auto;max-height:118px}
+.towntabs button{flex:1 1 0;min-width:0;padding:0;border-width:6px 3px;font-size:.62rem;letter-spacing:0;overflow:hidden;white-space:nowrap}
+
+/* ---------- bounty tracker: the progress number never gets cut ---------- */
+.mtrk span{display:flex;gap:4px}
+.mtrk span em{font-style:normal;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.mtrk span b{flex:none}
+
+/* ---------- phones ---------- */
+@media (max-width:819px){
+  :root{--cell:min(40px,calc((100vw - 54px)/10))}
+  /* the sheet covers almost the whole scene: only the area plate peeks out */
+  .sheet{top:44px;border-width:14px 10px 8px;border-image-width:14px 10px 8px;padding:4px 4px calc(12px + var(--tipspace,0px))}
+  .panel{gap:8px}
+  .panel h3{margin-top:2px}
+  .phead{top:-4px;gap:4px}
+  .plate{min-height:40px;border-width:9px 16px;border-image-width:9px 16px;padding:0;gap:6px}
+  .phead h2{font-size:.86rem;letter-spacing:.08em}
+  .pright{font-size:.76rem}
+  .pright .matn{font-size:.72rem}
+  .pright .mat{width:14px;height:14px}
+  .pright .ic{width:1.1em;height:1.1em;margin-right:.15em}
+
+  /* tap targets of at least 40 px */
+  .btn{min-height:40px}
+  .btn.sm{min-height:40px;font-size:.72rem}
+  .btn.sq,.etrack .btn.sq{width:40px;height:40px;min-width:40px}
+  .check{min-height:40px}
+  .grp summary{min-height:40px;display:flex;align-items:center}
+  .ddbtn{min-height:40px}
+  .subtabs button{min-height:40px}
+  .close.sm{width:40px;height:40px;top:2px;right:2px}
+  .tipfloat .tip{padding-right:42px}
+
+  /* wells and groups: thinner frames */
+  .well,.grp,.picker{border-width:10px;border-image-width:10px}
+  .grp{padding:0 6px 6px}
+  .well.attrs{padding:0 4px}
+  .kv{grid-template-columns:repeat(2,minmax(0,1fr));gap:0 10px;font-size:.78rem}
+  .kv div{gap:4px;padding:1px 0}
+  .kv.one,.grp .kv.one{grid-template-columns:1fr}
+
+  /* paperdoll in one low row: staff · helm · armor · amulet over ring */
+  .doll{grid-template-columns:calc(var(--cell)*1.3) calc(var(--cell)*2) calc(var(--cell)*2.2) calc(var(--cell)*1.3);
+    grid-template-rows:calc(var(--cell)*1.5) calc(var(--cell)*1.5);grid-template-areas:"weapon helm armor amulet" "weapon helm armor ring";
+    gap:6px;padding:4px;border-width:8px;border-image-width:8px}
+  .e-amulet,.e-ring{height:auto;align-self:stretch}
+  .eqslot{border-width:6px;border-image-width:6px}
+  .bagwell{border-width:6px;border-image-width:6px}
+  .salvbtns .btn{font-size:.72rem}
+  .sellbar{padding:4px}
+}
+@media (max-width:360px){
+  .towntabs button{font-size:.56rem}
+  .attr .an .d{display:none}
+}
+
+/* HUD on phones: skill buttons, area select, log button and sliders big enough to tap */
+@media (max-width:420px){
+  .center{border-width:22px 8px 12px;border-image-width:22px 8px 12px;padding:0 0 4px}
+  .skillbar{gap:4px}
+}
+.zonesel{min-height:40px}
+.hbtn{min-height:40px}
+.range input{height:40px;margin:0}
+
+/* equipped pictures always fit their slot (tall staffs used to poke out of the low paperdoll) */
+.eqslot>img.pic{position:absolute;inset:0;width:100%;height:100%;max-width:none;max-height:none;object-fit:contain}
+.bagtabs button{white-space:nowrap}
+/* sell mode: count and the three buttons in one line */
+.sellbar{flex-wrap:nowrap;gap:4px}
+.sellbar>span:first-child{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sellbar .updn{flex-wrap:nowrap;gap:3px}
+.sellbar .btn{border-width:8px 9px;padding:2px;font-size:.7rem}
+/* bag pictures fit their cells (tall staff pictures used to run past the 1x3 box) */
+.bi>img.pic{position:absolute;inset:0;width:100%;height:100%;max-width:none;max-height:none;padding:1px;object-fit:contain}
