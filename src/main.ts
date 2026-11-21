@@ -8,6 +8,7 @@ import './ui/economy.css';
 import './ui/feel.css';
 import './ui/meta.css';
 import './ui/rift.css';
+import './ui/skills.css';
 import { Application } from 'pixi.js';
 import { registerSW } from 'virtual:pwa-register';
 import { Scene } from './render/scene.ts';

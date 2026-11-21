@@ -4,10 +4,10 @@
  */
 import {
   ACT_NAME, AREAS, ATTRS, BAG_H, BAG_W, CONDITIONS, DIFFICULTIES, GEMS, HERO, RANKS, SKILLS, SLOT_NAMES,
-  SOCKET_LEVELS, TREES, isPassive, skillMaxLevel, type Attr, type Slot,
+  TREES, isPassive, type Attr, type Slot,
 } from '../content/index.ts';
 import { itemSize, canPlace } from '../sim/bag.ts';
-import { damageRange, formatMod, frostArmorBarrier, gemFits, gemText, potionPrice, respecCost, sellValue, skillCtx, calcStats, type SkillCtx } from '../sim/formulas.ts';
+import { gemFits, potionPrice, respecCost, sellValue } from '../sim/formulas.ts';
 import { SaveError, exportCode, importCode } from '../sim/save.ts';
 import type { RunStats, Sim } from '../sim/sim.ts';
 import { isEquip, isGem, isKey, type Monster, type SaveState, type SimEvent } from '../sim/types.ts';
@@ -19,6 +19,7 @@ import { gemColor } from './gemcolor.ts';
 import { EconomyUI, lootRulesHtml, matsHeader, matsKey, salvageBtn } from './economy.ts';
 import { salvage } from '../sim/economy.ts';
 import { bagBadges, feelBuffs, soundInput, soundSettings } from './feel.ts';
+import { SkillsUI, skillBuffs } from './skills.ts';
 import { MetaUI, metaBuffs, titleText, tyrantInfo, xpBar } from './meta.ts';
 
 const SHEET_W = 460;
@@ -50,10 +51,8 @@ export class UI {
   private selEq: Slot | null = null;
   private moveMode = false;
   private bagMsg = '';
-  private selSkill = 'fireball';
-  private pickSocket: number | null = null;
-  private skillMsg = '';
-  private skillView: 'tree' | 'prio' = 'tree';
+  /** skills menu: tree pages, detail card, modifiers, priority (skills.ts) */
+  private skills = new SkillsUI(() => this.sim, () => this.draw());
   /** open custom dropdown, e.g. "slot:2", "cond:0", "filter" */
   private openDD: string | null = null;
   private sellMode = false;
@@ -158,6 +157,7 @@ export class UI {
     if (fa > 0) b.push(`<span class="buff" title="Frost Armor"><img src="${skillIcon('frostarmor')}" alt="Frost Armor"><b>${Math.ceil(fa)}</b></span>`);
     b.push(...feelBuffs(sim)); // feel: shrines, vault, chill
     b.push(...metaBuffs(sim)); // meta: area event
+    b.push(...skillBuffs(sim)); // skills: Rime Shell, Storm Lanterns
     b.push(...riftBuffs(sim)); // rift: key modifiers
     if (sim.s.difficulty) b.push(`<span class="buff diff d${sim.s.difficulty}" title="${DIFFICULTIES[sim.s.difficulty].name}">${ic(DIFF_ICON[sim.s.difficulty])}${DIFFICULTIES[sim.s.difficulty].name}</span>`);
     const key = b.join('');
@@ -274,87 +274,8 @@ export class UI {
       </div></details>`;
   }
 
-  /* ----- skills ----- */
-  private ctxAt(id: string, add: number): SkillCtx {
-    const s2 = structuredClone(this.s) as SaveState;
-    s2.skills[id] = (s2.skills[id] || 0) + add;
-    return skillCtx(s2, calcStats(s2), id);
-  }
-  private skillInfo(id: string): string {
-    const sk = SKILLS[id], sim = this.sim, lv = this.s.skills[id] || 0;
-    if (isPassive(id)) {
-      const eff = sim.st.plus[sk.tree] || 0, total = lv ? lv + eff : 0;
-      return `<div class="kv one">${total ? `<div><span>Now</span>${esc(this.passiveText(id, total))}</div>` : ''}<div><span>Next level</span>${esc(this.passiveText(id, total ? total + 1 : 1 + eff))}</div></div>`;
-    }
-    const c = lv ? sim.ctx(id) : this.ctxAt(id, 1), rows: string[] = [];
-    const add = (l: string, v: string) => rows.push(`<div><span>${l}</span>${v}</div>`);
-    if (sk.type === 'buff') add('Barrier', String(frostArmorBarrier(c.lvl)));
-    else { const [a, b] = damageRange(c); add('Damage', `${a}–${b}`); }
-    add('Mana', String(c.mana));
-    add('Cast time', `${c.castTime.toFixed(2)}s`);
-    if (c.cooldown) add('Cooldown', `${c.cooldown}s`);
-    if (sk.type === 'buff') add('Duration', `${((sk.duration || 0) * c.durMult).toFixed(0)}s`);
-    if (c.radius) add('Radius', `${c.radius.toFixed(1)} tiles`);
-    if (sk.type === 'projectile') add('Projectiles', String(c.projectiles));
-    if (c.pierce) add('Pierce', String(c.pierce));
-    if (c.fork) add('Fork', `into ${c.fork}`);
-    if (sk.type === 'chain') add('Targets', String(c.chains));
-    if (sk.type !== 'buff') {
-      add('Crit', `${c.critChance.toFixed(0)}% · ${c.critMulti}%`);
-      if (c.inc.fire !== c.inc.cold || sk.element === 'fire') add('Increased', `+${Math.round(c.inc[sk.element])}%`);
-      if (c.more !== 1) add('More / less', `${c.more > 1 ? '+' : ''}${Math.round((c.more - 1) * 100)}%`);
-      add('Burn', `${Math.min(100, c.burnChance).toFixed(0)}%`);
-      if (sk.element === 'cold' || c.freezeChance) add('Freeze', `${c.freezeChance.toFixed(0)}% + heavy hits`);
-      add('Shock', `${Math.min(100, c.shockChance).toFixed(0)}%`);
-    }
-    let next = '';
-    if (lv && lv < skillMaxLevel(id) && sk.type !== 'buff') { const [a, b] = damageRange(this.ctxAt(id, 1)); next = `<p class="hint">Next level: damage ${a}–${b}, mana ${this.ctxAt(id, 1).mana}.</p>`; }
-    if (lv && sk.type === 'buff') next = `<p class="hint">Next level: barrier ${frostArmorBarrier(c.lvl + 1)}.</p>`;
-    return `<div class="kv">${rows.join('')}</div>${next}`;
-  }
-  private passiveText(id: string, n: number) {
-    const names: Record<string, string> = { burnDmg: 'Burn Damage', chillEffect: 'Chill Effect', shockEffect: 'Shock Effect' };
-    return Object.entries(SKILLS[id].stats!).map(([k, v]) => names[k] ? `+${v * n}% ${names[k]}` : formatMod([k, v * n])).join(', ');
-  }
-
-  private pSkills() {
-    const s = this.s, sim = this.sim, sel = SKILLS[this.selSkill] ? this.selSkill : 'fireball';
-    const view = this.skillView;
-    const sub = `<div class="subtabs" role="tablist">
-      <button role="tab" data-act="sview:tree" aria-selected="${view === 'tree'}">Tree</button>
-      <button role="tab" data-act="sview:prio" aria-selected="${view === 'prio'}">Priority${sim.blockedSlots().length ? '<i class="dot"></i>' : ''}</button></div>`;
-    const head = phead('Skills', s.skillPts ? `${ic('skillpt', 'Skill points')}<b class="gold">${s.skillPts}</b> point${s.skillPts > 1 ? 's' : ''}` : 'No skill points');
-    if (view === 'prio') { $('#p-skills').innerHTML = head + sub + this.prioView(); return; }
-    const trees = Object.entries(TREES).map(([t, T]) => {
-      const ids = Object.keys(SKILLS).filter(id => SKILLS[id].tree === t);
-      const rows = [0, 1, 2, 3].map(r => ids.filter(id => SKILLS[id].row === r));
-      return `<div class="stree t-${T.element}"><h3 class="${T.element}">${T.name}</h3>${rows.map((ids2, r) => `<div class="srow">${ids2.map(id => {
-        const sk = SKILLS[id], lv = s.skills[id] || 0, locked = s.lvl < sk.reqLevel, can = sim.canLearn(id);
-        const eff = lv ? lv + (sim.st.plus[t] || 0) : 0;
-        return `<button class="snode ${isPassive(id) ? 'passive' : ''} ${locked ? 'locked' : ''} ${lv ? 'learned' : ''} ${can ? 'can' : ''} ${id === sel ? 'sel' : ''}" data-act="skillsel:${id}" aria-label="${esc(sk.name)}, level ${lv}">
-          <span class="art"><img src="${skillIcon(id)}" alt=""></span><b class="lv">${eff > lv ? `<em>${eff}</em>` : lv}</b>${locked ? `<i class="req">${sk.reqLevel}</i>` : ''}</button>`;
-      }).join('')}</div>${r < 3 ? '<div class="sline"></div>' : ''}`).join('')}</div>`;
-    }).join('');
-    const sk = SKILLS[sel], lv = s.skills[sel] || 0, passive = isPassive(sel);
-    const sockets = passive ? '' : `<h4>Support gems</h4><div class="sockets">${SOCKET_LEVELS.map((need, i) => {
-      const g = sim.socketsOf(sel)[i], open = lv >= need;
-      if (g) return `<button class="sock full ${this.pickSocket === i ? 'sel' : ''}" data-act="sockpick:${i}" style="--gc:${gemColor(g.gem)}"><span class="hole">${itemPic(g, 'sockpic')}</span><span><b>${esc(GEMS[g.gem].name)}</b> <small>Lv ${g.lvl}</small><br><small>${esc(gemText(g))}</small></span></button>`;
-      return `<button class="sock ${open ? '' : 'closed'} ${this.pickSocket === i ? 'sel' : ''}" data-act="sockpick:${i}" ${open ? '' : 'disabled'}><span class="hole"></span><span>${open ? 'Empty socket: tap to insert a gem' : `Opens at skill level ${need}`}</span></button>`;
-    }).join('')}</div>${this.pickSocket != null && lv >= SOCKET_LEVELS[this.pickSocket] ? this.gemPicker(sel, this.pickSocket) : ''}`;
-    $('#p-skills').innerHTML = `${head}${sub}
-      <div class="strees">${trees}</div>
-      <div class="sdetail framed">
-        <div class="row"><span class="sdname"><span class="snode mini ${passive ? 'passive' : ''} learned"><span class="art"><img src="${skillIcon(sel)}" alt=""></span></span><span><b class="${sk.element}">${esc(sk.name)}</b><br><small>${passive ? 'Passive' : 'Active'} · Lv ${lv}/${skillMaxLevel(sel)}${lv && sim.st.plus[sk.tree] ? ` (+${sim.st.plus[sk.tree]})` : ''}</small></span></span>
-          <button class="btn primary" data-act="learn:${sel}" ${sim.canLearn(sel) ? '' : 'disabled'}>${lv ? 'Level up' : 'Learn'}</button></div>
-        ${sk.tags ? `<div class="chips">${sk.tags.filter(t => t !== 'hit').map(t => `<span class="chip">${t}</span>`).join('')}</div>` : ''}
-        <p class="d">${esc(sk.description)}</p>
-        ${s.lvl < sk.reqLevel ? `<p class="hint bad">${ic('lock')} Needs character level ${sk.reqLevel}.</p>` : ''}
-        ${this.skillInfo(sel)}
-        ${sockets}
-        ${this.skillMsg ? `<p class="hint bad">${esc(this.skillMsg)}</p>` : ''}
-      </div>
-      <p class="hint">Each point in a skill adds ${8}% increased damage to the other skills of its tree. Passive skills work on their own.</p>`;
-  }
+  /* ----- skills (skills.ts) ----- */
+  private pSkills() { $('#p-skills').innerHTML = this.skills.render((k, l, c, o) => this.dropdown(k, l, c, o)); }
 
   /** Custom dropdown: a button with the current value, and the option list while it is open. */
   private dropdown(key: string, label: string, cur: string, options: [string, string, string?][]): string {
@@ -363,33 +284,6 @@ export class UI {
     const pic = (o: [string, string, string?]) => (o[2] ? `<img src="${o[2]}" alt="">` : '');
     return `<div class="dd ${open ? 'open' : ''}"><button class="ddbtn" data-act="dd:${key}" aria-haspopup="listbox" aria-expanded="${open}" aria-label="${esc(label)}">${pic(curOpt)}<span>${esc(curOpt[1])}</span><i class="chev"></i></button>
       ${open ? `<div class="ddlist" role="listbox">${options.map(o => `<button role="option" aria-selected="${o[0] === cur}" data-act="ddpick:${key}:${o[0]}">${pic(o)}<span>${esc(o[1])}</span></button>`).join('')}</div>` : ''}</div>`;
-  }
-
-  private prioView(): string {
-    const s = this.s, sim = this.sim;
-    const learned = Object.keys(SKILLS).filter(k => s.skills[k] > 0 && !isPassive(k));
-    const skillOpts: [string, string, string?][] = [['', 'Empty'], ...learned.map(k => [k, SKILLS[k].name, skillIcon(k)] as [string, string, string])];
-    const condOpts: [string, string][] = Object.entries(CONDITIONS);
-    return `<p class="hint">She checks the slots from top to bottom and casts the first skill that is ready, affordable and whose condition is true. If none fits, she uses Staff Spark (free, weak). Drag a card by its handle to reorder.</p>
-      ${sim.blockedSlots().map(([i, b]) => `<p class="hint bad">Slot ${i + 1} is never cast: slot ${b + 1} is set to "Always" and is always ready.</p>`).join('')}
-      <div class="prio">${s.slots.map((sl, i) => `<div class="pcard" data-slot="${i}">
-        <span class="grip" data-grip="${i}" aria-hidden="true"><b>${i + 1}</b></span>
-        <span class="snode mini ${sl.id ? 'learned' : 'empty'}"><span class="art">${sl.id ? `<img src="${skillIcon(sl.id)}" alt="">` : ''}</span></span>
-        <span class="psel">${this.dropdown(`slot:${i}`, `Skill in slot ${i + 1}`, sl.id ?? '', skillOpts)}${this.dropdown(`cond:${i}`, `Condition for slot ${i + 1}`, sl.cond, condOpts)}</span>
-        <span class="updn vert"><button class="btn sq" data-act="up:${i}" ${i ? '' : 'disabled'} aria-label="Move up">▲</button><button class="btn sq" data-act="down:${i}" ${i < 3 ? '' : 'disabled'} aria-label="Move down">▼</button></span></div>`).join('')}</div>
-      <div class="row" style="justify-content:flex-start"><button class="btn" data-act="autoorder">${ic('sort')}Sort automatically</button></div>`;
-  }
-
-  private gemPicker(skill: string, i: number): string {
-    const sim = this.sim, cur = sim.socketsOf(skill)[i];
-    const gems = this.s.bag.filter(isGem).sort((a, b) => Number(gemFits(b.gem, skill)) - Number(gemFits(a.gem, skill)) || b.lvl - a.lvl);
-    const list = gems.map(g => {
-      const fits = gemFits(g.gem, skill), dup = sim.socketsOf(skill).some((o, j) => o && j !== i && o.gem === g.gem);
-      return `<button class="gemopt" data-act="sock:${skill}:${i}:${g.id}" ${fits && !dup ? '' : 'disabled'} style="--gc:${gemColor(g.gem)}">${itemPic(g, 'sockpic')}
-        <span><b>${esc(GEMS[g.gem].name)}</b> <small>Lv ${g.lvl}</small><br><small>${fits ? (dup ? 'Already in this skill.' : esc(gemText(g))) : `Does not fit: needs ${GEMS[g.gem].requires.join(', ')}`}</small></span></button>`;
-    }).join('');
-    return `<div class="picker">${cur ? `<button class="btn sm" data-act="unsock:${skill}:${i}">Take ${esc(GEMS[cur.gem].name)} out</button>` : ''}
-      ${list || '<p class="hint">No support gems in the bag yet. Champions, elites and bosses drop them more often.</p>'}</div>`;
   }
 
   /* ----- bag ----- */
@@ -534,7 +428,7 @@ export class UI {
     $('#sheet').hidden = !this.tab;
     $('#stage').classList.toggle('open', !!this.tab);
     document.querySelectorAll('.panel').forEach(x => x.classList.toggle('active', x.id === 'p-' + this.tab));
-    this.moveMode = false; this.bagMsg = ''; this.skillMsg = '';
+    this.moveMode = false; this.bagMsg = ''; this.skills.msg = '';
     this.openDD = null; this.sellMode = false; this.sellSel.clear();
     if (this.tab !== 'bag') this.showTip('');
     if (this.tab) { this.sim.dirty.add(this.tab); $('#sheet').scrollTop = 0; this.draw(); }
@@ -552,8 +446,8 @@ export class UI {
     if (!b || b.disabled) return;
     const [a, x, y, z] = (b.dataset.act || '').split(':');
     const sim = this.sim, s = this.s, D = sim.dirty;
+    if (this.skills.click(a, x, y, z, this.tab)) { this.openDD = null; this.draw(); return; } // skills menu (skills.ts)
     switch (a) {
-      case 'sview': this.skillView = x as 'tree' | 'prio'; this.openDD = null; D.add('skills'); break;
       case 'dd': { const key = y != null ? `${x}:${y}` : x; this.openDD = this.openDD === key ? null : key; D.add(this.tab ?? 'skills'); break; }
       case 'ddpick': {
         // ddpick:slot:2:fireball · ddpick:cond:2:always · ddpick:filter:3
@@ -586,21 +480,15 @@ export class UI {
       case 'speed': s.speed = +x; break;
       case 'attr': sim.addAttr(x as Attr, +(y || 1)); break;
       case 'skillsel':
-        if (this.selSkill !== x) this.pickSocket = null;
-        this.selSkill = x; this.skillMsg = '';
+        this.skills.select(x);
         if (this.tab !== 'skills') this.setTab('skills');
         D.add('skills');
         break;
-      case 'learn': sim.learnSkill(x); break;
-      case 'sockpick': this.pickSocket = this.pickSocket === +x ? null : +x; this.skillMsg = ''; D.add('skills'); break;
-      case 'sock': {
+      case 'sock': { // from the bag (the skills menu handles its own picker in skills.ts)
         const err = sim.socketGem(x, +y, +z);
-        if (this.tab === 'bag') { this.bagMsg = err ?? ''; if (!err) this.selBag = null; D.add('bag'); }
-        else { this.skillMsg = err ?? ''; if (!err) this.pickSocket = null; D.add('skills'); }
-        D.add('slots');
+        this.bagMsg = err ?? ''; if (!err) this.selBag = null; D.add('bag'); D.add('slots');
         break;
       }
-      case 'unsock': { const err = sim.unsocket(x, +y); this.skillMsg = err ?? ''; if (!err) this.pickSocket = null; D.add('skills'); D.add('slots'); break; }
       case 'up': case 'down': sim.moveSlot(+x, a === 'up' ? -1 : 1); break;
       case 'bagsel':
         if (this.sellMode) { if (this.sellSel.has(+x)) this.sellSel.delete(+x); else this.sellSel.add(+x); D.add('bag'); break; }

@@ -12,6 +12,7 @@ import type { Monster, SimEvent } from '../sim/types.ts';
 import { discTexture, glowTexture, holeTexture, tex } from './textures.ts';
 import { FeelFx, type Kit } from './feel.ts';
 import { MetaFx, metaTint, monScale } from './meta.ts';
+import { SpellFx } from './spells.ts';
 import { hasPerfect, isUpgrade } from '../sim/upgrade.ts';
 import type { FeelObject } from '../sim/feel.ts';
 
@@ -151,6 +152,8 @@ export class Scene {
   feel = new FeelFx();
   /** work package D: area events, tyrant sigil and tint (see meta.ts) */
   meta = new MetaFx();
+  /** skills package: beams, hail, ground, wisps, lanterns, shell, hex marks (see spells.ts) */
+  spells = new SpellFx();
   private kit: Kit;
   /** Factor main.ts applies to the time fed into the simulation (hit-stop / slow motion). */
   get timeScale() { return this.feel.timeScale; }
@@ -173,7 +176,7 @@ export class Scene {
 
   /** Forget everything that belongs to the old run (after import or reset). */
   reset(sim: Sim) {
-    this.mons.clear(); this.fx = []; this.floats = []; this.zone = -1; this.feel.reset(); this.meta.reset();
+    this.mons.clear(); this.fx = []; this.floats = []; this.zone = -1; this.feel.reset(); this.meta.reset(); this.spells.reset();
     this.cam.x = sim.hero.x; this.cam.y = sim.hero.y;
   }
 
@@ -181,6 +184,7 @@ export class Scene {
   consume(events: SimEvent[]) {
     this.feel.consume(events);
     this.meta.consume(events); // meta
+    this.spells.consume(events); // skills
     for (const e of events) {
       switch (e.t) {
         case 'burst': this.fx.push({ k: 'burst', t: 0, dur: e.size >= 150 ? 0.5 : 0.35, e, seed: 0 }); break;
@@ -391,6 +395,7 @@ export class Scene {
     for (const L of this.lights) this.glow(this.lightL, L.x, L.y, L.r, L.c, L.a, L.flat);
     this.drawSpells(sim, alpha);
     this.feel.drawFx(this.kit, sim); // feel: loot beams, warning circles, auras, vault, pulses
+    this.spells.drawFx(this.kit, sim, alpha, sdt); // skills
     this.meta.drawFx(this.kit, sim, real); // meta: Blood Moon, Rift Tear, tyrant sigil, champion casing
     for (const v of this.mons.values()) {
       const a = this.anchors.get(v.m.id);
