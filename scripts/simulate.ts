@@ -10,6 +10,9 @@ import { Sim } from '../src/sim/sim.ts';
 import { canAfford, craftCost, craftableMods, emberBlock } from '../src/sim/crafting.ts';
 import { forge, salvage } from '../src/sim/economy.ts';
 import { isGem } from '../src/sim/types.ts';
+import { bountyDone } from '../src/sim/bounty.ts';
+import { imprintBlock, imprintCost } from '../src/sim/codex.ts';
+import { UNIQUES, TYRANTS } from '../src/content/index.ts';
 
 const minutes = Number(process.argv[2] ?? 60), seed = Number(process.argv[3] ?? 1), build = process.argv[4] ?? 'fire';
 const PLANS: Record<string, string[]> = {
@@ -54,12 +57,27 @@ function spend() {
       if (g) sim.socketGem(id, si, g.id);
     });
   }
-  // normal and magic items are sold for gold, rares salvaged for crafting
-  for (const it of s.bag.slice()) if (!isGem(it) && it.r < 3) { if (it.r < 2) sim.sell(it.id); else salvage(sim, it.id); }
+  // normal and magic items are sold for gold, rares salvaged for crafting, spare uniques salvaged for the codex
+  for (const it of s.bag.slice()) if (!isGem(it)) { if (it.r < 2) sim.sell(it.id); else salvage(sim, it.id); }
+  meta();
   craft();
   if (s.hpPot < 5) sim.buyPotions('hp', 5);
   if (s.mpPot < 5) sim.buyPotions('mp', 5);
   for (let d = DIFFICULTIES.length - 1; d > s.difficulty; d--) if (s.progress[d]) { sim.setDifficulty(d); break; }
+}
+
+/** Meta: claim finished bounties, swap those for other areas, imprint codex effects on equipped rares. */
+function meta() {
+  const s = sim.s, M = sim.meta;
+  for (const b of s.meta.bounties.slice()) {
+    if (bountyDone(b)) M.claim(b.id);
+    else if ((b.kind === 'killArea' || b.kind === 'killTyrant') && (b.area !== s.zone || b.diff !== s.difficulty)) M.swap(b.id);
+  }
+  for (const it of Object.values(s.equip)) {
+    if (!it || it.ipr) continue;
+    const u = s.meta.codex.find(x => UNIQUES[x].slot === it.slot && !imprintBlock(s, it, x));
+    if (u && canAfford(s.mats, imprintCost(it))) M.imprint(it.id, u);
+  }
 }
 
 const reached: string[] = [];
@@ -78,3 +96,6 @@ console.log('Gems:', Object.entries(s.sockets).map(([k, a]) => `${k}: ${a.filter
 console.log('Materials:', JSON.stringify(s.mats), 'crafts:', JSON.stringify(crafts));
 console.log('Res:', JSON.stringify(sim.st.res), 'life', sim.st.maxLife);
 console.log('Feel:', JSON.stringify(sim.feel.stats));
+const mr = sim.meta.run, mt = s.meta;
+console.log('Meta:', JSON.stringify({ bounties: mr.bounties, tyrantSpawns: mr.tyrantSpawns, tyrantKills: mr.tyrantKills, events: mr.events, feats: mt.feats.length, codex: mt.codex.length, imprints: mr.imprints, ember: mr.ember }));
+console.log('Tyrant counters:', JSON.stringify(mt.tyrant), 'slain:', JSON.stringify(mt.slain), `(${Object.keys(TYRANTS).length} tyrants)`);
