@@ -1,0 +1,61 @@
+{
+  "_doc": "Work package A (Feel): upgrade arrow, perfect rolls, shrines, the fleeing treasure creature and its vault.",
+  "upgrade": {
+    "_doc": "Item power = sum over all mods of (value / best possible value of that affix at refLevel) x kind weight, plus uniqueBonus for a unique effect. An item is an upgrade when its power beats the equipped one by more than minGain (relative) and at least minAbs.",
+    "kindWeight": { "offense": 1, "defense": 0.8, "mana": 0.4 },
+    "refLevel": 38,
+    "uniqueBonus": 1.5,
+    "minGain": 0.05,
+    "minAbs": 0.05
+  },
+  "perfect": {
+    "_doc": "A perfect roll is an affix of this tier whose value is at least rangeShare of the way from the lowest to the highest roll.",
+    "tier": 1,
+    "rangeShare": 0.95
+  },
+  "shrines": {
+    "chance": 0.08,
+    "useRange": 1.3,
+    "_effects": "stat keys add to the hero's stats (castSpeed, spellDmg, burnDmg, ...). Special keys: goldPct, xpPct, rarityPct (more magic/rare/unique drops), barrierLifePct (extra maximum barrier as % of life, filled on use).",
+    "types": {
+      "embers":  { "name": "Shrine of Embers",  "text": "Burns deal double damage",              "color": "#ff7a3d", "duration": 45, "weight": 10, "effects": { "burnDmg": 100 } },
+      "greed":   { "name": "Shrine of Greed",   "text": "+100% gold from monsters",              "color": "#e8cc5c", "duration": 60, "weight": 10, "effects": { "goldPct": 100 } },
+      "frenzy":  { "name": "Shrine of Frenzy",  "text": "+50% cast speed",                       "color": "#ff5a5a", "duration": 30, "weight": 8,  "effects": { "castSpeed": 50 } },
+      "bulwark": { "name": "Bulwark Shrine",    "text": "Barrier overcharged: +40% of life as barrier", "color": "#a6dcf0", "duration": 45, "weight": 8, "effects": { "barrierLifePct": 40 } },
+      "fortune": { "name": "Shrine of Fortune", "text": "Magic, rare and unique items drop 75% more often", "color": "#b48cff", "duration": 40, "weight": 7, "effects": { "rarityPct": 75 } },
+      "lore":    { "name": "Shrine of Lore",    "text": "+50% experience",                       "color": "#86c46f", "duration": 50, "weight": 8,  "effects": { "xpPct": 50 } },
+      "fury":    { "name": "Shrine of Fury",    "text": "+40% spell damage",                     "color": "#ff9a3d", "duration": 35, "weight": 7,  "effects": { "spellDmg": 40 } }
+    }
+  },
+  "treasure": {
+    "_doc": "The Coin-Wretch: rare, flees from the hero, escapes after lifetime seconds. Uses the champion rank for life and rewards, times hpMult.",
+    "monster": "wretch",
+    "name": "Coin-Wretch",
+    "sub": "Treasure · it flees!",
+    "chance": 0.04,
+    "lifetime": 12,
+    "hpMult": 0.6,
+    "spawnDistance": 5,
+    "keepDistance": [3.5, 6.5],
+    "turnEvery": [0.6, 1.4],
+    "goldPiles": [8, 12],
+    "goldPerPile": 1.6,
+    "items": [2, 3],
+    "minRarity": 1,
+    "gemChance": 0.5,
+    "vaultChance": 0.15
+  },
+  "vault": {
+    "_doc": "Short state of the current area after a Coin-Wretch dies: waves come denser, do not count towards area progress, and bring chests.",
+    "name": "Hoard Vault",
+    "duration": 60,
+    "extraMonsters": 3,
+    "chests": [1, 2],
+    "chestGoldPiles": [3, 5],
+    "chestItems": [1, 2],
+    "chestMinRarity": 1,
+    "goldMult": 2,
+    "goldChanceAdd": 0.3,
+    "itemChanceAdd": 0.1
+  }
+}

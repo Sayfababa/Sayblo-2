@@ -17,6 +17,7 @@ import { itemTooltip } from './tooltip.ts';
 import { gemColor } from './gemcolor.ts';
 import { EconomyUI, lootRulesHtml, matsHeader, matsKey, salvageBtn } from './economy.ts';
 import { salvage } from '../sim/economy.ts';
+import { bagBadges, feelBuffs, soundInput, soundSettings } from './feel.ts';
 
 const SHEET_W = 460;
 const DIFF_ICON = ['normal', 'nightmare', 'hell'];
@@ -146,6 +147,7 @@ export class UI {
     const sim = this.sim, b: string[] = [];
     const fa = sim.buffs.frostarmor ?? 0;
     if (fa > 0) b.push(`<span class="buff" title="Frost Armor"><img src="${skillIcon('frostarmor')}" alt="Frost Armor"><b>${Math.ceil(fa)}</b></span>`);
+    b.push(...feelBuffs(sim)); // feel: shrines, vault, chill
     if (sim.s.difficulty) b.push(`<span class="buff diff d${sim.s.difficulty}" title="${DIFFICULTIES[sim.s.difficulty].name}">${ic(DIFF_ICON[sim.s.difficulty])}${DIFFICULTIES[sim.s.difficulty].name}</span>`);
     const key = b.join('');
     if (key !== this.lastBuffs) { this.lastBuffs = key; $('#buffs').innerHTML = key; }
@@ -391,7 +393,7 @@ export class UI {
     const items = s.bag.map(it => {
       const [w, h] = itemSize(it), r = isGem(it) ? 'gem' : 'r' + it.r;
       const picked = this.sellMode && this.sellSel.has(it.id);
-      return `<button class="bi ${r} ${it.id === this.selBag ? 'sel' : ''} ${picked ? 'picked' : ''}" style="--x:${it.bx};--y:${it.by};--w:${w};--h:${h}${isGem(it) ? `;--gc:${gemColor(it.gem)}` : ''}" data-act="bagsel:${it.id}" aria-label="${esc(sim.itemName(it))}" ${this.sellMode ? `aria-pressed="${picked}"` : ''}>${itemPic(it, 'pic', true)}</button>`;
+      return `<button class="bi ${r} ${it.id === this.selBag ? 'sel' : ''} ${picked ? 'picked' : ''}" style="--x:${it.bx};--y:${it.by};--w:${w};--h:${h}${isGem(it) ? `;--gc:${gemColor(it.gem)}` : ''}" data-act="bagsel:${it.id}" aria-label="${esc(sim.itemName(it))}" ${this.sellMode ? `aria-pressed="${picked}"` : ''}>${itemPic(it, 'pic', true)}${bagBadges(it, s.equip)}</button>`;
     }).join('');
     let tip = '';
     if (this.sellMode) tip = '';
@@ -481,6 +483,7 @@ export class UI {
       <h3>${ic('settings')}Display</h3>
       <label class="check" for="dmgNumbers"><input type="checkbox" id="dmgNumbers" ${s.settings.dmgNumbers ? 'checked' : ''}> Show damage numbers</label>
       <label class="check" for="lootLabels"><input type="checkbox" id="lootLabels" ${s.settings.lootLabels ? 'checked' : ''}> Show loot names on the ground</label>
+      ${soundSettings(s)}
       <h3>Mystic</h3>
       <div class="row"><span class="hint">Reset all attribute and skill points. Gems go back to the bag.</span><button class="btn" data-act="respec">Respec · ${rc}g</button></div>
       <h3>Save game</h3>
@@ -656,12 +659,14 @@ export class UI {
     else if (t.id === 'kite') s.kite = t.checked;
     else if (t.id === 'dmgNumbers') s.settings.dmgNumbers = t.checked;
     else if (t.id === 'lootLabels') s.settings.lootLabels = t.checked;
+    else soundInput(t, s);
     this.draw();
   }
 
   private onInput(e: Event) {
     const t = e.target as HTMLInputElement;
     if (t.id === 'hpTh' || t.id === 'mpTh') { this.s[t.id] = +t.value; $('#' + t.id + 'v').textContent = t.value + '%'; }
+    else if (soundInput(t, this.s)) { /* feel: volume slider */ }
     else if (t.id === 'importcode') {
       this.importDraft = t.value;
       if (this.importArm) { this.importArm = false; this.sim.dirty.add('town'); }

@@ -12,9 +12,11 @@ import {
   afterHeroRes, afterRes, calcStats, clamp, frostArmorBarrier, gemFits, hitDamage, keepValue, mainElement, monsterDmg, monsterHp,
   monsterXp, potionPrice, xpFactor, respecCost, sellValue, skillCtx, total, xpNeeded, type Dmg, type SkillCtx, type Stats,
 } from './formulas.ts';
+import { Feel } from './feel.ts';
 import { genGem, genItem } from './items.ts';
 import { disposeItem } from './economy.ts';
 import { lootFate } from './loot.ts';
+import { isUpgrade } from './upgrade.ts';
 import { Rng } from './rng.ts';
 import { emptySlots, newSaveState } from './state.ts';
 import {
@@ -71,6 +73,8 @@ export class Sim {
   townT = 0;
   returnZone = 0;
   targetId: number | null = null;
+  /** work package A: shrines, treasure creature, vault, monster affixes (see feel.ts) */
+  feel = new Feel(this);
   private uid = 1;
   private ctxCache = new Map<string, SkillCtx>();
 
@@ -86,11 +90,11 @@ export class Sim {
   }
 
   /* ---------- helpers ---------- */
-  private emit(e: SimEvent) { if (this.collectEvents) this.events.push(e); }
+  emit(e: SimEvent) { if (this.collectEvents) this.events.push(e); }
   log(msg: string, cls = '') { this.emit({ t: 'log', msg, cls }); }
-  private float(x: number, y: number, text: string, col: string, big?: boolean, dmg?: boolean) { this.emit({ t: 'float', x, y, text, col, big, dmg }); }
-  private nextUid() { return this.uid++; }
-  private itemId() { return this.s.nextId++; }
+  float(x: number, y: number, text: string, col: string, big?: boolean, dmg?: boolean) { this.emit({ t: 'float', x, y, text, col, big, dmg }); }
+  nextUid() { return this.uid++; }
+  itemId() { return this.s.nextId++; }
   get life() { return this.s.life ?? 0; }
   get mana() { return this.s.mana ?? 0; }
   get diff() { return DIFFICULTIES[this.s.difficulty]; }
@@ -99,6 +103,7 @@ export class Sim {
 
   recalc() {
     this.st = calcStats(this.s);
+    this.feel.applyStats(this.st); // feel: shrine buffs
     this.ctxCache.clear();
     if (this.s.life != null) this.s.life = Math.min(this.s.life, this.st.maxLife);
     if (this.s.mana != null) this.s.mana = Math.min(this.s.mana, this.st.maxMana);
@@ -121,7 +126,7 @@ export class Sim {
     return { x: this.hero.x + this.dir.x * d, y: this.hero.y + this.dir.y * d };
   }
 
-  private mkMon(def: string, L: number, rank: number, x: number, y: number): Monster {
+  mkMon(def: string, L: number, rank: number, x: number, y: number): Monster {
     const d = MONSTERS[def], rng = this.rng, diff = this.s.difficulty;
     const hp = monsterHp(def, L, rank, diff);
     const m: Monster = {
@@ -152,12 +157,14 @@ export class Sim {
       m.res = { ...d.boss.res };
       m.boss = { phase: 0, specT: d.boss.special.first };
     }
+    this.feel.initMon(m); // feel: champion affixes
     return m;
   }
 
-  private spawnWave() {
+  /** Spawn a wave ahead of the hero (`extra` more monsters in a vault). Returns its centre. */
+  spawnWave(extra = 0) {
     const z = AREAS[this.s.zone], h = this.hero, rng = this.rng, L = this.areaLevel();
-    const n = 1 + rng.int(0, 2 + Math.min(2, Math.floor(this.s.zone / 2)));
+    const n = 1 + rng.int(0, 2 + Math.min(2, Math.floor(this.s.zone / 2))) + extra;
     const sd = WAVES.spawnDistance;
     const cx = h.x + this.dir.x * sd, cy = h.y + this.dir.y * sd, px = -this.dir.y, py = this.dir.x;
     this.monsters = [];
@@ -168,6 +175,8 @@ export class Sim {
       this.monsters.push(this.mkMon(rng.pick(z.pool), L + (rank ? 1 : 0), rank, cx + px * o + this.dir.x * f, cy + py * o + this.dir.y * f));
     }
     for (const m of this.monsters) if (m.rank === 2) this.log(`An elite appears: **${m.name}** (${m.sub})`, 'r2');
+    if (!extra) this.feel.onWave(cx, cy); // feel: shrines and treasure creature
+    return { x: cx, y: cy };
   }
 
   private spawnBoss() {
@@ -191,6 +200,7 @@ export class Sim {
 
   enterZone(i: number) {
     this.s.zone = i; this.wave = 0; this.bossSpawned = false; this.monsters = []; this.projectiles = []; this.strikes = []; this.echoes = [];
+    this.feel.reset(); // feel
     while (this.drops.length) this.pickup(this.drops[0]);
     if (this.s.life == null || this.s.life <= 0) { this.s.life = this.st.maxLife; this.s.mana = this.st.maxMana; }
     this.phase = 'walk'; this.wps = [this.fwd(4)];
@@ -204,7 +214,7 @@ export class Sim {
     this.phase = 'walk';
     const route: { x: number; y: number }[] = [];
     let cur: { x: number; y: number } = { x: this.hero.x, y: this.hero.y };
-    const left = this.drops.slice();
+    const left: { x: number; y: number }[] = [...this.drops, ...this.feel.routePoints()]; // feel: walk past shrines and chests
     while (left.length) {
       let bi = 0;
       left.forEach((d, i) => { if (dist(d, cur) < dist(left[bi], cur)) bi = i; });
@@ -222,6 +232,7 @@ export class Sim {
 
   private nextWave() {
     const z = AREAS[this.s.zone];
+    if (this.feel.onNextWave()) return; // feel: vault waves
     this.wave++;
     if (this.wave > z.waves) {
       if (z.boss && !this.bossSpawned) { this.spawnBoss(); return; }
@@ -289,7 +300,7 @@ export class Sim {
   }
   private aliveNear() {
     const h = this.hero;
-    return this.monsters.filter(m => m.hp > 0 && dist(m, h) <= HERO.movement.aggroRange).sort((a, b) => dist(a, h) - dist(b, h));
+    return this.monsters.filter(m => m.hp > 0 && dist(m, h) <= HERO.movement.aggroRange).sort((a, b) => this.feel.prio(b) - this.feel.prio(a) || dist(a, h) - dist(b, h));
   }
 
   private heroAct() {
@@ -449,7 +460,7 @@ export class Sim {
     m.freezeCd = STATES.freezeCooldown + m.frozen;
   }
 
-  private dmgMon(m: Monster, amt: number) {
+  dmgMon(m: Monster, amt: number) {
     if (m.hp <= 0) return;
     if (m.ward > 0) { const a = Math.min(m.ward, amt); m.ward -= a; amt -= a; }
     m.hp -= amt;
@@ -462,10 +473,11 @@ export class Sim {
         this.log(ph.message, 'r3');
       }
     }
+    this.feel.onDamaged(m); // feel: Mirrored
     if (m.hp <= 0) this.kill(m);
   }
 
-  private monHit(dmg: number, el: Element, name: string, mult = 1, label?: string, vampMon?: Monster) {
+  monHit(dmg: number, el: Element, name: string, mult = 1, label?: string, vampMon?: Monster) {
     if (this.phase !== 'fight') return;
     const st = this.st, h = this.hero, s = this.s;
     if (!label && this.rng.next() * 100 < st.dodge) { this.float(h.x, h.y, 'Dodge', '#86c46f'); return; }
@@ -519,22 +531,23 @@ export class Sim {
   }
 
   private kill(m: Monster) {
-    const burning = m.burn > 0;
+    const burning = m.burn > 0, overkill = Math.max(0, -m.hp);
     m.hp = 0;
-    const s = this.s, rk = RANKS[m.rank], rng = this.rng, D = ITEMS.drops, diff = this.diff;
+    const s = this.s, rk = RANKS[m.rank], rng = this.rng, D = ITEMS.drops, diff = this.diff, F = this.feel;
     s.kills++; this.run.kills++;
-    this.gainXp(Math.round(monsterXp(m.L, m.rank, s.difficulty) * xpFactor(s.lvl, m.L)));
+    this.gainXp(Math.round(monsterXp(m.L, m.rank, s.difficulty) * xpFactor(s.lvl, m.L) * F.xpMult()));
+    if (!F.onKill(m, overkill)) return; // feel: treasure creature, mirror images, death blasts
     if (m.rank >= 1) this.log(`${rk.name} **${m.name}** slain.`, m.rank >= 2 ? 'r2' : '');
-    if (m.rank > 0 || rng.chance(D.goldChance))
-      this.drops.push({ id: this.nextUid(), x: m.x + rng.range(-0.5, 0.5), y: m.y + rng.range(-0.5, 0.5), gold: Math.round(m.L * rng.range(D.goldPerLevel[0], D.goldPerLevel[1]) * rk.gold * diff.goldMult) });
+    if (m.rank > 0 || rng.chance(D.goldChance + F.goldChanceAdd()))
+      this.drops.push({ id: this.nextUid(), x: m.x + rng.range(-0.5, 0.5), y: m.y + rng.range(-0.5, 0.5), gold: Math.round(m.L * rng.range(D.goldPerLevel[0], D.goldPerLevel[1]) * rk.gold * diff.goldMult * F.goldMult()) });
     let n = 0, minR = 0, gemChance = D.gemChance;
-    if (m.rank === 0) n = rng.chance(D.itemChance) ? 1 : 0;
+    if (m.rank === 0) n = rng.chance(D.itemChance + F.itemChanceAdd()) ? 1 : 0;
     else {
       const rule = m.rank === 1 ? D.champion : m.rank === 2 ? D.elite : D.boss;
       n = rng.int(rule.count[0], rule.count[1]); minR = rule.minRarity; gemChance = rule.gemChance;
     }
     for (let i = 0; i < n; i++) {
-      const it = genItem(rng, this.itemId(), m.L, minR, m.rank === 3);
+      const it = genItem(rng, this.itemId(), m.L, minR, m.rank === 3, F.rarityBoost());
       // loot filter rules (loot.ts): items not kept are sold or salvaged on the spot
       const fate = lootFate(s.loot, it, s.equip);
       if (fate !== 'keep') { this.run.gold += disposeItem(s, it, fate); continue; }
@@ -566,6 +579,7 @@ export class Sim {
       this.recalc(); s.life = this.st.maxLife; s.mana = this.st.maxMana;
       this.emit({ t: 'ring', x: this.hero.x, y: this.hero.y, r0: 0.2, r1: 2, dur: 0.8, el: 'gold' });
       this.float(this.hero.x, this.hero.y, 'Level up!', '#e8cc5c', true);
+      this.emit({ t: 'levelup' });
       this.log(`Level ${s.lvl}! +${HERO.perLevel.attributePoints} attribute points, +${HERO.perLevel.skillPoints} skill point.`, 'lvl');
       this.dirty.add('hero'); this.dirty.add('skills');
     }
@@ -579,6 +593,7 @@ export class Sim {
     this.log(`You died. Lost ${xl} XP and ${gl} gold.`, 'bad');
     this.phase = 'town'; this.townT = D.townTime; this.returnZone = Math.max(0, s.zone - 1);
     this.monsters = []; this.projectiles = []; this.strikes = []; this.echoes = []; this.drops = []; this.buffs = {}; this.faAmt = 0; this.cd = {};
+    this.feel.reset(true); // feel: lose shrine buffs
     s.life = this.st.maxLife; s.mana = this.st.maxMana; s.barrier = 0;
     this.emit({ t: 'clear' });
   }
@@ -654,6 +669,7 @@ export class Sim {
       return;
     }
     this.regen(dt);
+    this.feel.tick(dt); // feel: shrine buffs, vault timer, death blasts, loot events
     for (const k in this.cd) if (this.cd[k] > 0) this.cd[k] -= dt;
     if ((this.buffs.frostarmor ?? 0) > 0) {
       this.buffs.frostarmor -= dt;
@@ -668,6 +684,7 @@ export class Sim {
       if (d <= st) { h.x = wp.x; h.y = wp.y; this.wps.shift(); if (!this.wps.length) this.waitT = 0.3; }
       else { h.x += (dx / d) * st; h.y += (dy / d) * st; }
       for (const dr of this.drops.slice()) if (dist(dr, h) < M.pickupRange) this.pickup(dr);
+      this.feel.walkStep(); // feel: use shrines and chests
       return;
     }
     h.walking = false;
@@ -680,7 +697,7 @@ export class Sim {
       const dsx = this.kdir.x - this.kdir.y;
       if (Math.abs(dsx) > 0.05) h.f = dsx > 0 ? 1 : -1;
     } else {
-      const near = alive.filter(m => !MONSTERS[m.def].ranged && m.frozen <= 0 && dist(m, h) < M.kiteTrigger);
+      const near = alive.filter(m => !MONSTERS[m.def].ranged && !MONSTERS[m.def].treasure && m.frozen <= 0 && dist(m, h) < M.kiteTrigger);
       if (s.kite !== false && near.length && this.kiteCd <= 0 && this.castT <= 0.2) {
         let ax = 0, ay = 0;
         for (const m of near) { const d = Math.max(0.3, dist(m, h)); ax += (h.x - m.x) / (d * d); ay += (h.y - m.y) / (d * d); }
@@ -690,7 +707,7 @@ export class Sim {
         const kx = ax - ay * side, ky = ay + ax * side, kl = Math.hypot(kx, ky);
         this.kdir = { x: kx / kl, y: ky / kl }; this.kite = M.kiteTime; this.kiteCd = M.kiteCooldown;
       } else {
-        this.castT -= dt;
+        this.castT -= dt * this.feel.heroCastRate(); // feel: Frost Aura chill
         if (this.castT <= 0) this.heroAct();
       }
     }
@@ -702,6 +719,7 @@ export class Sim {
       if (m.burn > 0) { m.burn -= dt; this.dmgMon(m, m.burnDps * dt); if (m.hp <= 0) continue; }
       const bd = MONSTERS[m.def].boss;
       if (m.frozen > 0) { m.frozen -= dt; m.walking = false; continue; }
+      if (this.feel.monStep(m, dt)) continue; // feel: treasure creature flees; monster affixes
       const d = dist(m, h), slow = m.chill > 0 ? 1 - m.chillEff : 1;
       const dsx = (h.x - h.y) - (m.x - m.y);
       if (Math.abs(dsx) > 0.05) m.f = dsx > 0 ? 1 : -1;
@@ -724,7 +742,7 @@ export class Sim {
     this.potions();
     if (this.life <= 0) { this.die(); return; }
     this.monsters = this.monsters.filter(m => m.hp > 0);
-    if (!this.monsters.length && !this.strikes.length) { this.echoes = []; this.startWalk(); }
+    if (!this.monsters.length && !this.strikes.length && !this.feel.busy()) { this.echoes = []; this.startWalk(); }
   }
 
   /** Run many ticks at once (headless). */
@@ -755,7 +773,7 @@ export class Sim {
     this.dirty.add('bag');
     if (!quiet) {
       if (isGem(it)) this.log(`Picked up **${this.itemName(it)}** (support gem).`, 'gem');
-      else this.log(`Picked up **${it.name}** (${RARITIES[it.r].name} ${SLOT_NAMES[it.slot]}).`, 'r' + it.r);
+      else this.log(`Picked up **${it.name}** (${RARITIES[it.r].name} ${SLOT_NAMES[it.slot]}).${isUpgrade(it, s.equip[it.slot]) ? ' ▲ Upgrade' : ''}`, 'r' + it.r);
     }
   }
   itemName(it: BagItem) { return isGem(it) ? `${GEMS[it.gem].name} (Lv ${it.lvl})` : it.name; }

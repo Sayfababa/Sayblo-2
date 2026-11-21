@@ -1,7 +1,10 @@
 import { AREAS, ECONOMY, HERO, START_SKILL, UNLOCKED_AT_START } from '../content/index.ts';
 import type { CastSlot, LootRules, SaveState } from './types.ts';
 
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
+
+/** Sounds are on by default, but quiet. */
+export const DEFAULT_VOLUME = 0.3;
 
 export const emptySlots = (): CastSlot[] => [
   { id: START_SKILL, cond: 'always' }, { id: null, cond: 'always' }, { id: null, cond: 'always' }, { id: null, cond: 'always' },
@@ -26,7 +29,7 @@ export function newSaveState(): SaveState {
     difficulty: 0, progress: [Math.min(UNLOCKED_AT_START, AREAS.length), 0, 0],
     zone: 0,
     autoAdvance: true, autoReturn: true, kite: true, speed: 1,
-    settings: { dmgNumbers: true, lootLabels: true },
+    settings: { dmgNumbers: true, lootLabels: true, sound: true, volume: DEFAULT_VOLUME },
     life: null, mana: null, barrier: 0,
     kills: 0, deaths: 0,
     nextId: 1,

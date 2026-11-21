@@ -3,9 +3,9 @@ import { affixValue } from './formulas.ts';
 import type { Rng } from './rng.ts';
 import type { GemItem, Item, Mod } from './types.ts';
 
-/** Roll a rarity index from weights. Boss drops use bossWeight. */
-export function rollRarity(rng: Rng, boss: boolean): number {
-  const w = RARITIES.map(r => (boss ? r.bossWeight : r.weight));
+/** Roll a rarity index from weights. Boss drops use bossWeight. `boost` makes magic and better more likely (0.75 = +75 %). */
+export function rollRarity(rng: Rng, boss: boolean, boost = 0): number {
+  const w = RARITIES.map((r, i) => (boss ? r.bossWeight : r.weight) * (i ? 1 + boost : 1));
   let t = rng.next() * w.reduce((a, b) => a + b, 0), r = 0;
   for (; r < w.length - 1; r++) { if (t < w[r]) break; t -= w[r]; }
   return r;
@@ -36,8 +36,8 @@ export function rollAffix(rng: Rng, slot: Slot, L: number, group: 'prefix' | 'su
   return [k, affixValue(k, tier.level, rng.range(AFFIX_ROLL[0], AFFIX_ROLL[1])), tier.tier];
 }
 
-export function genItem(rng: Rng, id: number, L: number, minR: number, boss: boolean): Item {
-  const r = Math.max(rollRarity(rng, boss), minR);
+export function genItem(rng: Rng, id: number, L: number, minR: number, boss: boolean, boost = 0): Item {
+  const r = Math.max(rollRarity(rng, boss, boost), minR);
   if (r === 3) return genUnique(rng, id, L, rng.pick(Object.keys(UNIQUES)));
   return genItemOf(rng, id, L, r, rng.pick(SLOTS));
 }

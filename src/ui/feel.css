@@ -1,0 +1,21 @@
+/* Work package A (Feel): shrine/vault buffs, bag badges, perfect-roll star, item power line */
+.buff.shrinebuff,.buff.vaultbuff,.buff.chillbuff{padding:2px 6px 2px 3px;border-color:color-mix(in srgb,var(--sc,#e8cc5c) 55%,#000);overflow:hidden}
+.buff.shrinebuff::after,.buff.vaultbuff::after{content:"";position:absolute;left:0;bottom:0;height:2px;width:calc(var(--left,1)*100%);background:var(--sc,#e8cc5c);opacity:.8}
+.buff .srune{width:14px;height:14px;transform:rotate(45deg) scale(.75);border:2px solid var(--sc,#e8cc5c);background:radial-gradient(color-mix(in srgb,var(--sc,#e8cc5c) 70%,#fff),transparent 70%);box-shadow:0 0 6px var(--sc,#e8cc5c);flex:none}
+.buff .bname{color:var(--sc,#e8cc5c);letter-spacing:.02em}
+.buff.vaultbuff{--sc:#e8cc5c;animation:vaultglow 1.4s ease-in-out infinite alternate}
+.buff.chillbuff{--sc:#8fd8ff}
+@keyframes vaultglow{from{box-shadow:0 0 0 rgba(232,204,92,0)}to{box-shadow:0 0 10px rgba(232,204,92,.55)}}
+@media (prefers-reduced-motion:reduce){.buff.vaultbuff{animation:none}}
+
+/* bag badges: upgrade arrow top-left, perfect star top-right */
+.bi .upg{position:absolute;left:2px;top:2px;width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:9px solid #6fe36a;filter:drop-shadow(0 0 2px #000) drop-shadow(0 0 3px rgba(111,227,106,.7));pointer-events:none}
+.bi .perf{position:absolute;right:2px;top:1px;font-style:normal;pointer-events:none;width:12px;height:12px}
+.bi .perf::before{content:"★";position:absolute;inset:0;font-size:11px;line-height:12px;color:#ffe680;text-shadow:0 0 3px #000,0 0 5px rgba(255,230,128,.7)}
+
+/* tooltip */
+.mods li .perfect{color:#ffe680;margin-left:4px;text-shadow:0 0 4px rgba(255,230,128,.6)}
+.cmppow{margin:0 0 3px;font-size:.78rem;color:var(--muted)}
+.cmppow b{color:var(--bone)}
+.cmppow.up{color:#6fe36a}
+.log .gold{color:#e8cc5c}
