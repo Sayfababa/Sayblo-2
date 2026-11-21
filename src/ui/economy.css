@@ -5,10 +5,6 @@
 .matbar{display:inline-flex;gap:6px;margin-right:8px}
 .matn{display:inline-flex;align-items:center;gap:2px;font-variant-numeric:tabular-nums;color:var(--bone);font-size:.8rem}
 .matn.short{color:var(--bad)}
-.mat{display:inline-block;width:11px;height:11px;flex:none;transform:rotate(45deg);border-radius:2px;
-  background:radial-gradient(circle at 35% 30%,#fff8 0 15%,var(--mc) 45%,color-mix(in srgb,var(--mc) 40%,#000));box-shadow:0 0 4px color-mix(in srgb,var(--mc) 60%,transparent)}
-.mat.m-dust{border-radius:50%;transform:none}
-.mat.m-shard{clip-path:polygon(50% 0,100% 40%,70% 100%,20% 90%,0 35%);transform:none;border-radius:0}
 
 /* town sub-views */
 .towntabs{flex-wrap:nowrap;gap:3px}
@@ -47,7 +43,7 @@ button.fmod:hover{border-color:var(--line2)}
 .corrupt{margin:0;color:#ff5a4a;font-family:var(--f-display);font-size:.8rem;letter-spacing:.08em;text-shadow:0 0 6px #a00}
 
 .embers{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px}
-.ember{display:grid;grid-template-columns:30px minmax(0,1fr);min-width:0;grid-template-rows:auto auto auto;column-gap:8px;align-items:center;text-align:left;
+.ember{display:grid;grid-template-columns:36px minmax(0,1fr);min-width:0;grid-template-rows:auto auto auto;column-gap:8px;align-items:center;text-align:left;
   min-height:72px;padding:6px 8px;background:#120e0d;border:1px solid var(--line2)}
 .ember:hover:not(:disabled){border-color:var(--ec)}
 .ember:disabled{opacity:.5}
@@ -55,27 +51,21 @@ button.fmod:hover{border-color:var(--line2)}
 .ename{font-family:var(--f-display);font-size:.74rem;color:var(--ec);letter-spacing:.04em}
 .eshort{font-size:.72rem;color:var(--muted);line-height:1.15}
 .ecost{display:flex;gap:6px}
-.emb{display:block;width:28px;height:28px;border-radius:50% 50% 45% 45%;
-  background:radial-gradient(circle at 50% 65%,#fff6 0 10%,var(--ec) 35%,color-mix(in srgb,var(--ec) 35%,#000) 70%);box-shadow:0 0 10px color-mix(in srgb,var(--ec) 70%,transparent)}
-.emb.e-whet{border-radius:4px;transform:rotate(-20deg) scaleY(.55)}
-.emb.e-wax{border-radius:50%;box-shadow:0 0 0 3px color-mix(in srgb,var(--ec) 50%,#000) inset,0 0 8px #000}
 
-/* altar */
-.altar{position:relative;height:96px;overflow:hidden;border:1px solid #3a1414;
-  background:radial-gradient(ellipse at 50% 85%,rgba(120,20,20,.45),transparent 65%),linear-gradient(#0b0607,#160909)}
-.altar .slab{position:absolute;left:18%;right:18%;bottom:10px;height:26px;background:linear-gradient(#3b3330,#1a1514);border-top:2px solid #574a44}
-.candles{position:absolute;left:10%;right:10%;bottom:34px;display:flex;justify-content:space-between;align-items:flex-end}
-.candle{position:relative;width:9px;height:calc(28px + var(--i) * 3px);background:linear-gradient(90deg,#d8cdb4,#9f937c);border-radius:2px 2px 0 0}
-.candle:nth-child(n+4){height:calc(40px - var(--i) * 3px)}
-.candle b{position:absolute;left:50%;bottom:100%;width:8px;height:14px;margin-left:-4px;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;
+/* altar (altar.png, flames drawn in CSS on the wicks) */
+.altar{position:relative;padding:18px 6% 4px;overflow:hidden;border:1px solid #3a1414;
+  background:radial-gradient(ellipse at 50% 80%,rgba(120,20,20,.4),transparent 65%),linear-gradient(#0b0607,#160909)}
+.altarpic{position:relative;max-width:420px;margin:0 auto}
+.altarpic img{display:block;width:100%;height:auto}
+.flame{position:absolute;width:9px;height:15px;transform:translate(-50%,-100%);border-radius:50% 50% 50% 50%/60% 60% 40% 40%;
   background:radial-gradient(circle at 50% 70%,#fff 0 15%,#ffcf6a 35%,#ff6a1a 70%,transparent 72%);
-  box-shadow:0 0 14px 4px rgba(255,140,40,.45);animation:flick 1.4s ease-in-out infinite alternate;animation-delay:calc(var(--i) * -.3s);transition:opacity .5s, transform .5s}
-@keyframes flick{from{transform:scale(1,1)}to{transform:scale(.85,1.12) translateY(-1px)}}
-.altar.out .candle b{opacity:0;transform:scale(.2);animation:none}
-.altar.out{background:radial-gradient(ellipse at 50% 85%,rgba(90,0,0,.55),transparent 70%),#050304}
+  box-shadow:0 0 14px 4px rgba(255,140,40,.45);animation:flick 1.4s ease-in-out infinite alternate;animation-delay:calc(var(--i) * -.3s);transition:opacity .5s}
+@keyframes flick{from{transform:translate(-50%,-100%) scale(1,1)}to{transform:translate(-50%,-100%) scale(.85,1.12)}}
+.altar.out .flame{opacity:0;animation:none}
+.altar.out{background:radial-gradient(ellipse at 50% 80%,rgba(90,0,0,.55),transparent 70%),#050304}
 .redflash{position:absolute;inset:0;background:radial-gradient(circle,rgba(255,30,30,.85),rgba(120,0,0,.6));animation:redflash .8s ease-out forwards;pointer-events:none}
 @keyframes redflash{0%{opacity:0}15%{opacity:1}100%{opacity:0}}
-@media (prefers-reduced-motion:reduce){.candle b{animation:none}.redflash{animation-duration:.01s}}
+@media (prefers-reduced-motion:reduce){.flame{animation:none}.redflash{animation-duration:.01s}}
 .btn.danger{color:#ff8a7a}
 
 /* gambling vendor */
@@ -96,3 +86,8 @@ button.fmod:hover{border-color:var(--line2)}
 .salvbtns .btn{min-height:40px;font-size:.8rem}
 .bagmats{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
 .subtabs small{font-family:var(--f-body);font-weight:400;color:var(--muted);letter-spacing:0}
+
+/* painted material and ember icons (icons-economy.png) */
+.mat{display:inline-block;width:16px;height:16px;object-fit:contain;flex:none;vertical-align:-3px}
+.emb{display:block;width:34px;height:34px;object-fit:contain;filter:drop-shadow(0 0 4px rgba(255,140,40,.35))}
+.ember:disabled .emb{filter:grayscale(.7) brightness(.6)}

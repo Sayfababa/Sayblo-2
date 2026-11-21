@@ -49,7 +49,7 @@ export interface MonsterDef {
   name: string; element: Element; hp: number; dmg: number; attackTime: number; moveSpeed: number;
   sprite: string; height: number; flying?: boolean; facesLeft?: boolean; ranged?: number; boss?: BossDef;
   /** fleeing treasure creature (never in an area pool) */ treasure?: boolean;
-  /** no own sprite yet: the renderer draws a placeholder */ placeholder?: boolean;
+  /** second pose shown while walking/fleeing (e.g. Coin-Wretch running) */ runSprite?: string;
 }
 export interface RankDef { name: string; hp: number; dmg: number; xp: number; gold: number; size: number; color: string }
 export interface EliteModDef {

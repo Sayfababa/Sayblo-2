@@ -532,8 +532,7 @@ export class Scene {
     const walking = m.walking && !v.dead && !frozen;
     const lift = d.flying ? (6 + Math.sin(t * 2.5) * 4) * k : (walking ? Math.abs(Math.sin(t * 8)) * 3 * k : 0);
     const rot = v.dead ? f * Math.min(1, v.deadT * 3) * 1.2 : (walking && !d.flying ? Math.sin(t * 8) * 0.05 : 0) + (v.lunge > 0 ? 0.14 * f : 0);
-    if (d.placeholder) this.feel.drawWretch(this.kit, m, px, py - lift, H, a, v.dead, v.deadT); // feel: no sprite yet
-    else this.figure(d.sprite + '.png', px, py - lift, H, m.id, {
+    this.figure((d.runSprite && walking ? d.runSprite : d.sprite) + '.png', px, py - lift, H, m.id, {
       flip: f !== (d.facesLeft ? -1 : 1), rot, alpha: a, flash: v.hitT / 0.15, chill: frozen ? 0.65 : m.chill > 0 && !v.dead ? 0.35 : 0,
       sy: walking || frozen ? 1 : 1 + Math.sin(t * 2.2) * 0.015,
     });

@@ -1,6 +1,6 @@
 /** Loading of sprite textures and small procedural textures (glow, soft circle, darkness). */
 import { Assets, Texture } from 'pixi.js';
-import { AREAS, BASE_ICON, MONSTERS, PROPS, SKILLS } from '../content/index.ts';
+import { AREAS, BASE_ICON, MONSTERS, PROPS, SHRINES, SKILLS } from '../content/index.ts';
 
 export const spriteUrl = (file: string) => `${import.meta.env.BASE_URL}sprites/${file}`;
 
@@ -10,7 +10,9 @@ export const HERO_FRAMES = ['hero-idle', 'hero-cast', 'hero-walk1', 'hero-walk2'
 /** Every image file the game needs before it can start. */
 export function spriteFiles(): string[] {
   const files = new Set<string>();
-  for (const m of Object.values(MONSTERS)) files.add(m.sprite + '.png');
+  for (const m of Object.values(MONSTERS)) { files.add(m.sprite + '.png'); if (m.runSprite) files.add(m.runSprite + '.png'); }
+  for (const id of Object.keys(SHRINES)) files.add(`shrine-${id}.png`);
+  files.add('chest-vault.png');
   for (const f of HERO_FRAMES) files.add(f + '.png');
   for (const p of Object.values(PROPS)) for (const [n] of p.variants) files.add(n + '.png');
   for (const i of [...Object.values(BASE_ICON), 'gold', 'potion-hp', 'potion-mp']) files.add(`item-${i}.png`);

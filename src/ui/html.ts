@@ -18,6 +18,7 @@ export function itemPic(it: BagItem, cls = 'pic', tall = false): string {
     const art = GEM_ART.has(it.gem) ? `<img src="${spriteUrl(`gem-${it.gem}.png`)}" alt="">` : '<i></i>';
     return `<span class="${cls} gemicon ${GEM_ART.has(it.gem) ? 'art' : ''}" style="--gc:${gemColor(it.gem)}" title="${esc(GEMS[it.gem].name)}">${art}<b>${it.lvl}</b></span>`;
   }
+  if (it.unid) return `<img class="${cls}" src="${spriteUrl('parcel.png')}" alt="Unidentified">`;
   return `<img class="${cls}" src="${spriteUrl(`item-${BASE_ICON[it.base]}${tall && it.slot === 'weapon' ? '-tall' : ''}.png`)}" alt="">`;
 }
 /** Small painted UI icon (public/sprites/ic-*.png). */

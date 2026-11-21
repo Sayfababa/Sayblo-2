@@ -22,7 +22,7 @@ type Dropdown = (key: string, label: string, cur: string, options: [string, stri
 
 /* ---------- small shared pieces ---------- */
 /** Material placeholder icon (CSS-drawn until the painted icons arrive, see docs/asset-requests.md). */
-export const matIcon = (k: string) => `<i class="mat m-${k}" style="--mc:${MATERIALS[k as keyof typeof MATERIALS].color}" title="${esc(MATERIALS[k as keyof typeof MATERIALS].name)}"></i>`;
+export const matIcon = (k: string) => `<img class="mat" src="${spriteUrl(`mat-${k}.png`)}" alt="" title="${esc(MATERIALS[k as keyof typeof MATERIALS].name)}">`;
 /** "12 ◆ 3 ◆" list of a material amount; `have` marks what is missing in red. */
 export function matList(m: Mats, have?: Mats): string {
   const parts = MAT_IDS.filter(k => m[k]).map(k => `<span class="matn ${have && (have[k] || 0) < m[k]! ? 'short' : ''}">${matIcon(k)}${fmt(m[k]!)}</span>`);
@@ -31,7 +31,7 @@ export function matList(m: Mats, have?: Mats): string {
 /** Materials the hero carries, for panel headers. */
 export const matsKey = (s: SaveState) => MAT_IDS.map(k => s.mats[k]).join('|');
 export const matsHeader = (s: SaveState) => `<span class="matbar" data-k="${matsKey(s)}" aria-label="Materials">${MAT_IDS.map(k => `<span class="matn">${matIcon(k)}${fmt(s.mats[k])}</span>`).join('')}</span>`;
-const emberIcon = (e: EmberId) => `<i class="emb e-${e}" style="--ec:${EMBERS[e].color}"></i>`;
+const emberIcon = (e: EmberId) => `<img class="emb" src="${spriteUrl(`ember-${e}.png`)}" alt="">`;
 const tile = (it: Item, sel: boolean, tag = '') =>
   `<button class="ftile r${it.r} ${sel ? 'sel' : ''} ${it.cor ? 'cor' : ''}" data-act="fitem:${it.id}" aria-label="${esc(it.unid ? 'Unidentified ' + SLOT_NAMES[it.slot] : it.name)}">${itemPic(it, 'pic')}${tag ? `<b class="ftag">${tag}</b>` : ''}</button>`;
 
@@ -145,14 +145,16 @@ export class EconomyUI {
   /* ---------- altar ---------- */
   private altarView(): string {
     const s = this.s, it = this.selected();
-    const candles = Array.from({ length: 5 }, (_, i) => `<i class="candle" style="--i:${i}"><b></b></i>`).join('');
+    // wick tips of the five candles in altar.png (x, y as % of the picture)
+    const wicks: [number, number][] = [[16.3, 9.6], [31.3, 4.7], [48.8, 0], [67.5, 4.7], [82.5, 10.6]];
+    const candles = wicks.map(([x, y], i) => `<b class="flame" style="left:${x}%;top:${y}%;--i:${i}"></b>`).join('');
     let body = '<p class="hint">Pick an item to lay on the altar.</p>';
     if (it) {
       const c = corruptCost(it), why = corruptBlock(it), afford = canAfford(s.mats, c.mats) && s.gold >= c.gold;
       body = itemTooltip(it, null, `<button class="btn primary danger" data-act="corrupt" ${why || !afford ? 'disabled' : ''}>Offer · ${matList(c.mats, s.mats)} <span class="gold">${fmt(c.gold)}</span>${ic('gold')}</button>`)
         + (why ? `<p class="hint bad">${esc(why)}</p>` : '');
     }
-    return `<div class="altar ${this.altarOut ? 'out' : ''}" aria-hidden="true"><div class="candles">${candles}</div><div class="slab"></div>${this.flash ? '<div class="redflash"></div>' : ''}</div>
+    return `<div class="altar ${this.altarOut ? 'out' : ''}" aria-hidden="true"><div class="altarpic"><img src="${spriteUrl('altar.png')}" alt="">${candles}</div>${this.flash ? '<div class="redflash"></div>' : ''}</div>
       <p class="hint">Once per item. A quarter of the time each: an extra strong affix beyond the normal limits · one affix doubled · nothing, but the item is sealed · one affix replaced and the item sealed. Sealed items can no longer be crafted.</p>
       ${this.picker(i => !!i.cor)}${this.msgLine()}${body}`;
   }

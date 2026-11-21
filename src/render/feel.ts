@@ -1,17 +1,17 @@
 /**
  * Work package A (Feel), renderer side: loot beams in rarity colour, unique screen pulse,
  * hit-stop and slow motion on elite/boss kills, shrines and vault chests, death-blast warning
- * circles, Frost Aura rings, the vault glow and a code-drawn Coin-Wretch placeholder.
+ * circles, Frost Aura rings, the vault glow, shrine and vault chest sprites.
  * Visual only. Hit-stop works through `timeScale`, which main.ts applies to the real time fed
  * into the fixed-step simulation, so the simulation itself (ticks, TICK, RNG) is unchanged.
  */
 import type { Graphics, Sprite, Text, Texture } from 'pixi.js';
-import { ELEMENT_COLORS, ELITE_MODS, FEEL, RARITIES, SHRINES } from '../content/index.ts';
+import { ELEMENT_COLORS, ELITE_MODS, RARITIES, SHRINES } from '../content/index.ts';
 import type { Sim } from '../sim/sim.ts';
 import type { FeelObject } from '../sim/feel.ts';
-import { isGem, type Drop, type Monster, type SimEvent } from '../sim/types.ts';
+import { isGem, type Drop, type SimEvent } from '../sim/types.ts';
 import { gemColor } from '../ui/gemcolor.ts';
-import { glowTexture } from './textures.ts';
+import { glowTexture, tex } from './textures.ts';
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
@@ -96,62 +96,22 @@ export class FeelFx {
 
   /* ---------- world objects (depth-sorted by the scene) ---------- */
   drawObject(K: Kit, o: FeelObject, px: number, py: number) {
-    const k = K.k, g = K.world.graphics(), t = K.time;
+    const k = K.k, t = K.time;
     if (o.kind === 'shrine') {
-      const col = SHRINES[o.type]?.color ?? '#ffffff', H = 58 * k, W = 16 * k;
+      const col = SHRINES[o.type]?.color ?? '#ffffff', H = 64 * k;
       K.shadow(px, py, 20 * k, 8 * k, 0.5);
-      // stepped base and a leaning obelisk of dark stone
-      g.poly([px - 20 * k, py, px, py + 8 * k, px + 20 * k, py, px, py - 8 * k]).fill({ color: '#2c2a2b' }).stroke({ width: 1 * k, color: '#4a4644' });
-      g.poly([px - W / 2, py - 2 * k, px + W / 2, py - 2 * k, px + W * 0.3, py - H, px, py - H - 8 * k, px - W * 0.3, py - H]).fill({ color: '#3a3736' }).stroke({ width: 1.2 * k, color: '#5a5552' });
-      g.poly([px, py - 2 * k, px + W / 2, py - 2 * k, px + W * 0.3, py - H, px, py - H - 8 * k]).fill({ color: '#000000', alpha: 0.25 });
+      const sp = K.world.sprite(tex(`shrine-${o.type}.png`));
+      sp.anchor.set(0.5, 0.94); sp.position.set(px, py); sp.scale.set(H / Math.max(1, sp.texture.height));
+      // the carved rune glows in the shrine colour (light from code, the stone itself is plain)
       const pulse = 0.65 + Math.sin(t * 3 + o.id) * 0.25;
-      g.circle(px, py - H * 0.55, 4.5 * k).stroke({ width: 1.6 * k, color: col, alpha: pulse });
-      g.moveTo(px, py - H * 0.78).lineTo(px, py - H * 0.32).stroke({ width: 1.2 * k, color: col, alpha: pulse });
-      K.light(px, py - H * 0.55, 60 * k, col, 0.45 * pulse);
+      K.light(px, py - H * 0.55, 55 * k, col, 0.5 * pulse);
       K.light(px, py, 70 * k, col, 0.18, 0.45);
     } else {
-      const w = 22 * k, h = 13 * k, d = 9 * k;
+      const H = 26 * k;
       K.shadow(px, py, 18 * k, 7 * k, 0.5);
-      g.poly([px - w / 2, py - d, px + w / 2, py - d, px + w / 2, py - d - h, px - w / 2, py - d - h]).fill({ color: '#4a2f1c' }).stroke({ width: 1 * k, color: '#2a1a10' });
-      g.poly([px - w / 2, py - d - h, px + w / 2, py - d - h, px + w / 2 - 3 * k, py - d - h - 6 * k, px - w / 2 + 3 * k, py - d - h - 6 * k]).fill({ color: '#5c3b22' });
-      g.poly([px - w / 2, py - d, px + w / 2, py - d, px + w / 2 - 2 * k, py, px - w / 2 + 2 * k, py]).fill({ color: '#2e1d12' });
-      for (const x of [-0.3, 0.3]) g.rect(px + x * w - 1.5 * k, py - d - h - 5 * k, 3 * k, h + 5 * k).fill({ color: '#c9a557' });
-      g.rect(px - 2.5 * k, py - d - h + 2 * k, 5 * k, 5 * k).fill({ color: '#e8cc5c' });
-      K.light(px, py - d - h, 50 * k, '#e8cc5c', 0.3 + Math.sin(t * 4 + o.id) * 0.1);
-    }
-  }
-
-  /** Coin-Wretch placeholder until its sprite exists: hunched ragged body with a huge coin sack. */
-  drawWretch(K: Kit, m: Monster, px: number, py: number, H: number, alpha: number, dead: boolean, deadT: number) {
-    const k = K.k, t = K.time, f = m.f || 1, g = K.world.graphics();
-    const escaped = dead && (m.fe?.flee ?? 1) <= 0;
-    let s = 1;
-    if (escaped) { s = Math.max(0.05, 1 - deadT * 2.5); alpha = s; }
-    const bob = m.walking && !dead ? Math.abs(Math.sin(t * 16 + m.id)) * 3 * k : 0;
-    const y = py - bob, sc = (H / 54) * s;
-    g.alpha = alpha;
-    // legs
-    const step = m.walking && !dead ? Math.sin(t * 16 + m.id) * 4 * k : 0;
-    g.moveTo(px - 4 * sc, y - 8 * sc).lineTo(px - 6 * sc + step, py).stroke({ width: 2.2 * sc, color: '#2a2422' });
-    g.moveTo(px + 3 * sc, y - 8 * sc).lineTo(px + 5 * sc - step, py).stroke({ width: 2.2 * sc, color: '#2a2422' });
-    // sack on its back
-    g.circle(px - f * 9 * sc, y - 26 * sc, 14 * sc).fill({ color: '#a08660' }).stroke({ width: 1.2 * sc, color: '#3b3024' });
-    g.moveTo(px - f * 9 * sc - 6 * sc, y - 38 * sc).lineTo(px - f * 9 * sc + 6 * sc, y - 38 * sc).stroke({ width: 2 * sc, color: '#3b3024' });
-    for (let i = 0; i < 4; i++) {
-      const a = i * 1.7 + m.id, cx = px - f * 9 * sc + Math.cos(a) * 8 * sc, cy = y - 26 * sc + Math.sin(a) * 7 * sc;
-      g.circle(cx, cy, 2 * sc).fill({ color: '#e8cc5c', alpha: 0.6 + Math.sin(t * 9 + i) * 0.3 });
-    }
-    // ragged shroud body and head
-    g.poly([px - 7 * sc, y - 8 * sc, px + 7 * sc, y - 8 * sc, px + f * 9 * sc, y - 28 * sc, px + f * 2 * sc, y - 34 * sc, px - f * 4 * sc, y - 22 * sc])
-      .fill({ color: '#7a706a' }).stroke({ width: 1 * sc, color: '#2c2826' });
-    g.circle(px + f * 7 * sc, y - 32 * sc, 5.5 * sc).fill({ color: '#8c827a' });
-    g.circle(px + f * 9 * sc, y - 33 * sc, 1.3 * sc).fill({ color: '#ffd96a' });
-    K.light(px - f * 9 * sc, y - 26 * sc, 46 * k, '#e8cc5c', 0.4 * alpha);
-    if (!dead) {
-      // remaining time as a thin gold ring at its feet
-      const left = clamp((m.fe?.flee ?? 0) / FEEL.treasure.lifetime, 0, 1);
-      const r = 15 * k;
-      K.fx.graphics(true).arc(px, py, r, -Math.PI / 2, -Math.PI / 2 + left * Math.PI * 2).stroke({ width: 2 * k, color: '#e8cc5c', alpha: 0.7 });
+      const sp = K.world.sprite(tex('chest-vault.png'));
+      sp.anchor.set(0.5, 0.92); sp.position.set(px, py); sp.scale.set(H / Math.max(1, sp.texture.height));
+      K.light(px, py - H * 0.6, 50 * k, '#e8cc5c', 0.3 + Math.sin(t * 4 + o.id) * 0.1);
     }
   }
 
