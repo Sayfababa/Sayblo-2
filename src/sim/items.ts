@@ -27,7 +27,7 @@ export const affixFits = (k: string, slot: Slot) => {
 };
 
 /** Roll one affix of a group that the item does not have yet. */
-function rollAffix(rng: Rng, slot: Slot, L: number, group: 'prefix' | 'suffix', taken: Set<string>): Mod | null {
+export function rollAffix(rng: Rng, slot: Slot, L: number, group: 'prefix' | 'suffix', taken: Set<string>): Mod | null {
   const pool = Object.entries(AFFIXES).filter(([k, a]) => a.group === group && !taken.has(k) && affixFits(k, slot) && (a.minLevel ?? 0) <= L);
   if (!pool.length) return null;
   const [k] = weighted(rng, pool, ([, a]) => a.rare ?? 1);
@@ -39,7 +39,18 @@ function rollAffix(rng: Rng, slot: Slot, L: number, group: 'prefix' | 'suffix', 
 export function genItem(rng: Rng, id: number, L: number, minR: number, boss: boolean): Item {
   const r = Math.max(rollRarity(rng, boss), minR);
   if (r === 3) return genUnique(rng, id, L, rng.pick(Object.keys(UNIQUES)));
-  const slot = rng.pick(SLOTS), base = rng.pick(ITEMS.bases[slot]).name, mods: Mod[] = [];
+  return genItemOf(rng, id, L, r, rng.pick(SLOTS));
+}
+
+/** Name of a magic item from its first prefix and suffix. */
+export function magicName(base: string, mods: Mod[], imp: number): string {
+  const aff = mods.slice(imp), pre = aff.find(m => AFFIXES[m[0]]?.group === 'prefix'), suf = aff.find(m => AFFIXES[m[0]]?.group === 'suffix');
+  return [pre && AFFIXES[pre[0]].name, base, suf && `of ${AFFIXES[suf[0]].name}`].filter(Boolean).join(' ');
+}
+
+/** Non-unique item of a given rarity (0-2) and slot. */
+export function genItemOf(rng: Rng, id: number, L: number, r: number, slot: Slot): Item {
+  const base = rng.pick(ITEMS.bases[slot]).name, mods: Mod[] = [];
   let imp = 0;
   const impl = ITEMS.implicits[slot];
   if (impl) {
@@ -63,12 +74,12 @@ export function genItem(rng: Rng, id: number, L: number, minR: number, boss: boo
       if (group === 'prefix') { pre.push(m); np++; } else { suf.push(m); ns++; }
     }
     mods.push(...pre, ...suf);
-    name = r === 1
-      ? [pre[0] && AFFIXES[pre[0][0]].name, base, suf[0] && `of ${AFFIXES[suf[0][0]].name}`].filter(Boolean).join(' ')
-      : `${rng.pick(ITEMS.rareNames.first)} ${rng.pick(ITEMS.rareNames.second)}`;
+    name = r === 1 ? magicName(base, mods, imp) : rareName(rng);
   }
   return { id, slot, base, name, r, L, imp, mods };
 }
+
+export const rareName = (rng: Rng) => `${rng.pick(ITEMS.rareNames.first)} ${rng.pick(ITEMS.rareNames.second)}`;
 
 export function genUnique(rng: Rng, id: number, L: number, u: string): Item {
   const U = UNIQUES[u], mods: Mod[] = [];

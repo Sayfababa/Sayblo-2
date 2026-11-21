@@ -64,6 +64,7 @@ describe('bag grid and gems', () => {
   it('places items by size and sells the weakest when full', async () => {
     const { genItem: gi, genGem } = await import('../src/sim/items.ts');
     const sim = new Sim(undefined, { seed: 11, headless: true });
+    sim.s.loot.autoSalvage = false;
     const rng = new Rng(3);
     for (let i = 0; i < 60; i++) sim.takeItem(i % 4 ? gi(rng, 1000 + i, 10, 0, false) : genGem(rng, 1000 + i, 10), true);
     const cells = new Set<string>();

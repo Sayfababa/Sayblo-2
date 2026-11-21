@@ -1,11 +1,15 @@
-import { AREAS, HERO, START_SKILL, UNLOCKED_AT_START } from '../content/index.ts';
-import type { CastSlot, SaveState } from './types.ts';
+import { AREAS, ECONOMY, HERO, START_SKILL, UNLOCKED_AT_START } from '../content/index.ts';
+import type { CastSlot, LootRules, SaveState } from './types.ts';
 
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 export const emptySlots = (): CastSlot[] => [
   { id: START_SKILL, cond: 'always' }, { id: null, cond: 'always' }, { id: null, cond: 'always' }, { id: null, cond: 'always' },
 ];
+
+export const defaultLoot = (minR = 0): LootRules => ({
+  minR: { weapon: minR, helm: minR, armor: minR, amulet: minR, ring: minR }, ...ECONOMY.lootDefaults,
+});
 
 export function newSaveState(): SaveState {
   return {
@@ -16,7 +20,8 @@ export function newSaveState(): SaveState {
     sockets: {},
     slots: emptySlots(),
     equip: { weapon: null, helm: null, armor: null, amulet: null, ring: null },
-    bag: [], filter: 0,
+    bag: [], loot: defaultLoot(), mats: { dust: 0, essence: 0, shard: 0 },
+    stash: Array.from({ length: ECONOMY.stash.tabs }, () => []),
     hpPot: HERO.potions.start, mpPot: HERO.potions.start, hpTh: HERO.potions.lifeThreshold, mpTh: HERO.potions.manaThreshold,
     difficulty: 0, progress: [Math.min(UNLOCKED_AT_START, AREAS.length), 0, 0],
     zone: 0,

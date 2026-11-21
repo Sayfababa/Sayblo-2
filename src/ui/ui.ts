@@ -422,7 +422,7 @@ export class UI {
       <div class="bagwell"><div class="bag ${this.sellMode ? 'selling' : ''}" style="--cols:${BAG_W};--rows:${BAG_H}">${items}${cells}</div></div>
       ${this.bagMsg ? `<p class="hint bad">${esc(this.bagMsg)}</p>` : ''}
       <p class="hint">Staffs take 1×3 cells, armor 2×3, helms 2×2, amulets, rings and gems 1×1. When the bag is full, the least valuable item is sold.</p>
-      <div class="row filterrow"><span>Pick up</span>${this.dropdown('filter', 'Pick-up filter', String(s.filter), filterOpts)}</div>
+      <div class="row filterrow"><span>Pick up</span>${this.dropdown('filter', 'Pick-up filter', String(Math.min(...Object.values(s.loot.minR))), filterOpts)}</div>
       <p class="hint">Items below the filter are sold on the spot. Gems are always kept.</p>`;
     this.placeTip();
   }
@@ -525,7 +525,7 @@ export class UI {
         // ddpick:slot:2:fireball · ddpick:cond:2:always · ddpick:filter:3
         if (x === 'slot') sim.setSlotSkill(+y, z || null);
         else if (x === 'cond') sim.setSlotCond(+y, z);
-        else if (x === 'filter') s.filter = +y;
+        else if (x === 'filter') for (const k of Object.keys(s.loot.minR) as Slot[]) s.loot.minR[k] = +y;
         this.openDD = null; D.add(this.tab ?? 'skills');
         break;
       }
@@ -640,7 +640,6 @@ export class UI {
     if (t.id === 'zonesel') sim.selectZone(+t.value);
     else if (t.dataset.slot != null) sim.setSlotSkill(+t.dataset.slot, t.value || null);
     else if (t.dataset.cond != null) sim.setSlotCond(+t.dataset.cond, t.value);
-    else if (t.id === 'filter') s.filter = +t.value;
     else if (t.id === 'autoAdvance') s.autoAdvance = t.checked;
     else if (t.id === 'autoReturn') s.autoReturn = t.checked;
     else if (t.id === 'kite') s.kite = t.checked;

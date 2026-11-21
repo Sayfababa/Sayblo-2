@@ -13,6 +13,8 @@ import {
   monsterXp, potionPrice, xpFactor, respecCost, sellValue, skillCtx, total, xpNeeded, type Dmg, type SkillCtx, type Stats,
 } from './formulas.ts';
 import { genGem, genItem } from './items.ts';
+import { disposeItem } from './economy.ts';
+import { lootFate } from './loot.ts';
 import { Rng } from './rng.ts';
 import { emptySlots, newSaveState } from './state.ts';
 import {
@@ -533,10 +535,15 @@ export class Sim {
     }
     for (let i = 0; i < n; i++) {
       const it = genItem(rng, this.itemId(), m.L, minR, m.rank === 3);
-      if (it.r < s.filter) { s.gold += sellValue(it); this.run.gold += sellValue(it); continue; }
+      // loot filter rules (loot.ts): items not kept are sold or salvaged on the spot
+      const fate = lootFate(s.loot, it, s.equip);
+      if (fate !== 'keep') { this.run.gold += disposeItem(s, it, fate); continue; }
       this.drops.push({ id: this.nextUid(), x: m.x + rng.range(-1, 1), y: m.y + rng.range(-1, 1), item: it });
     }
-    if (rng.chance(gemChance)) this.drops.push({ id: this.nextUid(), x: m.x + rng.range(-1, 1), y: m.y + rng.range(-1, 1), item: genGem(rng, this.itemId(), m.L) });
+    if (rng.chance(gemChance)) {
+      const d: Drop = { id: this.nextUid(), x: m.x + rng.range(-1, 1), y: m.y + rng.range(-1, 1), item: genGem(rng, this.itemId(), m.L) };
+      if (lootFate(s.loot, d.item!, s.equip) === 'keep') this.drops.push(d); else this.run.gold += disposeItem(s, d.item!, 'sell');
+    }
     if (burning && this.st.uniques.has('cinders')) {
       this.emit({ t: 'ring', x: m.x, y: m.y, r0: 0.3, r1: 2, dur: 0.45, el: 'fire', fill: true });
       this.emit({ t: 'burst', x: m.x, y: m.y, z: 0.6, el: 'fire', size: 110 });
@@ -736,10 +743,11 @@ export class Sim {
     if (!spot) { s.bag = autoSort(s.bag); spot = findSpot(s.bag, it); }
     while (!spot) {
       const worst = [...s.bag, it].sort((a, b) => keepValue(a) - keepValue(b))[0];
-      s.gold += sellValue(worst);
-      if (worst === it) { if (!quiet) this.log(`Bag full: sold **${this.itemName(it)}** for ${sellValue(it)} gold.`); this.dirty.add('bag'); return; }
+      const how = s.loot.autoSalvage && !isGem(worst) ? 'salvaged' : `sold for ${sellValue(worst)} gold`;
+      disposeItem(s, worst, s.loot.autoSalvage ? 'salvage' : 'sell');
+      if (worst === it) { if (!quiet) this.log(`Bag full: ${how} **${this.itemName(it)}**.`); this.dirty.add('bag'); return; }
       s.bag.splice(s.bag.indexOf(worst), 1);
-      if (!quiet) this.log(`Bag full: sold **${this.itemName(worst)}** for ${sellValue(worst)} gold.`);
+      if (!quiet) this.log(`Bag full: ${how} **${this.itemName(worst)}**.`);
       spot = findSpot(s.bag, it);
     }
     [it.bx, it.by] = spot;
@@ -839,7 +847,7 @@ export class Sim {
 
   equip(itemId: number) {
     const s = this.s, it = s.bag.find(i => i.id === itemId);
-    if (!it || isGem(it)) return;
+    if (!it || isGem(it) || it.unid) return;
     s.bag.splice(s.bag.indexOf(it), 1);
     const old = s.equip[it.slot];
     s.equip[it.slot] = it;

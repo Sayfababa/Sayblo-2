@@ -10,6 +10,7 @@ import itemsJson from './items.json' with { type: 'json' };
 import heroJson from './hero.json' with { type: 'json' };
 import gemsJson from './gems.json' with { type: 'json' };
 import difficultyJson from './difficulty.json' with { type: 'json' };
+import economyJson from './economy.json' with { type: 'json' };
 
 export type Element = 'fire' | 'cold' | 'light';
 export const ELEMENTS: Element[] = ['fire', 'cold', 'light'];
@@ -156,3 +157,26 @@ export interface DifficultyDef { name: string; levelAdd: number; resPenalty: num
 const df = difficultyJson as unknown as { difficulties: DifficultyDef[]; offline: { rate: number; maxHours: number; minSeconds: number } };
 export const DIFFICULTIES = df.difficulties;
 export const OFFLINE = df.offline;
+
+/* ---------- economy: salvage, crafting embers, corruption, gambling, stash (economy.json) ---------- */
+export type MatId = 'dust' | 'essence' | 'shard';
+export type EmberId = 'change' | 'choice' | 'whet' | 'rise' | 'bind' | 'wax';
+export type Mats = Partial<Record<MatId, number>>;
+export interface EmberDef { name: string; short: string; text: string; target: boolean; color: string; cost: Mats }
+export type CorruptOutcome = 'extra' | 'double' | 'seal' | 'replace';
+const ec = economyJson as unknown as {
+  materials: Record<MatId, { name: string; color: string; text: string }>;
+  salvage: Partial<Record<MatId, [number, number]>>[];
+  embers: Record<EmberId, EmberDef>;
+  craftScale: { perLevel: number; perCraft: number };
+  bindAffixes: [number, number];
+  corruption: { cost: Mats; goldPerLevel: number; weights: Record<CorruptOutcome, number>; extraRoll: [number, number]; doubleMult: number };
+  gamble: { base: number; perLevel: number; perLevelSq: number; slotMult: Record<Slot, number>; rarityWeights: number[]; uniqueChance: number };
+  stash: { tabs: number; names: string[] };
+  lootDefaults: { keepUniques: boolean; keepGems: boolean; keepUpgrades: boolean; autoSalvage: boolean };
+};
+export const ECONOMY = ec;
+export const MATERIALS = ec.materials;
+export const MAT_IDS = Object.keys(ec.materials) as MatId[];
+export const EMBERS = ec.embers;
+export const EMBER_IDS = Object.keys(ec.embers) as EmberId[];
