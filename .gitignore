@@ -3,3 +3,4 @@ dist/
 dev-dist/
 *.log
 dist-artifact/
+.claude/worktrees/
