@@ -120,6 +120,7 @@ export class UI {
     this.selBag = null; this.selEq = null; this.moveMode = false;
     this.skills.forget(); // skills menu
     document.body.dataset.cls = this.s.cls; // classes: fury orb colour (classes.css)
+    $('#hcls').textContent = classDef(this.s.cls).name;
     this.draw();
   }
 
