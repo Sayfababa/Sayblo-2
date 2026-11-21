@@ -1,0 +1,106 @@
+/* Work package D (Meta progression): bounty board, codex, ember points, feats, HUD tracker, toasts */
+
+/* seven town tabs: two rows on phones */
+@media (max-width:520px){
+  .towntabs{flex-wrap:wrap;row-gap:4px}
+  .towntabs button{flex:1 0 22%}
+}
+
+/* HUD bounty tracker: top left, below the area info and the target frame */
+.mtrack{position:absolute;left:8px;top:152px;z-index:1;max-width:58%}
+@media (min-width:760px){.mtrack{top:112px;max-width:300px}}
+.mtrk{display:flex;flex-direction:column;gap:2px;align-items:stretch;text-align:left;min-height:28px;max-width:100%;padding:3px 6px;border:1px solid #3a3633;background:rgba(10,9,9,.72);
+  font-size:.68rem;color:var(--bone);text-shadow:0 1px 2px #000;cursor:pointer}
+.mtrk:not(.open){flex-direction:row;align-items:center;gap:6px;font-family:var(--f-display);letter-spacing:.06em;color:var(--muted);width:max-content}
+.mtrk:not(.open) b{color:var(--good)}
+.mtrk span{position:relative;display:block;padding:1px 0 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46vw}
+.mtrk span b{color:var(--gold);font-variant-numeric:tabular-nums}
+.mtrk span i{position:absolute;left:0;bottom:0;height:2px;width:calc(var(--p)*100%);background:var(--gold);opacity:.7}
+.mtrk span.done{color:var(--good)}
+.mtrk span.done b{color:var(--good)}
+.mtrk span.done i{background:var(--good)}
+@media (min-width:820px){.mtrk span{max-width:280px}}
+
+/* toasts */
+.mtoasts{position:absolute;left:50%;top:34%;transform:translateX(-50%);display:grid;gap:6px;justify-items:center;pointer-events:none;z-index:3;width:min(92%,360px)}
+.mtoast{display:grid;justify-items:center;padding:6px 16px;border:1px solid #6a5a3a;background:rgba(8,7,7,.9);box-shadow:0 0 18px rgba(232,204,92,.25);
+  animation:mtoastin .35s ease-out;transition:opacity .45s;text-align:center}
+.mtoast small{font-family:var(--f-display);font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.mtoast b{font-family:var(--f-display);color:var(--title,#e8d8b0);font-size:.9rem;letter-spacing:.04em}
+.mtoast.out{opacity:0}
+.mtoast.feat{border-color:#c9a96a;box-shadow:0 0 22px rgba(232,204,92,.4)}
+.mtoast.tyrant{border-color:#a8232a;box-shadow:0 0 22px rgba(208,48,58,.45)}
+.mtoast.tyrant b{color:#ff8a6a}
+.mtoast.event{border-color:#6b4a86;box-shadow:0 0 22px rgba(180,140,255,.35)}
+.mtoast.bounty b{color:var(--good)}
+.mtoast.ember b{color:#ffb84a}
+@keyframes mtoastin{from{transform:translateY(8px) scale(.96);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.mtoast{animation:none}}
+
+.buff.eventbuff{animation:vaultglow 1.6s ease-in-out infinite alternate}
+@media (prefers-reduced-motion:reduce){.buff.eventbuff{animation:none}}
+
+/* bounty board */
+.bounties{display:grid;gap:8px}
+.bounty{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:8px 10px;border:1px solid #3a3633;background:linear-gradient(#1a1714,#120f0d);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.6)}
+.bounty.done{border-color:#5b7a46;box-shadow:inset 0 0 12px rgba(134,196,111,.15)}
+.btext{display:grid;gap:3px;min-width:0}
+.btext b{font-size:.92rem;color:var(--bone)}
+.btext small{color:var(--muted);font-size:.74rem}
+.bprog{display:block;height:4px;background:rgba(255,255,255,.08)}
+.bprog i{display:block;height:100%;background:var(--gold)}
+.bounty.done .bprog i{background:var(--good)}
+.brew{grid-column:1;display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;font-size:.82rem}
+.brew .ic{width:16px;height:16px}
+.bact{grid-column:2;grid-row:1 / span 2;display:flex;align-items:center}
+.bact .btn{min-width:64px;min-height:40px}
+.uchip{border-color:#7a4a20}
+
+/* codex */
+.ccount{font-family:var(--f-display);color:var(--muted)}
+.ccount b{color:var(--r3);font-size:1.1rem}
+.codex{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+.centry{display:grid;grid-template-columns:44px 1fr;grid-template-rows:auto 1fr;gap:2px 8px;align-items:start;text-align:left;min-height:64px;padding:6px;
+  border:1px solid #3a3633;background:rgba(0,0,0,.35)}
+.centry .cpic{grid-row:1 / span 2;width:44px;height:44px;display:grid;place-items:center;background:radial-gradient(rgba(208,138,64,.18),transparent 70%)}
+.centry .cpic img{width:40px;height:40px;object-fit:contain;filter:drop-shadow(0 2px 2px #000)}
+.centry .cname{display:grid;min-width:0}
+.centry .cname b{font-size:.82rem;color:var(--r3);line-height:1.15}
+.centry .cname small{font-size:.66rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.centry .ceff{font-size:.72rem;color:#b9ad9a;font-style:italic;line-height:1.2}
+.centry.unknown{cursor:default}
+.centry.unknown .cpic{background:none}
+.centry.unknown .cpic img{filter:brightness(0) drop-shadow(0 0 1px #5a524a);opacity:.75}
+.centry.unknown .cname b{color:#6a625a}
+.centry.unknown .ceff{color:#5e574f}
+.centry.sel{outline:2px solid var(--r3);outline-offset:1px;box-shadow:0 0 12px rgba(208,138,64,.4)}
+.ftag.ipr{right:auto;left:2px;color:var(--r3)}
+.unique.imprint{color:#e6a35a}
+
+/* ember tracks */
+.etracks{display:grid;gap:6px;margin-top:6px}
+.etrack{display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.etrack .etname{display:grid;min-width:0}
+.etrack .etname b{color:var(--ec);font-family:var(--f-display);letter-spacing:.05em;font-size:.85rem}
+.etrack .etname small{color:var(--muted);font-size:.72rem}
+.etrack .etname small.enow{color:var(--bone)}
+.etrack .etv{font-family:var(--f-display);font-weight:700;color:var(--ec);min-width:2ch;text-align:right;font-variant-numeric:tabular-nums}
+.etrack .btn.sq{min-width:40px;min-height:40px}
+
+/* feats */
+.titles{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0}
+.titles .btn{min-height:36px}
+.feats{display:grid;gap:2px}
+.feat{display:grid;grid-template-columns:14px 1fr auto;gap:8px;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05);opacity:.6}
+.feat.got{opacity:1}
+.feat .fmark{width:10px;height:10px;transform:rotate(45deg);border:1px solid #5a524a}
+.feat.got .fmark{background:var(--gold);border-color:var(--gold);box-shadow:0 0 6px rgba(232,204,92,.6)}
+.feat span{display:grid;min-width:0}
+.feat b{font-size:.84rem}
+.feat small{font-size:.72rem;color:var(--muted)}
+.feat .frew{text-align:right;font-size:.74rem;color:var(--gold)}
+.htitle{font-family:var(--f-body);font-size:.75rem;color:var(--muted);letter-spacing:0;text-transform:none;font-style:italic}
+
+/* the hero panel grew ember and feat sections: let its children shrink like town and bag do */
+#p-hero>*{min-width:0}

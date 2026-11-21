@@ -16,8 +16,9 @@ import { esc, fmt, ic, itemPic } from './html.ts';
 import { gemColor } from './gemcolor.ts';
 import { corruptNote, itemTooltip, modMark } from './tooltip.ts';
 
-export type TownView = 'main' | 'forge' | 'altar' | 'vendor' | 'stash';
-const VIEWS: [TownView, string][] = [['main', 'Town'], ['forge', 'Forge'], ['altar', 'Altar'], ['vendor', 'Vendor'], ['stash', 'Stash']];
+export type TownView = 'main' | 'forge' | 'altar' | 'vendor' | 'stash' | 'board' | 'codex';
+// board and codex are rendered by meta.ts (work package D)
+const VIEWS: [TownView, string][] = [['main', 'Town'], ['forge', 'Forge'], ['altar', 'Altar'], ['vendor', 'Vendor'], ['stash', 'Stash'], ['board', 'Board'], ['codex', 'Codex']];
 type Dropdown = (key: string, label: string, cur: string, options: [string, string, string?][]) => string;
 
 /* ---------- small shared pieces ---------- */

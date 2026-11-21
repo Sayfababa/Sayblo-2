@@ -29,7 +29,7 @@ export function compareLines(it: Item, cur: Item | null): string {
     const txt = formatMod([k, Math.abs(d)]).replace(/^\+/, d > 0 ? '+' : '−');
     return `<li class="${d > 0 ? 'up' : 'down'}">${d > 0 ? '▲' : '▼'} ${txt}</li>`;
   }).filter(Boolean);
-  const lost = cur.u ? `<li class="down">▼ loses: ${esc(UNIQUES[cur.u].effect)}</li>` : '';
+  const lost = [cur.u, cur.ipr].filter((u): u is string => !!u && !!UNIQUES[u] && u !== it.u && u !== it.ipr).map(u => `<li class="down">▼ loses: ${esc(UNIQUES[u].effect)}</li>`).join('');
   if (!rows.length && !lost) return powerLine(it, cur) + '<p class="cmpnote">Same stats as the equipped item.</p>';
   return `${powerLine(it, cur)}<ul class="cmp">${rows.join('')}${lost}</ul>`;
 }
@@ -69,6 +69,7 @@ export function itemTooltip(it: BagItem, equipped: Item | null, actions: string,
       <div class="tipbase">${rar.name} ${SLOT_NAMES[it.slot]}${it.r ? ' · ' + esc(it.base) : ''} · item level ${it.L}</div></div></div>
     <ul class="mods">${it.mods.map((m, i) => modLine(m, i < it.imp, modMark(it, i))).join('')}</ul>
     ${it.u ? `<p class="unique">${esc(UNIQUES[it.u].effect)}</p>` : ''}
+    ${it.ipr && UNIQUES[it.ipr] ? `<p class="unique imprint" title="Imprinted from the codex">◆ ${esc(UNIQUES[it.ipr].effect)}</p>` : ''}
     ${corruptNote(it)}
     ${opts.compare ? `<div class="vs"><h4>Compared with equipped</h4>${compareLines(it, equipped)}</div>` : ''}
     <div class="tipact">${actions}</div></div>`;

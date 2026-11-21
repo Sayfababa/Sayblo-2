@@ -7,7 +7,7 @@ import {
   SOCKET_LEVELS, TREES, isPassive, skillMaxLevel, type Attr, type Slot,
 } from '../content/index.ts';
 import { itemSize, canPlace } from '../sim/bag.ts';
-import { damageRange, formatMod, frostArmorBarrier, gemFits, gemText, potionPrice, respecCost, sellValue, skillCtx, calcStats, xpNeeded, type SkillCtx } from '../sim/formulas.ts';
+import { damageRange, formatMod, frostArmorBarrier, gemFits, gemText, potionPrice, respecCost, sellValue, skillCtx, calcStats, type SkillCtx } from '../sim/formulas.ts';
 import { SaveError, exportCode, importCode } from '../sim/save.ts';
 import type { RunStats, Sim } from '../sim/sim.ts';
 import { isGem, type Monster, type SaveState, type SimEvent } from '../sim/types.ts';
@@ -18,6 +18,7 @@ import { gemColor } from './gemcolor.ts';
 import { EconomyUI, lootRulesHtml, matsHeader, matsKey, salvageBtn } from './economy.ts';
 import { salvage } from '../sim/economy.ts';
 import { bagBadges, feelBuffs, soundInput, soundSettings } from './feel.ts';
+import { MetaUI, metaBuffs, titleText, tyrantInfo, xpBar } from './meta.ts';
 
 const SHEET_W = 460;
 const DIFF_ICON = ['normal', 'nightmare', 'hell'];
@@ -59,6 +60,8 @@ export class UI {
   private drag: { from: number; to: number; id: number; y0: number } | null = null;
   /** forge, altar, vendor, stash and the economy parts of the bag (economy.ts) */
   private eco = new EconomyUI(() => this.sim);
+  /** bounty board, codex, ember points, feats, HUD tracker and toasts (meta.ts) */
+  private meta = new MetaUI(() => this.sim);
 
   constructor(game: GameHooks) {
     this.game = game;
@@ -79,6 +82,7 @@ export class UI {
 
   consume(events: SimEvent[]) {
     for (const e of events) if (e.t === 'log') this.addLog(richText(e.msg), e.cls);
+    this.meta.consume(events); // meta: toasts
   }
   addLog(html: string, cls = '') {
     this.log.unshift({ html, cls });
@@ -148,6 +152,7 @@ export class UI {
     const fa = sim.buffs.frostarmor ?? 0;
     if (fa > 0) b.push(`<span class="buff" title="Frost Armor"><img src="${skillIcon('frostarmor')}" alt="Frost Armor"><b>${Math.ceil(fa)}</b></span>`);
     b.push(...feelBuffs(sim)); // feel: shrines, vault, chill
+    b.push(...metaBuffs(sim)); // meta: area event
     if (sim.s.difficulty) b.push(`<span class="buff diff d${sim.s.difficulty}" title="${DIFFICULTIES[sim.s.difficulty].name}">${ic(DIFF_ICON[sim.s.difficulty])}${DIFFICULTIES[sim.s.difficulty].name}</span>`);
     const key = b.join('');
     if (key !== this.lastBuffs) { this.lastBuffs = key; $('#buffs').innerHTML = key; }
@@ -156,7 +161,7 @@ export class UI {
   draw() {
     const sim = this.sim, s = this.s, st = sim.st, z = AREAS[s.zone];
     const wv = sim.phase === 'town' ? 'In town' : sim.bossSpawned ? 'Boss' : sim.wave ? `Wave ${Math.min(sim.wave, z.waves)}/${z.waves}` : 'Exploring';
-    $('#zmeta').textContent = `${ACT_NAME} · monster lv ${sim.areaLevel()} · ${wv}`;
+    $('#zmeta').textContent = `${ACT_NAME} · monster lv ${sim.areaLevel()} · ${wv}${tyrantInfo(sim)}`;
     $('#zprog').style.width = (sim.bossSpawned ? 100 : (Math.max(0, sim.wave - (sim.phase === 'fight' ? 1 : 0)) / z.waves) * 100) + '%';
     $('#overlay').hidden = sim.phase !== 'town';
     if (sim.phase === 'town') {
@@ -167,8 +172,9 @@ export class UI {
     }
     $('#hlvl').textContent = String(s.lvl);
     $('#hgold').textContent = fmt(s.gold);
-    $('#xptxt').textContent = `${fmt(s.xp)} / ${fmt(xpNeeded(s.lvl))} XP`;
-    $('#xpbar').style.width = (s.xp / xpNeeded(s.lvl)) * 100 + '%';
+    const xb = xpBar(s); // meta: ember bar after the level cap
+    $('#xptxt').textContent = xb.text;
+    $('#xpbar').style.width = xb.pct + '%';
     const mb = sim.maxBarrier(), bf = mb ? s.barrier / mb : 0;
     $('#barring').style.opacity = s.barrier > 0 ? (0.25 + bf * 0.75).toFixed(2) : '0';
     $('#bartxt').textContent = s.barrier >= 1 ? '+' + Math.round(s.barrier) + ' barrier' : '';
@@ -183,6 +189,7 @@ export class UI {
       $('#mppot').innerHTML = `<img src="${spriteUrl('item-potion-mp.png')}" alt="Mana potions">${s.mpPot}`;
     }
     this.drawBuffs();
+    this.meta.draw(); // meta: bounty tracker, toasts
     if (sim.dirty.has('slots')) { this.renderSkillbar(); sim.dirty.delete('slots'); }
     s.slots.forEach((sl, i) => {
       const e = document.getElementById('sk' + i);
@@ -224,7 +231,7 @@ export class UI {
     const res = (e: 'fire' | 'cold' | 'light') => `${st.res[e]}%${st.rawRes[e] + sim.diff.resPenalty > st.res[e] ? ` <small class="over">(${st.rawRes[e] + sim.diff.resPenalty})</small>` : ''}`;
     const plus = Object.entries(st.plus).filter(([, v]) => v).map(([t, v]) => row(`+ ${TREES[t].name} skills`, `+${v}`)).join('');
     $('#p-hero').innerHTML = `
-      ${phead(`${HERO.className} · Level ${s.lvl}`, s.attrPts ? `${ic('attrpt', 'Attribute points')}<b class="gold">${s.attrPts}</b> to spend` : 'No points left')}
+      ${phead(`${HERO.className}${titleText(s) ? ` <small class="htitle">${esc(titleText(s))}</small>` : ''} · Level ${s.lvl}`, s.attrPts ? `${ic('attrpt', 'Attribute points')}<b class="gold">${s.attrPts}</b> to spend` : 'No points left')}
       <div class="well attrs">${ATTRS.map(k => { const A = HERO.attributes[k]; const dis = s.attrPts ? '' : 'disabled'; return `<div class="attr"><span>${A.name}</span><span class="v">${st.a[k]}</span><span class="d">${A.description}</span>
         <span class="updn"><button class="btn sq" data-act="attr:${k}:1" ${dis} aria-label="Add point to ${A.name}">+</button><button class="btn sq" data-act="attr:${k}:5" ${s.attrPts >= 5 ? '' : 'disabled'} aria-label="Add 5 points to ${A.name}">+5</button></span></div>`; }).join('')}</div>
       <details class="grp" open><summary>Offense</summary><div class="kv">
@@ -250,6 +257,7 @@ export class UI {
         ${row('Chance to freeze', `+${g('freezeChance')}%`, 'cold')}${row('Chill effect', `+${g('chillEffect')}%`, 'cold')}
         ${row('Chance to shock', `+${g('shockChance')}%`, 'light')}${row('Shock effect', `+${g('shockEffect')}%`, 'light')}
       </div><p class="hint">Burn deals fire damage over time. Chill slows, freeze stops an enemy for a moment (heavy cold hits freeze more often). Shocked enemies take more damage from everything.</p></details>
+      ${this.meta.heroHtml()}
       <details class="grp"><summary>Record</summary><div class="kv">
         ${row('Kills', fmt(s.kills))}${row('Deaths', String(s.deaths))}${row('Difficulty', sim.diff.name)}${row('Gold', fmt(s.gold))}
       </div></details>`;
@@ -458,7 +466,7 @@ export class UI {
     const diffs = DIFFICULTIES.map((d, i) => `<button class="btn diffbtn ${i === s.difficulty ? 'primary' : ''}" data-act="diff:${i}" ${s.progress[i] ? '' : 'disabled'} aria-pressed="${i === s.difficulty}">${ic(s.progress[i] ? DIFF_ICON[i] : 'lock')}${d.name}</button>`).join('');
     const fuse = sim.fusable().map(([g, l, n]) => `<div class="row"><span style="color:${gemColor(g)}">${esc(GEMS[g].name)} Lv ${l} ×${n}</span><button class="btn" data-act="fuse:${g}:${l}">Fuse 3 → Lv ${l + 1} · ${sim.fuseCost(l)}g</button></div>`).join('');
     const head = `${phead('Town', `${matsHeader(s)}${ic('gold', 'Gold')}<span class="gold" id="towngold">${fmt(s.gold)}</span>`)}${this.eco.nav()}`;
-    const eco = this.eco.render();
+    const eco = this.meta.townView(this.eco.view) ?? this.eco.render(); // meta: bounty board, codex
     if (eco != null) { $('#p-town').innerHTML = head + eco; return; }
     $('#p-town').innerHTML = `
       ${head}
@@ -500,6 +508,7 @@ export class UI {
       <div class="scope"><h3>About this version</h3>
         <ul><li>New: 15 skills incl. passives, burn/chill/freeze/shock, 17 support gems with sockets and gem fusing, affix tiers, +skill items, 7 uniques with special effects, bag grid, Nightmare and Hell, offline progress (50%, up to 8 hours).</li>
         <li>New: salvage, crafting embers at the forge, corruption altar, gambling vendor, loot rules, stash.</li>
+        <li>New: bounty board, area tyrants, area events, unique codex with imprints, ember points after level 60, feats and titles.</li>
         <li>Not yet: sets, rifts. Numbers are a first guess for testing, not balanced.</li></ul></div>
       <div class="row"><span class="hint">Start a new hero. This deletes the current one.</span><button class="btn sm" data-act="reset">${this.resetArm ? 'Tap again to wipe' : 'Start over'}</button></div>`;
   }
@@ -608,7 +617,7 @@ export class UI {
         this.resetArm = false;
         this.game.wipe();
         break;
-      default: this.eco.click(a, x, y);
+      default: if (!this.eco.click(a, x, y)) this.meta.click(a, x, y);
     }
     this.draw();
   }
