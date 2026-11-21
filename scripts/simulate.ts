@@ -7,6 +7,8 @@
 import { AREAS, DIFFICULTIES, SKILLS, SOCKET_LEVELS, type Attr } from '../src/content/index.ts';
 import { gemFits, itemScore } from '../src/sim/formulas.ts';
 import { Sim } from '../src/sim/sim.ts';
+import { canAfford, craftCost, craftableMods, emberBlock } from '../src/sim/crafting.ts';
+import { forge, salvage } from '../src/sim/economy.ts';
 import { isGem } from '../src/sim/types.ts';
 
 const minutes = Number(process.argv[2] ?? 60), seed = Number(process.argv[3] ?? 1), build = process.argv[4] ?? 'fire';
@@ -18,6 +20,21 @@ const PLANS: Record<string, string[]> = {
 const plan = PLANS[build];
 const attrOrder: Attr[] = ['vit', 'power', 'spirit', 'focus', 'vit'];
 const sim = new Sim(undefined, { seed, headless: true });
+const crafts: Record<string, number> = {};
+
+/** Simple crafting: bind magic gear into rares, then raise affix tiers on equipped items while materials last. */
+function craft() {
+  const s = sim.s;
+  for (const it of Object.values(s.equip)) {
+    if (!it) continue;
+    const tries: [ 'bind' | 'rise', number | null][] = [['bind', null], ...craftableMods(it).map(i => ['rise', i] as ['rise', number])];
+    for (const [e, i] of tries) {
+      const cost = craftCost(it, e);
+      if (emberBlock(it, e, i) || !canAfford(s.mats, cost)) continue;
+      if (!forge(sim, it.id, e, i, cost)) crafts[e] = (crafts[e] || 0) + 1;
+    }
+  }
+}
 
 function spend() {
   const s = sim.s;
@@ -37,7 +54,9 @@ function spend() {
       if (g) sim.socketGem(id, si, g.id);
     });
   }
-  for (const it of s.bag.slice()) if (!isGem(it) && it.r < 3) sim.sell(it.id);
+  // normal and magic items are sold for gold, rares salvaged for crafting
+  for (const it of s.bag.slice()) if (!isGem(it) && it.r < 3) { if (it.r < 2) sim.sell(it.id); else salvage(sim, it.id); }
+  craft();
   if (s.hpPot < 5) sim.buyPotions('hp', 5);
   if (s.mpPot < 5) sim.buyPotions('mp', 5);
   for (let d = DIFFICULTIES.length - 1; d > s.difficulty; d--) if (s.progress[d]) { sim.setDifficulty(d); break; }
@@ -56,4 +75,5 @@ console.log(`After ${minutes} min (seed ${seed}, ${build}): level ${s.lvl}, ${s.
 console.log('Unlocked:'); console.log(reached.join('\n'));
 console.log('Skills:', JSON.stringify(s.skills));
 console.log('Gems:', Object.entries(s.sockets).map(([k, a]) => `${k}: ${a.filter(Boolean).map(g => g!.gem + g!.lvl).join(',')}`).join(' | '));
+console.log('Materials:', JSON.stringify(s.mats), 'crafts:', JSON.stringify(crafts));
 console.log('Res:', JSON.stringify(sim.st.res), 'life', sim.st.maxLife);

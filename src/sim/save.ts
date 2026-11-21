@@ -4,9 +4,9 @@
  * Code format: "GL<version>." + base64url(deflate-raw(JSON)) + "." + checksum.
  * If the browser has no CompressionStream, the payload is stored uncompressed with prefix "GLU<version>.".
  */
-import { AREAS, ATTRS, DIFFICULTIES, GEMS, GEM_MAX_LEVEL, SKILLS, SLOTS, UNIQUES, isPassive } from '../content/index.ts';
+import { AREAS, ATTRS, DIFFICULTIES, ECONOMY, GEMS, GEM_MAX_LEVEL, MAT_IDS, RARITIES, SKILLS, SLOTS, UNIQUES, isPassive } from '../content/index.ts';
 import { placeMissing } from './bag.ts';
-import { SAVE_VERSION, newSaveState } from './state.ts';
+import { SAVE_VERSION, defaultLoot, newSaveState } from './state.ts';
 import type { BagItem, GemItem, Item, SaveState } from './types.ts';
 
 export const STORAGE_KEY = 'grimlight-save';
@@ -32,6 +32,13 @@ const MIGRATIONS: Record<number, (s: Raw) => Raw> = {
       settings: { dmgNumbers: true, lootLabels: true },
       bag: ((s.bag as Item[]) || []).map(fix), equip,
     };
+  },
+  // v5: economy. The old pick-up filter (0-3 = minimum rarity) becomes the per-slot minimum of the new loot rules;
+  // filtered items keep being sold like before. Materials and stash start empty.
+  4: s => {
+    const f = typeof s.filter === 'number' ? Math.max(0, Math.min(3, Math.floor(s.filter))) : 0;
+    const { filter: _old, ...rest } = s;
+    return { ...rest, v: 5, loot: { ...defaultLoot(f), autoSalvage: false }, mats: { dust: 0, essence: 0, shard: 0 }, stash: [] };
   },
 };
 
@@ -96,7 +103,19 @@ function sanitize(s: Raw): SaveState {
   for (const k of SLOTS) { const it = equip[k]; if (validItem(it) && it.slot === k) out.equip[k] = it; }
   out.bag = (Array.isArray(s.bag) ? s.bag : []).filter((x): x is BagItem => validItem(x) || validGem(x));
   placeMissing(out.bag);
-  out.filter = Math.floor(num(s.filter, 0, 0, 3));
+  const loot = (s.loot || {}) as Raw, minR = (loot.minR || {}) as Raw;
+  out.loot = defaultLoot();
+  for (const k of SLOTS) out.loot.minR[k] = Math.floor(num(minR[k], 0, 0, RARITIES.length - 1));
+  for (const k of ['keepUniques', 'keepGems', 'keepUpgrades', 'autoSalvage'] as const) out.loot[k] = bool(loot[k], out.loot[k]);
+  const mats = (s.mats || {}) as Raw;
+  out.mats = { dust: 0, essence: 0, shard: 0 };
+  for (const k of MAT_IDS) out.mats[k] = Math.floor(num(mats[k], 0, 0));
+  const stash = Array.isArray(s.stash) ? s.stash : [];
+  out.stash = Array.from({ length: ECONOMY.stash.tabs }, (_, i) => {
+    const tab = (Array.isArray(stash[i]) ? stash[i] : []).filter((x: unknown): x is BagItem => validItem(x) || validGem(x));
+    placeMissing(tab);
+    return tab;
+  });
   out.hpPot = Math.floor(num(s.hpPot, d.hpPot, 0)); out.mpPot = Math.floor(num(s.mpPot, d.mpPot, 0));
   out.hpTh = num(s.hpTh, d.hpTh, 0, 100); out.mpTh = num(s.mpTh, d.mpTh, 0, 100);
   const prog = Array.isArray(s.progress) ? s.progress : [];
@@ -112,7 +131,7 @@ function sanitize(s: Raw): SaveState {
   out.mana = s.mana == null ? null : num(s.mana, 0, 0);
   out.barrier = num(s.barrier, 0, 0);
   out.kills = Math.floor(num(s.kills, 0, 0)); out.deaths = Math.floor(num(s.deaths, 0, 0));
-  const maxId = Math.max(0, ...out.bag.map(i => i.id), ...Object.values(out.equip).filter((i): i is Item => !!i).map(i => i.id),
+  const maxId = Math.max(0, ...out.bag.map(i => i.id), ...out.stash.flat().map(i => i.id), ...Object.values(out.equip).filter((i): i is Item => !!i).map(i => i.id),
     ...Object.values(out.sockets).flat().filter((g): g is GemItem => !!g).map(g => g.id));
   out.nextId = Math.max(Math.floor(num(s.nextId, 1, 1)), maxId + 1);
   out.savedAt = num(s.savedAt, 0, 0);

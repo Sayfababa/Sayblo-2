@@ -1,4 +1,4 @@
-import type { Attr, Element, Slot } from '../content/index.ts';
+import type { Attr, Element, MatId, Slot } from '../content/index.ts';
 
 /** Item modifier: [affix id, value] or [affix id, value, tier]. */
 export type Mod = [string, number] | [string, number, number];
@@ -8,6 +8,9 @@ export interface Item {
   u?: string;
   /** position in the bag grid */
   bx?: number; by?: number;
+  /* economy (see crafting.ts): times crafted, mod index protected by Sealing Wax, corruption outcome (1-4),
+     index of the mod the corruption added or doubled (never touched by crafting), sealed = no more crafting, unidentified */
+  cr?: number; wax?: number; cor?: number; cm?: number; seal?: boolean; unid?: boolean;
 }
 export interface GemItem { id: number; kind: 'gem'; gem: string; lvl: number; bx?: number; by?: number }
 export type BagItem = Item | GemItem;
@@ -16,6 +19,9 @@ export const isGem = (it: BagItem | null | undefined): it is GemItem => !!it && 
 export interface CastSlot { id: string | null; cond: string }
 
 export interface Settings { dmgNumbers: boolean; lootLabels: boolean }
+
+/** Loot filter rules (see loot.ts). minR: lowest rarity kept per slot (0 Normal … 3 Unique). */
+export interface LootRules { minR: Record<Slot, number>; keepUniques: boolean; keepGems: boolean; keepUpgrades: boolean; autoSalvage: boolean }
 
 /** Everything that is saved. Plain JSON, versioned (see save.ts). */
 export interface SaveState {
@@ -28,7 +34,11 @@ export interface SaveState {
   slots: CastSlot[];
   equip: Record<Slot, Item | null>;
   bag: BagItem[];
-  filter: number;
+  loot: LootRules;
+  /** crafting materials from salvage */
+  mats: Record<MatId, number>;
+  /** town stash: one grid (same size as the bag) per tab */
+  stash: BagItem[][];
   hpPot: number; mpPot: number; hpTh: number; mpTh: number;
   difficulty: number;
   /** areas unlocked per difficulty (0 = difficulty locked) */

@@ -4,6 +4,7 @@ import '@fontsource/alegreya-sans/latin-400.css';
 import '@fontsource/alegreya-sans/latin-500.css';
 import '@fontsource/alegreya-sans/latin-700.css';
 import './ui/styles.css';
+import './ui/economy.css';
 import { Application } from 'pixi.js';
 import { registerSW } from 'virtual:pwa-register';
 import { Scene } from './render/scene.ts';
