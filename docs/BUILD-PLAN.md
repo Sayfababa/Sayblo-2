@@ -39,7 +39,10 @@ Owner decisions since: no big header pictures in menus (altar/forge pictures rem
 Running / next:
 - **UI agent** (worktree branch `worktree-agent-a23187f2f31fc20d0`): gem pouch (save v9, done), compact bag strip, hero panel without sideways scroll, compact town navigation (8 tabs), `scripts/ui-check.mjs` overflow check. Stays the contact for future owner UI complaints.
 - **Skill agent** (branch `worktree-agent-a5bfd12a8e0e3f91a`): 24 sorceress skills, modifiers per skill, new skill types (beam, curse, field, ward, construct, orb), per-tree skills panel, `docs/skill-system.md` (save v9 too: renumber on merge).
-- Then: **Warrior** agent (needs `docs/skill-system.md`), then **E – Town & idle** and **F – balance/polish**.
+- **Warrior agent**: second class (save v11 `cls`, class choice on a new game and in Town › New hero), 24 warrior skills
+  (Cinder/Rime/Thunder) with the new types melee, fissure, leap, cry, aura (`src/sim/melee.ts`), `src/content/classes.json`,
+  warrior weapon bases and +tree affixes by class, placeholder look in code, art prompts in `docs/asset-requests.md` (Warrior).
+- Then **E – Town & idle** and **F – balance/polish**.
 
 Known balance issues for F: Hell is not reachable (monster curve 1.17/1.15 per level too steep); level cap 60 + ember points unreachable (XP curve 1.36× per level); storm builds clearly slower in rifts.
 Art waiting for prompts to the owner: 6 tyrant sheets, `mon-matriarch.png`, rift tear / blood moon / champion casing fx, new skill icons (prompts in `docs/asset-requests.md`). Imp/Wraith prompts: `docs/ui-assets.md` section 9.

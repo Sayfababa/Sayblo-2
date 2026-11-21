@@ -181,6 +181,7 @@ const VIEWS = [
     await p.evaluate(v => { localStorage.setItem('grimlight-save', v); Storage.prototype.setItem = () => {}; location.reload(); }, wsave).catch(() => {}); // the old page must not save over it
     await p.waitForFunction(() => document.getElementById('loading')?.hidden && window.grimlight?.sim?.s?.cls === 'warrior', null, { timeout: 30000 });
     await p.waitForTimeout(1500);
+    await click(p, act('closesum')); // offline summary of the loaded save
   }],
   ['w-hero', async p => { await tab('hero')(p); }],
   ['w-cinder', async p => { await tab('skills')(p); await click(p, act('stree:cinder')); await click(p, act('skillsel:kindleroar')); await p.evaluate(() => { const s = document.querySelector('#sheet'); s.scrollTop = s.scrollHeight / 2; }); }],

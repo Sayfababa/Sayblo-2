@@ -19,9 +19,9 @@ export const PLANS: Record<string, string[]> = {
   cold: ['frostbolt', 'coldmastery', 'frostarmor', 'hailstorm', 'icenova', 'rimeshell', 'frostbolt', 'frostbolt', 'coldmastery', 'hailstorm', 'permafrost', 'brittlefrost'],
   storm: ['chain', 'conductivity', 'stormlantern', 'frostarmor', 'nova', 'stormwisp', 'thunder', 'chain', 'chain', 'conductivity', 'stormmastery', 'capacitor'],
   // warrior plans (Warrior package): one per tree, Glacier Shield for defence like the sorceress' Frost Armor
-  wfire: ['searblade', 'emberblood', 'cinderslam', 'kindleroar', 'sunder', 'glaciershield', 'searblade', 'searblade', 'emberblood', 'sunder', 'pyrebrand', 'heatofbattle', 'pyreheart'],
+  wfire: ['searblade', 'emberblood', 'glaciershield', 'cinderslam', 'sunder', 'kindleroar', 'searblade', 'searblade', 'emberblood', 'sunder', 'pyrebrand', 'heatofbattle', 'pyreheart'],
   wcold: ['frostcleave', 'wintersbite', 'glaciershield', 'wintertaunt', 'shatterstrike', 'glacialstomp', 'frostcleave', 'frostcleave', 'wintersbite', 'shatterstrike', 'hoarfrost', 'icevein'],
-  wstorm: ['thundermaul', 'stormblood', 'hurledhammer', 'skyleap', 'tempestmantle', 'callstorm', 'thundermaul', 'thundermaul', 'stormblood', 'tempestmantle', 'staticskin', 'overload'],
+  wstorm: ['thundermaul', 'stormblood', 'glaciershield', 'skyleap', 'tempestmantle', 'hurledhammer', 'callstorm', 'thundermaul', 'thundermaul', 'stormblood', 'tempestmantle', 'staticskin', 'overload'],
   // the plans from before the skills package (first six skills per element, even spread), for comparison
   fire0: ['fireball', 'pyromancy', 'frostarmor', 'searing', 'meteor', 'fireball', 'pyromancy', 'kindling'],
   cold0: ['frostbolt', 'coldmastery', 'frostarmor', 'icenova', 'frostbolt', 'coldmastery', 'permafrost'],

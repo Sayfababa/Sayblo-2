@@ -545,7 +545,7 @@ export class UI {
           setTimeout(() => { this.resetArm = false; this.sim.dirty.add('town'); }, 4000);
           break;
         }
-        this.classPick.show(true); // classes: the hero is replaced once a class is picked
+        this.setTab(null); this.classPick.show(true); // classes: the hero is replaced once a class is picked
         break;
       case 'clspick': case 'clscancel': this.classPick.click(a, x); if (a === 'clscancel') { this.resetArm = false; D.add('town'); } break;
       default: if (!this.rift.click(a, x) && !this.eco.click(a, x, y)) this.meta.click(a, x, y);
