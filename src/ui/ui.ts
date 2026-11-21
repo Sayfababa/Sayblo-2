@@ -10,9 +10,10 @@ import { itemSize, canPlace } from '../sim/bag.ts';
 import { damageRange, formatMod, frostArmorBarrier, gemFits, gemText, potionPrice, respecCost, sellValue, skillCtx, calcStats, xpNeeded, type SkillCtx } from '../sim/formulas.ts';
 import { SaveError, exportCode, importCode } from '../sim/save.ts';
 import type { RunStats, Sim } from '../sim/sim.ts';
-import { isGem, type Monster, type SaveState, type SimEvent } from '../sim/types.ts';
+import { isEquip, isGem, isKey, type Monster, type SaveState, type SimEvent } from '../sim/types.ts';
 import { spriteUrl } from '../render/textures.ts';
-import { $, duration, esc, fmt, ic, itemPic, phead, richText, skillIcon } from './html.ts';
+import { $, bagCls, duration, esc, fmt, ic, itemPic, phead, richText, skillIcon } from './html.ts';
+import { RiftUI, riftBuffs, riftHud } from './rift.ts';
 import { itemTooltip } from './tooltip.ts';
 import { gemColor } from './gemcolor.ts';
 import { EconomyUI, lootRulesHtml, matsHeader, matsKey, salvageBtn } from './economy.ts';
@@ -59,6 +60,8 @@ export class UI {
   private drag: { from: number; to: number; id: number; y0: number } | null = null;
   /** forge, altar, vendor, stash and the economy parts of the bag (economy.ts) */
   private eco = new EconomyUI(() => this.sim);
+  /** rifts and atlas (rift.ts) */
+  private rift = new RiftUI(() => this.sim);
 
   constructor(game: GameHooks) {
     this.game = game;
@@ -79,6 +82,7 @@ export class UI {
 
   consume(events: SimEvent[]) {
     for (const e of events) if (e.t === 'log') this.addLog(richText(e.msg), e.cls);
+    this.rift.consume(events); // rift: result card
   }
   addLog(html: string, cls = '') {
     this.log.unshift({ html, cls });
@@ -90,6 +94,7 @@ export class UI {
   /** Called every frame. Cheap parts run every frame, the rest ten times a second. */
   frame(real: number, target: Monster | null) {
     this.drawTarget(target);
+    this.rift.frame(real);
     this.uiT += real;
     if (this.uiT > 0.1) { this.uiT = 0; this.draw(); }
   }
@@ -148,6 +153,7 @@ export class UI {
     const fa = sim.buffs.frostarmor ?? 0;
     if (fa > 0) b.push(`<span class="buff" title="Frost Armor"><img src="${skillIcon('frostarmor')}" alt="Frost Armor"><b>${Math.ceil(fa)}</b></span>`);
     b.push(...feelBuffs(sim)); // feel: shrines, vault, chill
+    b.push(...riftBuffs(sim)); // rift: key modifiers
     if (sim.s.difficulty) b.push(`<span class="buff diff d${sim.s.difficulty}" title="${DIFFICULTIES[sim.s.difficulty].name}">${ic(DIFF_ICON[sim.s.difficulty])}${DIFFICULTIES[sim.s.difficulty].name}</span>`);
     const key = b.join('');
     if (key !== this.lastBuffs) { this.lastBuffs = key; $('#buffs').innerHTML = key; }
@@ -156,8 +162,11 @@ export class UI {
   draw() {
     const sim = this.sim, s = this.s, st = sim.st, z = AREAS[s.zone];
     const wv = sim.phase === 'town' ? 'In town' : sim.bossSpawned ? 'Boss' : sim.wave ? `Wave ${Math.min(sim.wave, z.waves)}/${z.waves}` : 'Exploring';
-    $('#zmeta').textContent = `${ACT_NAME} · monster lv ${sim.areaLevel()} · ${wv}`;
-    $('#zprog').style.width = (sim.bossSpawned ? 100 : (Math.max(0, sim.wave - (sim.phase === 'fight' ? 1 : 0)) / z.waves) * 100) + '%';
+    const rh = riftHud(sim); // rift: timer and progress bar
+    $('#zmeta').textContent = rh ? rh.meta : `${ACT_NAME} · monster lv ${sim.areaLevel()} · ${wv}`;
+    $('#zmeta').classList.toggle('late', !!rh?.late);
+    $('#zprog').style.width = (rh ? rh.prog : sim.bossSpawned ? 100 : (Math.max(0, sim.wave - (sim.phase === 'fight' ? 1 : 0)) / z.waves) * 100) + '%';
+    $('#zprog').classList.toggle('rift', !!rh);
     $('#overlay').hidden = sim.phase !== 'town';
     if (sim.phase === 'town') {
       $('#towntxt').textContent = s.autoReturn
@@ -198,9 +207,11 @@ export class UI {
     }
     const zs = $<HTMLSelectElement>('#zonesel');
     if (sim.dirty.has('zones')) {
-      zs.innerHTML = AREAS.slice(0, sim.unlocked).map((a, i) => `<option value="${i}" ${i === s.zone ? 'selected' : ''}>${esc(a.name)}</option>`).join('');
+      const rr = sim.rift.run; // rift: the current rift is the selected entry; picking an area leaves it
+      zs.innerHTML = (rr ? `<option value="-1" selected>${rr.pin ? 'Pinnacle' : `Rift · Tier ${rr.tier}`}</option>` : '')
+        + AREAS.slice(0, sim.unlocked).map((a, i) => `<option value="${i}" ${i === s.zone && !rr ? 'selected' : ''}>${esc(a.name)}</option>`).join('');
       sim.dirty.delete('zones');
-    } else if (+zs.value !== s.zone) zs.value = String(s.zone);
+    } else if (+zs.value !== (sim.rift.run ? -1 : s.zone)) zs.value = String(sim.rift.run ? -1 : s.zone);
     document.querySelectorAll<HTMLElement>('#speedseg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.act === 'speed:' + s.speed)));
     $('#dot-hero').hidden = !s.attrPts;
     $('#dot-skills').hidden = !s.skillPts;
@@ -391,7 +402,7 @@ export class UI {
       return out.join('');
     })() : '';
     const items = s.bag.map(it => {
-      const [w, h] = itemSize(it), r = isGem(it) ? 'gem' : 'r' + it.r;
+      const [w, h] = itemSize(it), r = bagCls(it);
       const picked = this.sellMode && this.sellSel.has(it.id);
       return `<button class="bi ${r} ${it.id === this.selBag ? 'sel' : ''} ${picked ? 'picked' : ''}" style="--x:${it.bx};--y:${it.by};--w:${w};--h:${h}${isGem(it) ? `;--gc:${gemColor(it.gem)}` : ''}" data-act="bagsel:${it.id}" aria-label="${esc(sim.itemName(it))}" ${this.sellMode ? `aria-pressed="${picked}"` : ''}>${itemPic(it, 'pic', true)}${bagBadges(it, s.equip)}</button>`;
     }).join('');
@@ -406,6 +417,8 @@ export class UI {
           return [`<button class="btn primary" data-act="sock:${k}:${i}:${sel.id}">Socket into ${esc(SKILLS[k].name)}</button>`];
         }).join('');
         tip = itemTooltip(sel, null, `${quick}<button class="btn" data-act="move">${this.moveMode ? 'Cancel move' : 'Move'}</button><button class="btn" data-act="sell:${sel.id}">${ic('sell')}Sell · ${sellValue(sel)}g</button>`, { learned });
+      } else if (isKey(sel)) {
+        tip = itemTooltip(sel, null, `${sim.rift.unlocked() ? `<button class="btn primary" data-act="riftkey:${sel.id}">Open rift</button>` : ''}<button class="btn" data-act="move">${this.moveMode ? 'Cancel move' : 'Move'}</button><button class="btn" data-act="sell:${sel.id}">${ic('sell')}Sell · ${sellValue(sel)}g</button>`, { save: s });
       } else {
         tip = itemTooltip(sel, s.equip[sel.slot], `${sel.unid ? `<button class="btn primary" data-act="ident:${sel.id}">Identify</button>` : `<button class="btn primary" data-act="equip:${sel.id}">Equip</button>`}<button class="btn" data-act="move">${this.moveMode ? 'Cancel move' : 'Move'}</button><button class="btn" data-act="sell:${sel.id}">${ic('sell')}Sell · ${sellValue(sel)}g</button>${salvageBtn(sel)}`, { compare: !sel.unid });
       }
@@ -458,7 +471,7 @@ export class UI {
     const diffs = DIFFICULTIES.map((d, i) => `<button class="btn diffbtn ${i === s.difficulty ? 'primary' : ''}" data-act="diff:${i}" ${s.progress[i] ? '' : 'disabled'} aria-pressed="${i === s.difficulty}">${ic(s.progress[i] ? DIFF_ICON[i] : 'lock')}${d.name}</button>`).join('');
     const fuse = sim.fusable().map(([g, l, n]) => `<div class="row"><span style="color:${gemColor(g)}">${esc(GEMS[g].name)} Lv ${l} ×${n}</span><button class="btn" data-act="fuse:${g}:${l}">Fuse 3 → Lv ${l + 1} · ${sim.fuseCost(l)}g</button></div>`).join('');
     const head = `${phead('Town', `${matsHeader(s)}${ic('gold', 'Gold')}<span class="gold" id="towngold">${fmt(s.gold)}</span>`)}${this.eco.nav()}`;
-    const eco = this.eco.render();
+    const eco = this.eco.view === 'rift' ? this.rift.render() : this.eco.render();
     if (eco != null) { $('#p-town').innerHTML = head + eco; return; }
     $('#p-town').innerHTML = `
       ${head}
@@ -500,7 +513,8 @@ export class UI {
       <div class="scope"><h3>About this version</h3>
         <ul><li>New: 15 skills incl. passives, burn/chill/freeze/shock, 17 support gems with sockets and gem fusing, affix tiers, +skill items, 7 uniques with special effects, bag grid, Nightmare and Hell, offline progress (50%, up to 8 hours).</li>
         <li>New: salvage, crafting embers at the forge, corruption altar, gambling vendor, loot rules, stash.</li>
-        <li>Not yet: sets, rifts. Numbers are a first guess for testing, not balanced.</li></ul></div>
+        <li>New: endless rifts with keys and modifiers, timer, Rift Guardian, atlas, pinnacle boss with mythic uniques (Town › Rifts, open after Hell; add ?dev to the URL to test).</li>
+        <li>Not yet: sets. Numbers are a first guess for testing, not balanced.</li></ul></div>
       <div class="row"><span class="hint">Start a new hero. This deletes the current one.</span><button class="btn sm" data-act="reset">${this.resetArm ? 'Tap again to wipe' : 'Start over'}</button></div>`;
   }
 
@@ -541,7 +555,7 @@ export class UI {
         break;
       }
       case 'sellmode': this.sellMode = !this.sellMode; this.sellSel.clear(); this.selBag = null; this.selEq = null; this.moveMode = false; D.add('bag'); break;
-      case 'sellpick': for (const it of s.bag) if (!isGem(it) && it.r < 2) this.sellSel.add(it.id); D.add('bag'); break;
+      case 'sellpick': for (const it of s.bag) if (isEquip(it) && it.r < 2) this.sellSel.add(it.id); D.add('bag'); break;
       case 'sellsel': {
         let n = 0, g = 0;
         for (const id of this.sellSel) { const it = s.bag.find(i => i.id === id); if (it) { g += sellValue(it); n++; sim.sell(id); } }
@@ -608,7 +622,7 @@ export class UI {
         this.resetArm = false;
         this.game.wipe();
         break;
-      default: this.eco.click(a, x, y);
+      default: if (!this.rift.click(a, x)) this.eco.click(a, x, y);
     }
     this.draw();
   }
@@ -654,6 +668,7 @@ export class UI {
     else if (t.dataset.slot != null) sim.setSlotSkill(+t.dataset.slot, t.value || null);
     else if (t.dataset.cond != null) sim.setSlotCond(+t.dataset.cond, t.value);
     else if (this.eco.change(t)) { /* loot rules */ }
+    else if (this.rift.change(t)) { /* rift auto mode */ }
     else if (t.id === 'autoAdvance') s.autoAdvance = t.checked;
     else if (t.id === 'autoReturn') s.autoReturn = t.checked;
     else if (t.id === 'kite') s.kite = t.checked;

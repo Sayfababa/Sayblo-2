@@ -1,7 +1,7 @@
 import { AREAS, ECONOMY, HERO, START_SKILL, UNLOCKED_AT_START } from '../content/index.ts';
-import type { CastSlot, LootRules, SaveState } from './types.ts';
+import type { CastSlot, LootRules, RiftSave, SaveState } from './types.ts';
 
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 
 /** Sounds are on by default, but quiet. */
 export const DEFAULT_VOLUME = 0.3;
@@ -13,6 +13,8 @@ export const emptySlots = (): CastSlot[] => [
 export const defaultLoot = (minR = 0): LootRules => ({
   minR: { weapon: minR, helm: minR, armor: minR, amulet: minR, ring: minR }, ...ECONOMY.lootDefaults,
 });
+
+export const newRiftSave = (): RiftSave => ({ open: false, maxTier: 0, best: {}, atlas: {}, frags: 0, pinnacle: 0, auto: false, cur: null, runs: 0, fails: 0 });
 
 export function newSaveState(): SaveState {
   return {
@@ -32,6 +34,7 @@ export function newSaveState(): SaveState {
     settings: { dmgNumbers: true, lootLabels: true, sound: true, volume: DEFAULT_VOLUME },
     life: null, mana: null, barrier: 0,
     kills: 0, deaths: 0,
+    rift: newRiftSave(),
     nextId: 1,
     savedAt: 0,
   };

@@ -9,7 +9,7 @@ import type { Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { ELEMENT_COLORS, ELITE_MODS, FEEL, RARITIES, SHRINES } from '../content/index.ts';
 import type { Sim } from '../sim/sim.ts';
 import type { FeelObject } from '../sim/feel.ts';
-import { isGem, type Drop, type Monster, type SimEvent } from '../sim/types.ts';
+import { isGem, isKey, type Drop, type Monster, type SimEvent } from '../sim/types.ts';
 import { gemColor } from '../ui/gemcolor.ts';
 import { glowTexture } from './textures.ts';
 
@@ -213,7 +213,7 @@ export class FeelFx {
   private beam(K: Kit, d: Drop) {
     const it = d.item;
     if (!it) return;
-    const gem = isGem(it), r = gem ? 0 : it.r;
+    const gem = isGem(it), r = gem ? 0 : isKey(it) ? 2 : it.r; // rift keys glow like rares
     if (!gem && r < 1) return;
     if (!this.born.has(d.id)) this.born.set(d.id, this.clock);
     const age = this.clock - this.born.get(d.id)!, rise = clamp(age / 0.35, 0, 1), ease = 1 - (1 - rise) * (1 - rise);

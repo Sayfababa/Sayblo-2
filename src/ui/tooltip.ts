@@ -2,7 +2,8 @@
 import { AFFIXES, GEMS, RARITIES, SKILLS, SLOT_NAMES, UNIQUES, isPassive } from '../content/index.ts';
 import { formatMod, gemFits, gemText, sellValue } from '../sim/formulas.ts';
 import { isPerfect, isUpgrade, itemPower } from '../sim/upgrade.ts';
-import { isGem, type BagItem, type Item, type Mod } from '../sim/types.ts';
+import { isGem, isKey, type BagItem, type Item, type Mod, type SaveState } from '../sim/types.ts';
+import { keyTooltip } from './rift.ts';
 import { esc, itemPic } from './html.ts';
 import { gemColor } from './gemcolor.ts';
 
@@ -44,7 +45,8 @@ export const modMark = (it: Item, i: number) => (i === it.cm ? 'cor' : i === it.
 /** Corruption / seal notes under the mods. */
 export const corruptNote = (it: Item) => (it.cor ? `<p class="corrupt">Corrupted${it.seal ? ' · sealed, cannot be crafted' : ''}</p>` : '');
 
-export function itemTooltip(it: BagItem, equipped: Item | null, actions: string, opts: { compare?: boolean; learned?: string[] } = {}): string {
+export function itemTooltip(it: BagItem, equipped: Item | null, actions: string, opts: { compare?: boolean; learned?: string[]; save?: SaveState } = {}): string {
+  if (isKey(it)) return keyTooltip(it, opts.save!, actions); // rift keys (work package C)
   if (isGem(it)) {
     const fits = (opts.learned ?? []).filter(s => !isPassive(s) && gemFits(it.gem, s)).map(s => SKILLS[s].name);
     const req = GEMS[it.gem].requires;

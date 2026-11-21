@@ -1,4 +1,4 @@
-import { AFFIXES, AFFIX_ROLL, AFFIX_TIERS, GEMS, SLOT_KINDS, GEM_MAX_LEVEL, ITEMS, RARITIES, SLOTS, UNIQUES, type Slot } from '../content/index.ts';
+import { AFFIXES, AFFIX_ROLL, AFFIX_TIERS, COMMON_UNIQUES, GEMS, SLOT_KINDS, GEM_MAX_LEVEL, ITEMS, RARITIES, SLOTS, UNIQUES, type Slot } from '../content/index.ts';
 import { affixValue } from './formulas.ts';
 import type { Rng } from './rng.ts';
 import type { GemItem, Item, Mod } from './types.ts';
@@ -38,7 +38,7 @@ export function rollAffix(rng: Rng, slot: Slot, L: number, group: 'prefix' | 'su
 
 export function genItem(rng: Rng, id: number, L: number, minR: number, boss: boolean, boost = 0): Item {
   const r = Math.max(rollRarity(rng, boss, boost), minR);
-  if (r === 3) return genUnique(rng, id, L, rng.pick(Object.keys(UNIQUES)));
+  if (r === 3) return genUnique(rng, id, L, rng.pick(COMMON_UNIQUES));
   return genItemOf(rng, id, L, r, rng.pick(SLOTS));
 }
 

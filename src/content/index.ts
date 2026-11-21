@@ -12,6 +12,7 @@ import gemsJson from './gems.json' with { type: 'json' };
 import difficultyJson from './difficulty.json' with { type: 'json' };
 import economyJson from './economy.json' with { type: 'json' };
 import feelJson from './feel.json' with { type: 'json' };
+import riftJson from './rift.json' with { type: 'json' };
 
 export type Element = 'fire' | 'cold' | 'light';
 export const ELEMENTS: Element[] = ['fire', 'cold', 'light'];
@@ -50,6 +51,7 @@ export interface MonsterDef {
   sprite: string; height: number; flying?: boolean; facesLeft?: boolean; ranged?: number; boss?: BossDef;
   /** fleeing treasure creature (never in an area pool) */ treasure?: boolean;
   /** no own sprite yet: the renderer draws a placeholder */ placeholder?: boolean;
+  /** colour the sprite is tinted with (a reused sprite until the monster has its own art) */ tint?: string;
 }
 export interface RankDef { name: string; hp: number; dmg: number; xp: number; gold: number; size: number; color: string }
 export interface EliteModDef {
@@ -75,7 +77,7 @@ export type AffixKind = 'offense' | 'defense' | 'mana';
 export interface AffixDef { group: 'prefix' | 'suffix'; kind: AffixKind; name: string; text: string; percent: boolean; base: number; perLevel: number; weight: number; decimals?: number; slots?: Slot[]; minLevel?: number; rare?: number }
 export type Slot = 'weapon' | 'helm' | 'armor' | 'amulet' | 'ring';
 export interface RarityDef { name: string; color: string; weight: number; bossWeight: number; affixes?: [number, number]; prefixes?: number; suffixes?: number }
-export interface UniqueDef { slot: Slot; base: string; name: string; mods: string[]; effect: string }
+export interface UniqueDef { slot: Slot; base: string; name: string; mods: string[]; effect: string; /** mythic: only drops from the rift pinnacle boss */ pinnacle?: boolean }
 export interface DropRule { count: [number, number]; minRarity: number; gemChance: number }
 
 export type Attr = 'power' | 'focus' | 'spirit' | 'vit';
@@ -130,7 +132,7 @@ const it = itemsJson as unknown as {
   slots: Slot[]; slotNames: Record<Slot, string>; bases: Record<Slot, { name: string; icon: string }[]>;
   implicits: Partial<Record<Slot, { affix: string; base: number; perLevel: number }>>; implicitRoll: [number, number];
   rarities: RarityDef[]; uniques: Record<string, UniqueDef>; uniqueRoll: [number, number]; rareNames: { first: string[]; second: string[] };
-  sizes: Record<Slot | 'gem', [number, number]>; bag: { width: number; height: number };
+  sizes: Record<Slot | 'gem' | 'key', [number, number]>; bag: { width: number; height: number };
   sell: { base: number; perLevel: number; perRarity: number; gemBase: number; gemPerLevel: number };
   drops: { goldChance: number; goldPerLevel: [number, number]; itemChance: number; gemChance: number; champion: DropRule; elite: DropRule; boss: DropRule };
   filterNames: string[];
@@ -140,6 +142,9 @@ export const SLOTS = it.slots;
 export const SLOT_NAMES = it.slotNames;
 export const RARITIES = it.rarities;
 export const UNIQUES = it.uniques;
+/** Uniques that drop from monsters, chests and the vendor (mythic pinnacle uniques excluded). */
+export const COMMON_UNIQUES = Object.keys(it.uniques).filter(k => !it.uniques[k].pinnacle);
+export const MYTHIC_UNIQUES = Object.keys(it.uniques).filter(k => it.uniques[k].pinnacle);
 export const ITEM_SIZES = it.sizes;
 export const BAG_W = it.bag.width, BAG_H = it.bag.height;
 
@@ -213,3 +218,34 @@ export interface FeelDef {
 }
 export const FEEL = feelJson as unknown as FeelDef;
 export const SHRINES = FEEL.shrines.types;
+
+/* ---------- work package C (Rifts) ---------- */
+/** Effects of key modifiers and atlas nodes on a rift run (see rift.json keyMods._doc and atlas._doc). */
+export interface RiftFx {
+  monRes?: Partial<Record<Element, number>>; eliteMult?: number; monSpeed?: number; monDmg?: number; monHp?: number; packSize?: number;
+  heroRes?: number; heroBarrierRegen?: number; qty?: number; rarity?: number; gold?: number; xp?: number; progress?: number;
+  shrineMult?: number; wretchMult?: number;
+  guardianHp?: number; elitePoints?: number; timer?: number; twinKey?: number; fragChance?: number; extraSlot?: number;
+  noBoons?: number; rewardMult?: number; guardianItems?: number; doubleLeap?: number;
+}
+export interface KeyModDef { kind: 'hazard' | 'boon'; risk: number; text: string; fx: RiftFx }
+export interface AtlasNodeDef { col: number; row: number; name: string; max: number; text: string; fx: RiftFx }
+export interface RiftMechanic { name: string; label: string; first: number; every: number; radius: number; delay: number; mult: number; count?: number; spread?: number }
+export interface RiftLoot { items: [number, number]; minRarity: number; goldPiles: [number, number]; goldPerPile: number; gemChance: number; rarityBoost?: number }
+export interface RiftDef {
+  unlock: { difficulty: number };
+  scaling: { refLevel: number; refDifficulty: number; hpGrowth: number; hpLinear: number; dmgGrowth: number; dmgLinear: number; level: { base: number; perTier: number; max: number }; resPenalty: number };
+  run: { progressNeed: number; points: number[]; timer: number; waveSize: [number, number]; typesPerWave: number; championChance: number; eliteChance: number; autoTierAboveBest: number };
+  guardian: { pool: string[]; hpMult: number; dmgMult: number; scale: number; sub: string; epithets: string[]; slam: RiftMechanic; rain: RiftMechanic; enrageBelow: number; enrageRate: number; loot: RiftLoot };
+  rewards: { lowerChance: number; eliteKeyChance: number; fragChance: number };
+  keys: { countWeights: number[]; hazardShare: number; maxBoons: number; rewardPerRisk: { qty: number; rarity: number; xp: number }; freeTier: number; sellBase: number; sellPerTier: number };
+  keyMods: Record<string, KeyModDef>;
+  atlas: { pointEvery: number; respecPerPoint: number; columns: string[]; nodes: Record<string, AtlasNodeDef> };
+  pinnacle: { every: number; frags: number; boss: string; hpMult: number; dmgMult: number; scale: number; adds: number; mechanicRate: number; loot: RiftLoot; mythicChance: number };
+  mythic: { pyrewright: { perAilment: number }; unburied: { time: number; cooldown: number; life: number }; stair: { castSpeed: number; time: number; max: number; barrier: number } };
+}
+const strip = <T>(o: Record<string, T | string>) => Object.fromEntries(Object.entries(o).filter(([k]) => !k.startsWith('_'))) as Record<string, T>;
+const rj = riftJson as unknown as RiftDef;
+export const RIFT: RiftDef = { ...rj, keyMods: strip(rj.keyMods), atlas: { ...rj.atlas, nodes: strip(rj.atlas.nodes) } };
+export const KEY_MODS = RIFT.keyMods;
+export const ATLAS_NODES = RIFT.atlas.nodes;

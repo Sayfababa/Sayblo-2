@@ -6,6 +6,7 @@ import '@fontsource/alegreya-sans/latin-700.css';
 import './ui/styles.css';
 import './ui/economy.css';
 import './ui/feel.css';
+import './ui/rift.css';
 import { Application } from 'pixi.js';
 import { registerSW } from 'virtual:pwa-register';
 import { Scene } from './render/scene.ts';
@@ -16,6 +17,9 @@ import { OFFLINE } from './content/index.ts';
 import type { SaveState } from './sim/types.ts';
 import { UI } from './ui/ui.ts';
 import { Sfx } from './ui/audio.ts';
+
+/** URL flag ?dev: rifts open without beating Hell, plus dev tools in Town › Rifts (work package C). */
+const DEV = new URLSearchParams(location.search).has('dev');
 
 /** At most this many simulation steps per frame; if the device cannot keep up, the game slows down instead of freezing. */
 const MAX_STEPS = 40;
@@ -51,6 +55,7 @@ async function boot() {
 
   function start(save: SaveState | null) {
     sim = new Sim(save ?? undefined);
+    if (DEV) { sim.rift.dev = true; sim.rift.resume(); }
     acc = 0;
     scene.reset(sim);
     ui.clearLog();
@@ -69,6 +74,7 @@ async function boot() {
     let counted = Math.min(awaySec, OFFLINE.maxHours * 3600) * OFFLINE.rate;
     const before = { lvl: sim.s.lvl };
     sim.collectEvents = false;
+    sim.rift.offline = true; // rift: offline farms the same tier without keys
     sim.resetRun();
     let left = counted;
     // slow phones: never compute longer than a few seconds, the rest of the time away is dropped
@@ -82,6 +88,7 @@ async function boot() {
     }
     counted -= Math.max(0, left);
     sim.collectEvents = true;
+    sim.rift.offline = false;
     sim.events = [];
     const run = sim.resetRun();
     scene.reset(sim);

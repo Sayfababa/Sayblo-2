@@ -1,7 +1,7 @@
 /** Small helpers shared by the UI modules. */
 import { BASE_ICON, GEMS } from '../content/index.ts';
 import { spriteUrl } from '../render/textures.ts';
-import { isGem, type BagItem } from '../sim/types.ts';
+import { isGem, isKey, type BagItem } from '../sim/types.ts';
 import { GEM_ART, gemColor } from './gemcolor.ts';
 
 export const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector(s) as T;
@@ -18,8 +18,11 @@ export function itemPic(it: BagItem, cls = 'pic', tall = false): string {
     const art = GEM_ART.has(it.gem) ? `<img src="${spriteUrl(`gem-${it.gem}.png`)}" alt="">` : '<i></i>';
     return `<span class="${cls} gemicon ${GEM_ART.has(it.gem) ? 'art' : ''}" style="--gc:${gemColor(it.gem)}" title="${esc(GEMS[it.gem].name)}">${art}<b>${it.lvl}</b></span>`;
   }
+  if (isKey(it)) return `<span class="${cls} keyicon"><img src="${spriteUrl('item-key.png')}" alt=""><b>${it.tier}</b></span>`;
   return `<img class="${cls}" src="${spriteUrl(`item-${BASE_ICON[it.base]}${tall && it.slot === 'weapon' ? '-tall' : ''}.png`)}" alt="">`;
 }
+/** Rarity class of a bag tile: gem, key or r0-r3. */
+export const bagCls = (it: BagItem) => (isGem(it) ? 'gem' : isKey(it) ? 'key' : 'r' + it.r);
 /** Small painted UI icon (public/sprites/ic-*.png). */
 export const ic = (name: string, alt = '', cls = 'ic') => `<img class="${cls}" src="${spriteUrl(`ic-${name}.png`)}" alt="${esc(alt)}">`;
 /** Header plaque of a menu panel. */

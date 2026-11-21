@@ -10,7 +10,7 @@
  */
 import { AFFIXES, AFFIX_ROLL, AFFIX_TIERS, FEEL } from '../content/index.ts';
 import { affixValue } from './formulas.ts';
-import { isGem, type BagItem, type Item, type Mod } from './types.ts';
+import { isEquip, type BagItem, type Item, type Mod } from './types.ts';
 
 const best = new Map<string, number>();
 /** Best value an affix can roll at the reference level (cached). */
@@ -29,7 +29,7 @@ export function modPower([k, v]: Mod): number {
 
 /** Item power (0 for nothing and for gems). */
 export function itemPower(it: BagItem | null | undefined): number {
-  if (!it || isGem(it)) return 0;
+  if (!isEquip(it)) return 0;
   let p = 0;
   for (const m of it.mods) p += modPower(m);
   if (it.u) p += FEEL.upgrade.uniqueBonus;
@@ -41,7 +41,7 @@ export const powerGain = (it: Item, equipped: Item | null | undefined) => Math.r
 
 /** Upgrade arrow: clearly more power than the equipped item of that slot (or the slot is empty). */
 export function isUpgrade(it: BagItem | null | undefined, equipped: Item | null | undefined): boolean {
-  if (!it || isGem(it)) return false;
+  if (!isEquip(it)) return false;
   if (!equipped) return true;
   const a = itemPower(it), b = itemPower(equipped), U = FEEL.upgrade;
   return a - b > Math.max(U.minAbs, b * U.minGain);
@@ -58,4 +58,4 @@ export function perfectThreshold(k: string): number {
 export function isPerfect(m: Mod): boolean {
   return m.length === 3 && m[2] === FEEL.perfect.tier && !!AFFIXES[m[0]] && m[1] >= perfectThreshold(m[0]);
 }
-export const hasPerfect = (it: BagItem | null | undefined) => !!it && !isGem(it) && it.mods.some(isPerfect);
+export const hasPerfect = (it: BagItem | null | undefined) => isEquip(it) && it.mods.some(isPerfect);

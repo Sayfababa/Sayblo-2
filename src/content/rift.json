@@ -1,0 +1,119 @@
+{
+  "_doc": "Work package C (Rifts): endless rift tiers, keys with modifiers, the Rift Guardian, the atlas and the pinnacle boss. All numbers of src/sim/rift.ts live here.",
+  "unlock": {
+    "_doc": "Rifts open after Mother Vesper falls on this difficulty (index into difficulty.json). The URL flag ?dev opens them for testing.",
+    "difficulty": 2
+  },
+  "scaling": {
+    "_doc": "Tier t: life = Hell life of a monster at refLevel x hpGrowth^(t-1) x (1 + hpLinear x (t-1)); damage the same with dmgGrowth/dmgLinear. Monster level (experience, gold, item level) = base + floor((t-1) x perTier), at most max. Resistances of the hero get resPenalty in every rift, like Hell.",
+    "refLevel": 47,
+    "refDifficulty": 2,
+    "hpGrowth": 1.035,
+    "hpLinear": 0.02,
+    "dmgGrowth": 1.018,
+    "dmgLinear": 0.01,
+    "level": { "base": 47, "perTier": 0.5, "max": 99 },
+    "resPenalty": -80
+  },
+  "run": {
+    "_doc": "Kills fill the progress bar (points per rank: normal, champion, elite, boss). When it is full the Rift Guardian appears. Beating the timer upgrades the next key.",
+    "progressNeed": 100,
+    "points": [1, 3, 8, 0],
+    "timer": 300,
+    "waveSize": [4, 7],
+    "typesPerWave": 2,
+    "championChance": 0.14,
+    "eliteChance": 0.05,
+    "autoTierAboveBest": 1
+  },
+  "guardian": {
+    "_doc": "Built from an act I monster, scaled up. Boss rank life x hpMult. Two telegraphed mechanics (warning circles the hero steps out of). Below enrageBelow life the mechanics come faster.",
+    "pool": ["husk", "ghoul", "cultist", "hound", "shade", "wraith", "beetle", "imp", "crow"],
+    "hpMult": 1.4,
+    "dmgMult": 1,
+    "scale": 1.9,
+    "sub": "Rift Guardian",
+    "epithets": ["the Gatekeeper", "the Unending", "Warden of the Stair", "the Hollow-Eyed", "Keeper of Ash", "the Riftborn", "the Last Lock", "Who Waits Below"],
+    "slam": { "name": "Rift Quake", "label": "Rift Quake", "first": 3, "every": 7.5, "radius": 3.2, "delay": 1.6, "mult": 2.4 },
+    "rain": { "name": "Falling Shards", "label": "shard rain", "first": 5.5, "every": 9, "count": 3, "radius": 1.5, "delay": 1.4, "mult": 1.6, "spread": 2.4 },
+    "enrageBelow": 0.3,
+    "enrageRate": 1.5,
+    "loot": { "items": [3, 5], "minRarity": 1, "goldPiles": [8, 12], "goldPerPile": 2.5, "gemChance": 0.6 }
+  },
+  "rewards": {
+    "_doc": "The guardian always drops the next key: one tier higher if the timer was beaten, else the same tier or (lowerChance) one lower. Elites have a small key chance. Fragments open the pinnacle.",
+    "lowerChance": 0.4,
+    "eliteKeyChance": 0.03,
+    "fragChance": 0.35
+  },
+  "keys": {
+    "_doc": "A key rolls 0-4 modifiers (countWeights). Each is a hazard with chance hazardShare, else a boon (at most maxBoons). Every risk point of the hazards adds rewardPerRisk to the run.",
+    "countWeights": [10, 25, 30, 22, 13],
+    "hazardShare": 0.65,
+    "maxBoons": 2,
+    "rewardPerRisk": { "qty": 12, "rarity": 6, "xp": 5 },
+    "freeTier": 1,
+    "sellBase": 20,
+    "sellPerTier": 6
+  },
+  "keyMods": {
+    "_doc": "fx keys: monRes (per element, added fraction), eliteMult, monSpeed, monDmg, monHp, packSize (fractions); heroRes, heroBarrierRegen (points); qty, rarity, gold, xp, progress (percent); shrineMult, wretchMult (extra factors: 2 = three times as often).",
+    "fireWard":  { "kind": "hazard", "risk": 1, "text": "Monsters have +40% fire resistance", "fx": { "monRes": { "fire": 0.4 } } },
+    "coldWard":  { "kind": "hazard", "risk": 1, "text": "Monsters have +40% cold resistance", "fx": { "monRes": { "cold": 0.4 } } },
+    "stormWard": { "kind": "hazard", "risk": 1, "text": "Monsters have +40% lightning resistance", "fx": { "monRes": { "light": 0.4 } } },
+    "elites":    { "kind": "hazard", "risk": 2, "text": "Extra elite packs (3x as many elites)", "fx": { "eliteMult": 2 } },
+    "hasted":    { "kind": "hazard", "risk": 2, "text": "Monsters move and attack 25% faster", "fx": { "monSpeed": 0.25 } },
+    "brutal":    { "kind": "hazard", "risk": 2, "text": "Monsters deal 30% more damage", "fx": { "monDmg": 0.3 } },
+    "stout":     { "kind": "hazard", "risk": 2, "text": "Monsters have 40% more life", "fx": { "monHp": 0.4 } },
+    "drained":   { "kind": "hazard", "risk": 1, "text": "Your barrier recharges 50% slower", "fx": { "heroBarrierRegen": -50 } },
+    "exposed":   { "kind": "hazard", "risk": 2, "text": "-15% to all your resistances", "fx": { "heroRes": -15 } },
+    "swarming":  { "kind": "hazard", "risk": 1, "text": "Monster packs are 40% larger", "fx": { "packSize": 0.4 } },
+    "bounty":    { "kind": "boon", "risk": 0, "text": "+60% item quantity", "fx": { "qty": 60 } },
+    "shrines":   { "kind": "boon", "risk": 0, "text": "Shrines appear 3x as often", "fx": { "shrineMult": 2 } },
+    "wretches":  { "kind": "boon", "risk": 0, "text": "Coin-Wretches appear 3x as often", "fx": { "wretchMult": 2 } },
+    "gilded":    { "kind": "boon", "risk": 0, "text": "+80% gold", "fx": { "gold": 80 } },
+    "quick":     { "kind": "boon", "risk": 0, "text": "Progress fills 25% faster", "fx": { "progress": 25 } }
+  },
+  "atlas": {
+    "_doc": "One point for every pointEvery tiers cleared for the first time. Nodes in a column need the node above (one rank is enough). fx per rank, same keys as keyMods plus: guardianHp, elitePoints, timer (seconds), twinKey, fragChance (fractions), extraSlot, noBoons, rewardMult, guardianItems, doubleLeap. Respec costs gold per spent point.",
+    "pointEvery": 5,
+    "respecPerPoint": 1500,
+    "columns": ["Fortune", "Peril", "Pace"],
+    "nodes": {
+      "dust":     { "col": 0, "row": 0, "name": "Glinting Dust",   "max": 3, "text": "+10% item quantity in rifts",                    "fx": { "qty": 10 } },
+      "scent":    { "col": 0, "row": 1, "name": "Coin Scent",      "max": 2, "text": "Coin-Wretches appear 50% more often",           "fx": { "wretchMult": 0.5 } },
+      "twin":     { "col": 0, "row": 2, "name": "Second Lock",     "max": 2, "text": "25% chance the guardian drops a second key",    "fx": { "twinKey": 0.25 } },
+      "shard":    { "col": 0, "row": 3, "name": "Shard Sense",     "max": 2, "text": "+20% chance of a key fragment from guardians",  "fx": { "fragChance": 0.2 } },
+      "hoard":    { "col": 0, "row": 4, "name": "Hoarder's Oath",  "max": 1, "text": "The guardian drops 3 more items",               "fx": { "guardianItems": 3 } },
+      "wager":    { "col": 1, "row": 0, "name": "Bold Wager",      "max": 2, "text": "Key hazards give 25% more reward",               "fx": { "rewardMult": 0.25 } },
+      "seal":     { "col": 1, "row": 1, "name": "Sixth Seal",      "max": 1, "text": "Keys roll one more modifier, +20% item quantity", "fx": { "extraSlot": 1, "qty": 20 } },
+      "bane":     { "col": 1, "row": 2, "name": "Guardian's Bane", "max": 2, "text": "Rift Guardians have 12% less life",             "fx": { "guardianHp": -0.12 } },
+      "weather":  { "col": 1, "row": 3, "name": "Weathered",       "max": 2, "text": "+8% to all your resistances in rifts",          "fx": { "heroRes": 8 } },
+      "fate":     { "col": 1, "row": 4, "name": "Tempting Fate",   "max": 1, "text": "New keys roll no boons, but hazards give double reward", "fx": { "noBoons": 1, "rewardMult": 1 } },
+      "tally":    { "col": 2, "row": 0, "name": "Hunter's Tally",  "max": 2, "text": "Elites fill 50% more progress",                 "fx": { "elitePoints": 0.5 } },
+      "paths":    { "col": 2, "row": 1, "name": "Shrine Paths",    "max": 2, "text": "Shrines appear 50% more often",                  "fx": { "shrineMult": 0.5 } },
+      "shadow":   { "col": 2, "row": 2, "name": "Long Shadow",     "max": 2, "text": "+30 seconds on the rift timer",                  "fx": { "timer": 30 } },
+      "crowd":    { "col": 2, "row": 3, "name": "Crowded Halls",   "max": 2, "text": "Packs are 15% larger, progress +10%",            "fx": { "packSize": 0.15, "progress": 10 } },
+      "leap":     { "col": 2, "row": 4, "name": "Leap of Faith",   "max": 1, "text": "Beat the timer by half: the next key is two tiers higher", "fx": { "doubleLeap": 1 } }
+    }
+  },
+  "pinnacle": {
+    "_doc": "Every `every` tiers cleared opens a pinnacle fight. It costs `frags` key fragments. The boss uses the monster `boss` (phases in monsters.json) at the rift tier of the pinnacle, life x hpMult. Mythic uniques (items.json, pinnacle: true) only drop here: always on the first kill of a pinnacle, else mythicChance.",
+    "every": 25,
+    "frags": 3,
+    "boss": "matriarch",
+    "hpMult": 3.5,
+    "dmgMult": 1.15,
+    "scale": 1.15,
+    "adds": 2,
+    "mechanicRate": 1.3,
+    "loot": { "items": [6, 8], "minRarity": 2, "goldPiles": [14, 20], "goldPerPile": 4, "gemChance": 1, "rarityBoost": 2 },
+    "mythicChance": 0.35
+  },
+  "mythic": {
+    "_doc": "Effects of the three mythic uniques (items.json, pinnacle: true), see src/sim/mythic.ts.",
+    "pyrewright": { "perAilment": 0.2 },
+    "unburied": { "time": 2, "cooldown": 60, "life": 0.2 },
+    "stair": { "castSpeed": 3, "time": 8, "max": 10, "barrier": 0.02 }
+  }
+}

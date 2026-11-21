@@ -216,7 +216,7 @@ export function gamblePrice(L: number, slot: Slot): number {
 }
 /** Unidentified item of the chosen slot. Small chance for a unique of that slot. */
 export function gambleItem(rng: Rng, id: number, L: number, slot: Slot): Item {
-  const G = ECONOMY.gamble, uniques = Object.keys(UNIQUES).filter(u => UNIQUES[u].slot === slot);
+  const G = ECONOMY.gamble, uniques = Object.keys(UNIQUES).filter(u => UNIQUES[u].slot === slot && !UNIQUES[u].pinnacle);
   let it: Item;
   if (uniques.length && rng.chance(G.uniqueChance)) it = genUnique(rng, id, L, rng.pick(uniques));
   else {
