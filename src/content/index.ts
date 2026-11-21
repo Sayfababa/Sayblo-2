@@ -12,6 +12,7 @@ import gemsJson from './gems.json' with { type: 'json' };
 import difficultyJson from './difficulty.json' with { type: 'json' };
 import economyJson from './economy.json' with { type: 'json' };
 import feelJson from './feel.json' with { type: 'json' };
+import metaJson from './meta.json' with { type: 'json' };
 
 export type Element = 'fire' | 'cold' | 'light';
 export const ELEMENTS: Element[] = ['fire', 'cold', 'light'];
@@ -160,6 +161,7 @@ export const HERO = heroJson as unknown as {
   potions: { start: number; life: number; mana: number; cooldown: number; priceBase: number; pricePerLevel: number; lifeThreshold: number; manaThreshold: number };
   death: { xpLoss: number; goldLoss: number; townTime: number };
   respecPerLevel: number;
+  /** highest character level (ember points after it, see meta.json) */ levelCap: number;
   xpPenalty: { freeLevels: number; perLevel: number; min: number };
   movement: { walkSpeed: number; kiteSpeed: number; kiteTime: number; kiteCooldown: number; kiteTrigger: number; aggroRange: number; pickupRange: number };
 };
@@ -213,3 +215,41 @@ export interface FeelDef {
 }
 export const FEEL = feelJson as unknown as FeelDef;
 export const SHRINES = FEEL.shrines.types;
+
+/* ---------- work package D (Meta progression) ---------- */
+export type BountyKind = 'killArea' | 'killElites' | 'killElement' | 'findRare' | 'killTyrant' | 'killWretch' | 'useShrines';
+export interface BountyTemplate { weight: number; n: [number, number]; reward: number; text: string }
+export type MechanicKind = 'target' | 'line' | 'ring' | 'scatter' | 'nova';
+export interface TyrantDef {
+  name: string; title: string; monster: string; scale: number; tint: string; intro: string;
+  mechanic: { kind: MechanicKind; name: string; element: Element; every: number; delay: number; radius: number; count: number; mult: number; spread?: number };
+  slots: Slot[]; affixes: string[]; uniques: string[];
+}
+export type EventId = 'bloodmoon' | 'tear' | 'champion';
+export type EmberTrack = 'offense' | 'defense' | 'flow' | 'fortune';
+export interface FeatDef { name: string; text: string; type: string; n: number; bonus?: Record<string, number>; title?: string }
+export interface MetaDef {
+  bounties: {
+    open: number; currentAreaChance: number; swapGoldPerLevel: number; templates: Record<BountyKind, BountyTemplate>;
+    reward: { goldPerLevel: number; mats: Partial<Record<MatId, [number, number]>>; shardChance: number; shards: [number, number]; gemChance: number; uniqueChance: number; uniqueTable: string[] };
+  };
+  tyrants: {
+    kills: number; hpMult: number; dmgMult: number; levelAdd: number; adds: number;
+    loot: { count: [number, number]; minRarity: number; affixChance: number; uniqueChance: number; goldPiles: [number, number]; gemChance: number };
+    list: Record<string, TyrantDef>;
+  };
+  events: {
+    every: [number, number]; weights: Record<EventId, number>;
+    bloodmoon: { name: string; text: string; color: string; duration: number; extraShare: number; eliteChance: number };
+    tear: { name: string; text: string; color: string; duration: number; radius: number; growPerKill: number; maxRadius: number; shrinkPerSecond: number; goldMult: number; itemChance: number; rarityBoost: number };
+    champion: { name: string; text: string; color: string; duration: number; casingPct: number; levelAdd: number; hpMult: number };
+  };
+  codex: { imprint: Mats; perLevel: number };
+  ember: { tracks: Record<EmberTrack, { name: string; color: string; text: string; per: Record<string, number> }> };
+  feats: { list: Record<string, FeatDef> };
+}
+export const META = metaJson as unknown as MetaDef;
+export const TYRANTS = META.tyrants.list;
+export const FEATS = META.feats.list;
+export const EMBER_TRACKS = Object.keys(META.ember.tracks) as EmberTrack[];
+export const EVENT_IDS = Object.keys(META.events.weights) as EventId[];

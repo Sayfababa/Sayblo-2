@@ -1,7 +1,8 @@
 import { AREAS, ECONOMY, HERO, START_SKILL, UNLOCKED_AT_START } from '../content/index.ts';
+import { newMeta } from './meta-types.ts';
 import type { CastSlot, LootRules, SaveState } from './types.ts';
 
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 
 /** Sounds are on by default, but quiet. */
 export const DEFAULT_VOLUME = 0.3;
@@ -34,5 +35,6 @@ export function newSaveState(): SaveState {
     kills: 0, deaths: 0,
     nextId: 1,
     savedAt: 0,
+    meta: newMeta(),
   };
 }

@@ -7,6 +7,7 @@
 import { AREAS, ATTRS, DIFFICULTIES, ECONOMY, GEMS, GEM_MAX_LEVEL, MAT_IDS, RARITIES, SKILLS, SLOTS, UNIQUES, isPassive } from '../content/index.ts';
 import { placeMissing } from './bag.ts';
 import { DEFAULT_VOLUME, SAVE_VERSION, defaultLoot, newSaveState } from './state.ts';
+import { newMeta, sanitizeMeta } from './meta-types.ts';
 import type { BagItem, GemItem, Item, SaveState } from './types.ts';
 
 export const STORAGE_KEY = 'grimlight-save';
@@ -42,6 +43,8 @@ const MIGRATIONS: Record<number, (s: Raw) => Raw> = {
   },
   // v6: sound settings (work package A)
   5: s => ({ ...s, v: 6, settings: { ...((s.settings as Raw) || {}), sound: true, volume: DEFAULT_VOLUME } }),
+  // v7: meta progression (work package D): bounty board, tyrant counters, codex, ember points, feats
+  6: s => ({ ...s, v: 7, meta: newMeta() }),
 };
 
 export class SaveError extends Error {}
@@ -137,6 +140,7 @@ function sanitize(s: Raw): SaveState {
     ...Object.values(out.sockets).flat().filter((g): g is GemItem => !!g).map(g => g.id));
   out.nextId = Math.max(Math.floor(num(s.nextId, 1, 1)), maxId + 1);
   out.savedAt = num(s.savedAt, 0, 0);
+  out.meta = sanitizeMeta(s.meta);
   out.v = SAVE_VERSION;
   return out;
 }
