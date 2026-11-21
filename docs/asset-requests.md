@@ -148,3 +148,24 @@ Not used by the code yet. A world prop for the start and the end of a rift run (
 Isometric 30° view like A2, object standing centred at the bottom of its cell.
 
 > [style sentence of section 7], isometric view 30 degrees from above, game prop sprite sheet, 2 columns x 1 row, each object centered in its cell with wide spacing, nothing touches the cell edges, flat pure magenta #FF00FF background, no ground plane, no cast shadows, no glow. Column 1 `rift-arch`: a broken ring of ancient black standing stones, man-high, two of them cracked, carved with worn runes, empty dark space between them. Column 2 `rift-arch-lit`: the same ring of stones, unchanged (the code adds the swirling light).
+
+## Skills
+
+Placeholders now: the 9 new skills (Flame Lance, Ashen Hex, Smoulder, Hailstorm, Rime Shell, Brittle Frost, Stormwisp, Storm Lantern, Capacitor)
+use tinted effect sprites in a bronze frame (`make_placeholder_skill_icons` in `tools/slice_sheets.py`). The Storm Lantern in the scene is drawn in code (iron cage + violet glow).
+`skill-icons-2.png` (sheet 6 in `docs/ui-assets.md`) is still missing too; its prompt is unchanged.
+
+### S1 – `assets/sheets/skill-icons-3.png` (3 × 3, square, **magenta `#FF00FF`**) → 128 px icons
+
+Attach `skill-icons.png` as style reference so they match the existing ones. Cut with `tools/slice_sheets.py` (already in `UI_SHEETS` as `skill-icons-3`, magenta key);
+the placeholders are replaced automatically once the sheet exists.
+
+> Sprite sheet of 9 square skill icons arranged in a grid of 3 columns and 3 rows, evenly spaced with wide magenta gaps, on a solid flat pure magenta #FF00FF background. Each icon is a square dark fantasy painting with a thin dark bronze frame, painterly semi-realistic, dark smoky background, muted colors with a focused glow only on the main motif, no text. Lightning is always violet, never yellow. Nothing pink or magenta inside the icons. Row 1 (fire, dull orange-red on dark ember background): (1) `icon-flamelance`: a straight lance of white-hot fire shooting from a staff tip towards the right edge; (2) `icon-ashenhex`: a hex sigil drawn in glowing embers on grey ash, smoke curling up; (3) `icon-smoulder`: a charred log glowing deep red from within, thin smoke. Row 2 (cold, pale ice blue on dark blue-grey background): (4) `icon-hailstorm`: hailstones falling from a dark cloud onto frozen ground; (5) `icon-rimeshell`: a dome of cracked frost-covered ice around a dark silhouette; (6) `icon-brittlefrost`: a frozen hand cracking apart into ice shards. Row 3 (lightning, violet on dark purple-grey background): (7) `icon-stormwisp`: a small violet ball of crackling light drifting with a faint trail; (8) `icon-stormlantern`: an old iron lantern hanging in the air with a violet storm caught inside; (9) `icon-capacitor`: a dark iron coil with violet sparks gathering at its tip.
+
+Negative: `text, letters, pink, magenta inside icons, yellow lightning, cartoon, flat vector`
+
+### S2 (optional) – `assets/sheets/props-lantern.png` (single prop, square 512 × 512, magenta)
+
+Only if the code-drawn lantern looks too plain. The scene adds the violet glow, sparks and the bobbing.
+
+> [style sentence], a small old wrought-iron lantern with a ring on top, four soot-darkened glass panes, empty inside (no flame), three-quarter view from slightly above, centered, flat pure magenta #FF00FF background, no ground, no shadow, no glow
