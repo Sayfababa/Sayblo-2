@@ -11,6 +11,7 @@ import { TICK, type Sim } from '../sim/sim.ts';
 import type { Monster, SimEvent } from '../sim/types.ts';
 import { discTexture, glowTexture, holeTexture, tex } from './textures.ts';
 import { FeelFx, type Kit } from './feel.ts';
+import { MetaFx, metaTint, monScale } from './meta.ts';
 import { hasPerfect, isUpgrade } from '../sim/upgrade.ts';
 import type { FeelObject } from '../sim/feel.ts';
 
@@ -148,6 +149,8 @@ export class Scene {
   private anchors = new Map<number, { x: number; y: number; top: number }>();
   /** work package A: loot beams, hit-stop, shrines, warning circles (see feel.ts) */
   feel = new FeelFx();
+  /** work package D: area events, tyrant sigil and tint (see meta.ts) */
+  meta = new MetaFx();
   private kit: Kit;
   /** Factor main.ts applies to the time fed into the simulation (hit-stop / slow motion). */
   get timeScale() { return this.feel.timeScale; }
@@ -170,13 +173,14 @@ export class Scene {
 
   /** Forget everything that belongs to the old run (after import or reset). */
   reset(sim: Sim) {
-    this.mons.clear(); this.fx = []; this.floats = []; this.zone = -1; this.feel.reset();
+    this.mons.clear(); this.fx = []; this.floats = []; this.zone = -1; this.feel.reset(); this.meta.reset();
     this.cam.x = sim.hero.x; this.cam.y = sim.hero.y;
   }
 
   /** Feed simulation events (call after the ticks of a frame). */
   consume(events: SimEvent[]) {
     this.feel.consume(events);
+    this.meta.consume(events); // meta
     for (const e of events) {
       switch (e.t) {
         case 'burst': this.fx.push({ k: 'burst', t: 0, dur: e.size >= 150 ? 0.5 : 0.35, e, seed: 0 }); break;
@@ -280,6 +284,7 @@ export class Scene {
   /** Draw one frame. `real` is the real time since the last frame, `alpha` the position between two ticks. */
   render(sim: Sim, real: number, alpha: number, view: ViewInfo) {
     this.feel.update(real);
+    this.meta.update(real); // meta
     const sdt = real * sim.s.speed * this.feel.timeScale;
     this.time += sdt;
     this.settings = sim.s.settings;
@@ -385,6 +390,7 @@ export class Scene {
     for (const L of this.lights) this.glow(this.lightL, L.x, L.y, L.r, L.c, L.a, L.flat);
     this.drawSpells(sim, alpha);
     this.feel.drawFx(this.kit, sim); // feel: loot beams, warning circles, auras, vault, pulses
+    this.meta.drawFx(this.kit, sim, real); // meta: Blood Moon, Rift Tear, tyrant sigil, champion casing
     for (const v of this.mons.values()) {
       const a = this.anchors.get(v.m.id);
       if (!v.dead && v.m.burn > 0 && a) this.fxImg('fx-flames.jpg', a.x, a.y - 14 * k, 40 * k * (1 + Math.sin(this.time * 14 + v.m.id) * 0.08), { alpha: 0.85 });
@@ -527,15 +533,15 @@ export class Scene {
     px += lg;
     if (m.rank >= 1 && !v.dead) this.world.graphics().ellipse(px, py, 15 * s, 6 * s).stroke({ width: 1.5 * k, color: rk.color, alpha: 0.7 * a });
     this.shadow(px, py, 11 * s, 4.5 * s, 0.45 * a);
-    const H = d.height * k * rk.size;
+    const H = d.height * k * rk.size * monScale(m); // meta: tyrants are bigger
     const frozen = m.frozen > 0 && !v.dead;
     const walking = m.walking && !v.dead && !frozen;
     const lift = d.flying ? (6 + Math.sin(t * 2.5) * 4) * k : (walking ? Math.abs(Math.sin(t * 8)) * 3 * k : 0);
     const rot = v.dead ? f * Math.min(1, v.deadT * 3) * 1.2 : (walking && !d.flying ? Math.sin(t * 8) * 0.05 : 0) + (v.lunge > 0 ? 0.14 * f : 0);
-    this.figure((d.runSprite && walking ? d.runSprite : d.sprite) + '.png', px, py - lift, H, m.id, {
+    metaTint(m, this.figure((d.runSprite && walking ? d.runSprite : d.sprite) + '.png', px, py - lift, H, m.id, { // meta: tyrant tint
       flip: f !== (d.facesLeft ? -1 : 1), rot, alpha: a, flash: v.hitT / 0.15, chill: frozen ? 0.65 : m.chill > 0 && !v.dead ? 0.35 : 0,
       sy: walking || frozen ? 1 : 1 + Math.sin(t * 2.2) * 0.015,
-    });
+    }));
     if (frozen) this.light(px, py - H * 0.5, 40 * k, '#bfeaff', 0.35);
     if (m.shock > 0 && !v.dead) this.light(px + Math.sin(this.time * 31 + m.id) * 6 * k, py - H * (0.3 + 0.4 * Math.abs(Math.sin(this.time * 17 + m.id))), 28 * k, ELC.light, 0.35 + 0.25 * Math.abs(Math.sin(this.time * 23 + m.id)));
     const eye = ELC[m.el];

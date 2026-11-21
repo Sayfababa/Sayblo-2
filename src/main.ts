@@ -6,6 +6,7 @@ import '@fontsource/alegreya-sans/latin-700.css';
 import './ui/styles.css';
 import './ui/economy.css';
 import './ui/feel.css';
+import './ui/meta.css';
 import { Application } from 'pixi.js';
 import { registerSW } from 'virtual:pwa-register';
 import { Scene } from './render/scene.ts';

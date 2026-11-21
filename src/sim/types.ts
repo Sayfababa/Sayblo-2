@@ -1,4 +1,5 @@
 import type { Attr, Element, MatId, Slot } from '../content/index.ts';
+import type { MetaSave, MonMeta } from './meta-types.ts';
 
 /** Item modifier: [affix id, value] or [affix id, value, tier]. */
 export type Mod = [string, number] | [string, number, number];
@@ -11,6 +12,8 @@ export interface Item {
   /* economy (see crafting.ts): times crafted, mod index protected by Sealing Wax, corruption outcome (1-4),
      index of the mod the corruption added or doubled (never touched by crafting), sealed = no more crafting, unidentified */
   cr?: number; wax?: number; cor?: number; cm?: number; seal?: boolean; unid?: boolean;
+  /** meta (meta.ts): unique effect imprinted from the codex (unique id) */
+  ipr?: string;
 }
 export interface GemItem { id: number; kind: 'gem'; gem: string; lvl: number; bx?: number; by?: number }
 export type BagItem = Item | GemItem;
@@ -51,6 +54,8 @@ export interface SaveState {
   kills: number; deaths: number;
   nextId: number;
   savedAt: number;
+  /** work package D: bounties, tyrant counters, codex, ember points, feats (see meta.ts) */
+  meta: MetaSave;
 }
 
 export interface Vec { x: number; y: number }
@@ -66,6 +71,8 @@ export interface Monster {
   boss?: { phase: number; specT: number };
   /** state of monster affixes and the treasure creature (see feel.ts) */
   fe?: MonFeel;
+  /** meta: tyrant, trapped champion, rift tear (see meta.ts) */
+  mt?: MonMeta;
 }
 export interface MonFeel {
   /** treasure creature: seconds until it escapes, and its current flight angle */
@@ -108,4 +115,6 @@ export type SimEvent =
   | { t: 'kill'; id: number; x: number; y: number; rank: number; overkill: number; treasure: boolean }
   | { t: 'levelup' }
   | { t: 'shrine'; x: number; y: number; shrine: string }
-  | { t: 'vault'; open: boolean };
+  | { t: 'vault'; open: boolean }
+  /** meta: event start/end, tyrant arrival, feat earned, bounty done, ember point (toasts, pulses) */
+  | { t: 'meta'; kind: 'event' | 'eventEnd' | 'tyrant' | 'feat' | 'bounty' | 'ember' | 'codex'; id: string; text: string };

@@ -32,7 +32,7 @@ export function itemPower(it: BagItem | null | undefined): number {
   if (!it || isGem(it)) return 0;
   let p = 0;
   for (const m of it.mods) p += modPower(m);
-  if (it.u) p += FEEL.upgrade.uniqueBonus;
+  if (it.u || it.ipr) p += FEEL.upgrade.uniqueBonus; // meta: an imprint counts like a unique effect
   return Math.round(p * 100) / 100;
 }
 

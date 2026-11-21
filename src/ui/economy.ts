@@ -16,12 +16,13 @@ import { esc, fmt, ic, itemPic } from './html.ts';
 import { gemColor } from './gemcolor.ts';
 import { corruptNote, itemTooltip, modMark } from './tooltip.ts';
 
-export type TownView = 'main' | 'forge' | 'altar' | 'vendor' | 'stash';
-const VIEWS: [TownView, string][] = [['main', 'Town'], ['forge', 'Forge'], ['altar', 'Altar'], ['vendor', 'Vendor'], ['stash', 'Stash']];
+export type TownView = 'main' | 'forge' | 'altar' | 'vendor' | 'stash' | 'board' | 'codex';
+// board and codex are rendered by meta.ts (work package D)
+const VIEWS: [TownView, string][] = [['main', 'Town'], ['forge', 'Forge'], ['altar', 'Altar'], ['vendor', 'Vendor'], ['stash', 'Stash'], ['board', 'Board'], ['codex', 'Codex']];
 type Dropdown = (key: string, label: string, cur: string, options: [string, string, string?][]) => string;
 
 /* ---------- small shared pieces ---------- */
-/** Material placeholder icon (CSS-drawn until the painted icons arrive, see docs/asset-requests.md). */
+/** Material icon (painted, from icons-economy.png). */
 export const matIcon = (k: string) => `<img class="mat" src="${spriteUrl(`mat-${k}.png`)}" alt="" title="${esc(MATERIALS[k as keyof typeof MATERIALS].name)}">`;
 /** "12 ◆ 3 ◆" list of a material amount; `have` marks what is missing in red. */
 export function matList(m: Mats, have?: Mats): string {

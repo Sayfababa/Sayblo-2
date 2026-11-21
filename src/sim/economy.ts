@@ -5,6 +5,7 @@
  */
 import { ECONOMY, EMBERS, MAT_IDS, SLOT_NAMES, type EmberId, type Mats, type Slot } from '../content/index.ts';
 import { autoSort, findSpot } from './bag.ts';
+import { unlockCodex } from './codex.ts';
 import { addMats, applyEmber, canAfford, corrupt, corruptCost, gambleItem, gamblePrice, salvageYield } from './crafting.ts';
 import { sellValue } from './formulas.ts';
 import type { Fate } from './loot.ts';
@@ -17,7 +18,7 @@ function payMats(s: SaveState, cost: Mats) { for (const k of MAT_IDS) s.mats[k] 
 
 /** Get rid of an item that is not kept: salvage (gems are always sold) or sell. Returns gold gained. */
 export function disposeItem(s: SaveState, it: BagItem, fate: Fate): number {
-  if (fate === 'salvage' && !isGem(it)) { s.mats = addMats(s.mats, salvageYield(it)) as SaveState['mats']; return 0; }
+  if (fate === 'salvage' && !isGem(it)) { s.mats = addMats(s.mats, salvageYield(it)) as SaveState['mats']; unlockCodex(s, it); return 0; }
   const g = sellValue(it);
   s.gold += g;
   return g;
@@ -42,6 +43,7 @@ export function salvage(sim: Sim, id: number): string | null {
   const y = salvageYield(it);
   s.bag.splice(i, 1);
   s.mats = addMats(s.mats, y) as SaveState['mats'];
+  unlockCodex(s, it); // meta: salvaged uniques fill the codex
   sim.log(`Salvaged **${it.name}** into ${matText(y) || 'nothing'}.`);
   changed(sim, 'bag');
   return null;
@@ -53,6 +55,7 @@ export function salvageBelow(sim: Sim, r: number): { n: number; mats: Mats } {
   s.bag = s.bag.filter(it => {
     if (isGem(it) || it.r >= r) return true;
     mats = addMats(mats, salvageYield(it)); n++;
+    unlockCodex(s, it); // meta: codex
     return false;
   });
   s.mats = addMats(s.mats, mats) as SaveState['mats'];

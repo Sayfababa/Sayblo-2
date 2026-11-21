@@ -3,6 +3,7 @@ import {
   AFFIXES, DIFFICULTIES, ELEMENTS, GEMS, HERO, ITEMS, MONSTERS, MONSTER_SCALING, RANKS, SKILLS, SKILL_SCALING, SPARK, STATES,
   TREES, isPassive, type Attr, type Element, type SkillDef,
 } from '../content/index.ts';
+import { metaMods, metaPost } from './metastats.ts';
 import { isGem, type BagItem, type GemItem, type Item, type SaveState } from './types.ts';
 
 export const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -36,7 +37,7 @@ export interface Stats {
   barrierRegen: number; elemDR: number;
   /** +levels to skill trees */
   plus: Record<string, number>;
-  /** ids of equipped uniques */
+  /** ids of equipped uniques and of unique effects imprinted on equipped rares (meta) */
   uniques: Set<string>;
 }
 
@@ -50,7 +51,8 @@ export function calcStats(s: SaveState): Stats {
   const m: Record<string, number> = {};
   const add = (k: string, v: number) => { m[k] = (m[k] || 0) + v; };
   const uniques = new Set<string>();
-  for (const it of Object.values(s.equip)) if (it) { for (const [k, v] of it.mods) add(k, v); if (it.u) uniques.add(it.u); }
+  for (const it of Object.values(s.equip)) if (it) { for (const [k, v] of it.mods) add(k, v); if (it.u) uniques.add(it.u); if (it.ipr) uniques.add(it.ipr); }
+  metaMods(s, uniques, add); // meta: ember points, feat bonuses, stat-like unique effects
   const plus: Record<string, number> = {};
   for (const t of Object.keys(TREES)) plus[t] = m[TREE_PLUS[t]] || 0;
   for (const [id, sk] of Object.entries(SKILLS)) {
@@ -62,7 +64,7 @@ export function calcStats(s: SaveState): Stats {
   const a = { power: s.attrs.power + g('power'), focus: s.attrs.focus + g('focus'), spirit: s.attrs.spirit + g('spirit'), vit: s.attrs.vit + g('vit') };
   const raw = (k: Element) => g(EL_KEY[k] + 'Res') + g('allRes');
   const res = (k: Element) => clamp(raw(k) + pen, C.resMin, C.res);
-  return {
+  return metaPost({ // meta: final touches of ember points and unique effects
     mods: m, a, plus, uniques,
     maxLife: Math.round((B.life + a.vit * B.lifePerVit + (s.lvl - 1) * HERO.perLevel.life + g('life')) * (1 + g('lifePct') / 100)),
     maxMana: Math.round(B.mana + a.spirit * B.manaPerSpirit + (s.lvl - 1) * HERO.perLevel.mana + g('mana')),
@@ -80,7 +82,7 @@ export function calcStats(s: SaveState): Stats {
     dodge: Math.min(C.dodge, g('dodge')),
     barrierRegen: g('barrierRegen'),
     elemDR: Math.min(C.elemDR, g('elemDR')),
-  };
+  });
 }
 
 export const castTime = (st: Stats) => 1 / (1 + st.castSpeed / 100);
@@ -144,6 +146,9 @@ export function skillCtx(s: SaveState, st: Stats, id: string): SkillCtx {
   let projectiles = 1 + G('projectiles'), chains = (def.jumps || 0) + Math.round(G('chains'));
   if (id === 'fireball' && U.has('lantern')) { projectiles += 2; manaMult *= 1.5; }
   if (id === 'chain' && U.has('bell')) { chains += 3; more *= 0.7; }
+  const reed = id === 'frostbolt' && U.has('hollowreed'), tide = def.type === 'nova' && U.has('tidecrook');
+  if (reed) projectiles += 1;
+  if (tide) more *= 1.25;
   const durMult = 1 + G('duration') / 100;
   const addRange = (v: number): [number, number] => [v * 0.6, v * 1.4];
   const added: Record<Element, [number, number]> = {
@@ -172,8 +177,8 @@ export function skillCtx(s: SaveState, st: Stats, id: string): SkillCtx {
     freezeChance: (def.freezeChance || 0) + mod('freezeChance') + G('freezeChance'),
     shockChance: S.baseShockChance + (def.shockChance || 0) + mod('shockChance') + G('shockChance'),
     shockEff: Math.min(S.maxShockEffect, S.baseShockEffect + mod('shockEffect') + G('shockEffect')) / 100,
-    radius: (def.radius || 0) * Math.max(0.3, 1 + G('radius') / 100),
-    projectiles, pierce: Math.floor(G('pierce')), fork: Math.floor(G('fork')), chains, jumpFalloff: def.jumpFalloff || 0.85,
+    radius: (def.radius || 0) * Math.max(0.3, 1 + G('radius') / 100) * (tide ? 1.4 : 1),
+    projectiles, pierce: Math.floor(G('pierce')) + (reed ? 2 : 0), fork: Math.floor(G('fork')), chains, jumpFalloff: def.jumpFalloff || 0.85,
     spread: G('spread') > 0, echo: G('echo') > 0, durMult,
     extraFire: U.has('emberheart') && tags.has('cold') ? 0.3 : 0,
     shockedCold: U.has('gravewhisper') ? 0.25 : 0,

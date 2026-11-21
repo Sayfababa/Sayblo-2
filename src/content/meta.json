@@ -1,0 +1,154 @@
+{
+  "_doc": "Work package D (Meta progression): bounty board, area tyrants, area events, unique codex + imprint, ember points after the level cap, feats.",
+
+  "bounties": {
+    "_doc": "Always `open` bounties on the board; they never expire. n = [min, max] target count. reward = multiplier on the base reward. A bounty is for an area of the current difficulty; `currentAreaChance` makes it the area the hero is in.",
+    "open": 3,
+    "currentAreaChance": 0.6,
+    "swapGoldPerLevel": 6,
+    "templates": {
+      "killArea":    { "weight": 10, "n": [40, 70], "reward": 1.0, "text": "Slay {n} monsters in {area}" },
+      "killElites":  { "weight": 8,  "n": [3, 6],   "reward": 1.2, "text": "Slay {n} elites" },
+      "killElement": { "weight": 8,  "n": [40, 70], "reward": 1.0, "text": "Slay {n} {element} monsters" },
+      "findRare":    { "weight": 7,  "n": [1, 2],   "reward": 1.1, "text": "Find {n} rare {slot}{s}" },
+      "killTyrant":  { "weight": 4,  "n": [1, 1],   "reward": 2.0, "text": "Slay {tyrant}, tyrant of {area}" },
+      "killWretch":  { "weight": 4,  "n": [1, 1],   "reward": 1.3, "text": "Catch a Coin-Wretch" },
+      "useShrines":  { "weight": 6,  "n": [3, 3],   "reward": 0.9, "text": "Use {n} shrines" }
+    },
+    "_reward": "level L = level of the bounty's area on its difficulty. gold = goldPerLevel * L * difficulty goldMult * template reward. mats: [base, perLevel] * template reward. Gems and uniques sometimes.",
+    "reward": {
+      "goldPerLevel": 14,
+      "mats": { "dust": [14, 0.8], "essence": [3, 0.2] },
+      "shardChance": 0.35,
+      "shards": [1, 2],
+      "gemChance": 0.35,
+      "uniqueChance": 0.08,
+      "uniqueTable": ["lantern", "cinders", "saint", "bell", "emberheart", "gravewhisper", "stormcaller", "hollowreed", "tidecrook", "lamplighter", "mourncowl", "tallow", "ninthbell", "choireye", "oathbreaker"]
+    }
+  },
+
+  "tyrants": {
+    "_doc": "After `kills` monster kills in an area (counted per area and difficulty) its tyrant comes with the next wave. Tyrants use the boss rank, times hpMult and dmgMult, at area level + levelAdd. Each has one mechanic: warning circles that explode after `delay` (damage = mult x tyrant damage). The hero steps out of them on her own.",
+    "kills": 150,
+    "hpMult": 0.5,
+    "dmgMult": 0.75,
+    "levelAdd": 2,
+    "adds": 2,
+    "_loot": "count items of at least minRarity, slot from `slots`; each item gets one favoured affix (from `affixes`, best tier the level allows) with affixChance. uniqueChance for one of `uniques` on top. Gold piles like a boss.",
+    "loot": { "count": [2, 3], "minRarity": 2, "affixChance": 0.8, "uniqueChance": 0.12, "goldPiles": [5, 8], "gemChance": 0.6 },
+    "list": {
+      "gallows-field": {
+        "name": "The Hanged Reeve", "title": "Tyrant of Gallows Field", "monster": "wraith", "scale": 1.45, "tint": "#9fb7c8",
+        "intro": "The gallows creak. **The Hanged Reeve** drops from its rope, noose still trailing!",
+        "mechanic": { "kind": "target", "name": "Noose Drop", "element": "cold", "every": 5, "delay": 1.3, "radius": 1.6, "count": 1, "mult": 2.2 },
+        "slots": ["helm", "armor"], "affixes": ["coldRes", "life", "barrier"], "uniques": ["saint", "mourncowl"]
+      },
+      "weeping-mire": {
+        "name": "Old Brackwater", "title": "Tyrant of Weeping Mire", "monster": "beetle", "scale": 1.7, "tint": "#7f9a6a",
+        "intro": "The bog heaves. **Old Brackwater** crawls out, crackling with marsh-light!",
+        "mechanic": { "kind": "line", "name": "Marsh Lightning", "element": "light", "every": 6, "delay": 1.4, "radius": 1.3, "count": 4, "mult": 1.6 },
+        "slots": ["ring", "amulet"], "affixes": ["lightDmg", "shockChance", "lightRes"], "uniques": ["bell", "gravewhisper"]
+      },
+      "cinder-hollow": {
+        "name": "Ashmaw", "title": "Tyrant of Cinder Hollow", "monster": "hound", "scale": 1.55, "tint": "#ff9a6a",
+        "intro": "Embers swirl into a shape. **Ashmaw**, the kiln-hound, howls!",
+        "mechanic": { "kind": "ring", "name": "Kiln Ring", "element": "fire", "every": 6.5, "delay": 1.5, "radius": 1.2, "count": 6, "mult": 1.5, "spread": 2.6 },
+        "slots": ["weapon", "amulet"], "affixes": ["fireDmg", "firePen", "burnChance"], "uniques": ["lantern", "emberheart"]
+      },
+      "stormwatch-ruins": {
+        "name": "Corvane the Stormherald", "title": "Tyrant of Stormwatch Ruins", "monster": "crow", "scale": 1.8, "tint": "#c8a8ff",
+        "intro": "Thunder rolls over the broken tower. **Corvane the Stormherald** descends!",
+        "mechanic": { "kind": "scatter", "name": "Thunder Call", "element": "light", "every": 5.5, "delay": 1.2, "radius": 1.2, "count": 4, "mult": 1.5, "spread": 2.5 },
+        "slots": ["weapon", "ring"], "affixes": ["lightPen", "castSpeed", "crit"], "uniques": ["stormcaller", "tidecrook"]
+      },
+      "rimefrost-crypt": {
+        "name": "The Rimebound Abbot", "title": "Tyrant of Rimefrost Crypt", "monster": "ghoul", "scale": 1.5, "tint": "#bfe6ff",
+        "intro": "Frost creeps over the tombs. **The Rimebound Abbot** rises from his sarcophagus!",
+        "mechanic": { "kind": "nova", "name": "Grave Frost", "element": "cold", "every": 7, "delay": 1.6, "radius": 3.2, "count": 1, "mult": 2.4 },
+        "slots": ["ring", "amulet"], "affixes": ["coldPen", "coldDmg", "freezeChance"], "uniques": ["hollowreed", "choireye"]
+      },
+      "pale-chapel": {
+        "name": "Sister Candlewane", "title": "Tyrant of the Pale Chapel", "monster": "cultist", "scale": 1.4, "tint": "#ffe0a0",
+        "intro": "A thousand candles gutter at once. **Sister Candlewane** steps from the smoke!",
+        "mechanic": { "kind": "scatter", "name": "Candle Rain", "element": "fire", "every": 5, "delay": 1.3, "radius": 1.0, "count": 6, "mult": 1.2, "spread": 3.2 },
+        "slots": ["helm", "weapon"], "affixes": ["spellDmg", "castSpeed", "allRes"], "uniques": ["cinders", "lamplighter", "tallow", "ninthbell", "oathbreaker"]
+      }
+    }
+  },
+
+  "events": {
+    "_doc": "At most one area event at a time. The next one starts `every` seconds (outside town) after the last one ended, not while a vault is open or a tyrant fights.",
+    "every": [150, 260],
+    "weights": { "bloodmoon": 10, "tear": 8, "champion": 8 },
+    "bloodmoon": {
+      "name": "Blood Moon", "text": "A red moon rises: twice the monsters, more elites.", "color": "#d0303a",
+      "duration": 90, "extraShare": 1.0, "eliteChance": 0.12
+    },
+    "tear": {
+      "name": "Rift Tear", "text": "The ground splits. Monsters slain inside the tear drop more.", "color": "#b48cff",
+      "duration": 80, "radius": 2.2, "growPerKill": 0.3, "maxRadius": 6, "shrinkPerSecond": 0.04,
+      "goldMult": 2, "itemChance": 0.3, "rarityBoost": 1.0
+    },
+    "champion": {
+      "name": "Trapped Champion", "text": "An elite is sealed in ice and embers. Break the casing; it carries an item with a bonus affix.", "color": "#8fd8ff",
+      "duration": 120, "casingPct": 0.6, "levelAdd": 1, "hpMult": 1.2
+    }
+  },
+
+  "codex": {
+    "_doc": "Salvaging a unique unlocks its effect. An unlocked effect can be imprinted on a Rare item of the same slot (once per item). Cost = base * (1 + perLevel * item level).",
+    "imprint": { "shard": 4, "essence": 12 },
+    "perLevel": 0.03
+  },
+
+  "ember": {
+    "_doc": "After the level cap (hero.json levelCap) every further full XP bar (the bar of the cap level) gives one ember point. Points go into tracks; no cap, free reallocation. Values are per point. Stat keys like items; manaRegenPct = % more mana regeneration, goldPct = % more gold, rarityPct = magic/rare/unique drops more often (%).",
+    "tracks": {
+      "offense": { "name": "Offense", "color": "#ff7a3d", "text": "+0.5% fire, cold and lightning damage", "per": { "fireDmg": 0.5, "coldDmg": 0.5, "lightDmg": 0.5 } },
+      "defense": { "name": "Defense", "color": "#8fd8ff", "text": "+0.2% elemental damage reduction, +0.5% maximum life", "per": { "elemDR": 0.2, "lifePct": 0.5 } },
+      "flow":    { "name": "Flow",    "color": "#86c46f", "text": "+0.3% cast speed, +0.5% mana regeneration", "per": { "castSpeed": 0.3, "manaRegenPct": 0.5 } },
+      "fortune": { "name": "Fortune", "color": "#e8cc5c", "text": "+0.5% gold, +0.2% magic find", "per": { "goldPct": 0.5, "rarityPct": 0.2 } }
+    }
+  },
+
+  "feats": {
+    "_doc": "Permanent achievements. type = what is counted (see src/sim/meta.ts featValue), n = goal. bonus = small permanent stat (keys like ember tracks), or title = a name shown in the hero panel.",
+    "list": {
+      "kills100":    { "name": "Grave Tender",          "text": "Slay 100 monsters.",                 "type": "kills",      "n": 100,    "bonus": { "life": 5 } },
+      "kills1000":   { "name": "Thinning the Dark",     "text": "Slay 1,000 monsters.",               "type": "kills",      "n": 1000,   "bonus": { "spellDmg": 2 } },
+      "kills5000":   { "name": "Reaper's Apprentice",   "text": "Slay 5,000 monsters.",               "type": "kills",      "n": 5000,   "title": "the Reaper" },
+      "kills25000":  { "name": "Ten Thousand Candles",  "text": "Slay 25,000 monsters.",              "type": "kills",      "n": 25000,  "bonus": { "spellDmg": 3 } },
+      "elites10":    { "name": "Elite Hunter",          "text": "Slay 10 elites.",                    "type": "elites",     "n": 10,     "bonus": { "crit": 0.5 } },
+      "elites200":   { "name": "Breaker of Champions",  "text": "Slay 200 elites.",                   "type": "elites",     "n": 200,    "title": "Champion-Breaker" },
+      "boss1":       { "name": "Vesper Falls",          "text": "Defeat Mother Vesper.",              "type": "bosses",     "n": 1,      "bonus": { "allRes": 2 } },
+      "boss10":      { "name": "Matricide, Tenfold",    "text": "Defeat Mother Vesper 10 times.",     "type": "bosses",     "n": 10,     "title": "Vesperbane" },
+      "tyrant1":     { "name": "Tyrant-Slayer",         "text": "Defeat an area tyrant.",             "type": "tyrants",    "n": 1,      "bonus": { "spellDmg": 2 } },
+      "tyrantAll":   { "name": "Crown Breaker",         "text": "Defeat all six area tyrants.",       "type": "tyrantKinds","n": 6,      "title": "Crown Breaker" },
+      "tyrant25":    { "name": "Usurper",               "text": "Defeat 25 area tyrants.",            "type": "tyrants",    "n": 25,     "bonus": { "castSpeed": 2 } },
+      "wretch1":     { "name": "Coin Snatcher",         "text": "Catch a Coin-Wretch.",               "type": "wretches",   "n": 1,      "bonus": { "goldPct": 5 } },
+      "wretch15":    { "name": "Pickpocket of Shadows", "text": "Catch 15 Coin-Wretches.",            "type": "wretches",   "n": 15,     "title": "the Pickpocket" },
+      "vault1":      { "name": "Into the Hoard",        "text": "Open a Hoard Vault.",                "type": "vaults",     "n": 1,      "bonus": { "goldPct": 5 } },
+      "unique1":     { "name": "Something Unique",      "text": "Find a unique item.",                "type": "uniques",    "n": 1,      "bonus": { "rarityPct": 3 } },
+      "unique20":    { "name": "Relic Hoarder",         "text": "Find 20 unique items.",              "type": "uniques",    "n": 20,     "title": "Relic-Hoarder" },
+      "perfect1":    { "name": "Flawless",              "text": "Find an item with a perfect roll.",  "type": "perfects",   "n": 1,      "bonus": { "crit": 0.5 } },
+      "codex1":      { "name": "First Page",            "text": "Unlock a codex entry.",              "type": "codex",      "n": 1,      "bonus": { "barrier": 5 } },
+      "codex8":      { "name": "Half the Tome",         "text": "Unlock 8 codex entries.",            "type": "codex",      "n": 8,      "bonus": { "allRes": 3 } },
+      "codexAll":    { "name": "Archivist",             "text": "Unlock every codex entry.",          "type": "codexAll",   "n": 1,      "title": "the Archivist" },
+      "imprint1":    { "name": "Branded",               "text": "Imprint a unique effect on a rare.", "type": "imprints",   "n": 1,      "bonus": { "spellDmg": 2 } },
+      "corrupt1":    { "name": "Altar-Touched",         "text": "Own a corrupted item.",              "type": "corrupted",  "n": 1,      "title": "the Tainted" },
+      "level10":     { "name": "Apprentice No More",    "text": "Reach level 10.",                    "type": "level",      "n": 10,     "bonus": { "mana": 5 } },
+      "level30":     { "name": "Seasoned Caster",       "text": "Reach level 30.",                    "type": "level",      "n": 30,     "bonus": { "life": 10 } },
+      "level60":     { "name": "Lantern-Bearer",        "text": "Reach the level cap.",               "type": "level",      "n": 60,     "title": "Lantern-Bearer" },
+      "nightmare":   { "name": "Into the Nightmare",    "text": "Open Nightmare.",                    "type": "difficulty", "n": 1,      "bonus": { "allRes": 3 } },
+      "hell":        { "name": "Down to Hell",          "text": "Open Hell.",                         "type": "difficulty", "n": 2,      "title": "Hellwalker" },
+      "bounty1":     { "name": "Notice Taken",          "text": "Claim a bounty.",                    "type": "bounties",   "n": 1,      "bonus": { "goldPct": 3 } },
+      "bounty25":    { "name": "Board Regular",         "text": "Claim 25 bounties.",                 "type": "bounties",   "n": 25,     "title": "Bounty-Taker" },
+      "event1":      { "name": "Strange Nights",        "text": "Live through an area event.",        "type": "events",     "n": 1,      "bonus": { "dodge": 1 } },
+      "event25":     { "name": "Moon-Watcher",          "text": "Live through 25 area events.",       "type": "events",     "n": 25,     "title": "Moon-Watcher" },
+      "shrines25":   { "name": "Pilgrim",               "text": "Use 25 shrines.",                    "type": "shrines",    "n": 25,     "bonus": { "manaRegen": 0.5 } },
+      "ember1":      { "name": "First Ember",           "text": "Earn an ember point.",               "type": "ember",      "n": 1,      "bonus": { "spellDmg": 2 } },
+      "deaths10":    { "name": "On First-Name Terms",   "text": "Die 10 times.",                      "type": "deaths",     "n": 10,     "title": "the Ferryman's Friend" },
+      "gold100k":    { "name": "Dragon's Pillow",       "text": "Hold 100,000 gold at once.",         "type": "gold",       "n": 100000, "title": "the Hoarder" }
+    }
+  }
+}

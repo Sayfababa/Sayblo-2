@@ -79,3 +79,49 @@ Code then: draw `shrine-<id>.png` / `chest-vault.png` in `FeelFx.drawObject` (`s
 ### A3 (optional) – small buff icons for shrines
 
 Not needed yet; the buff bar uses a CSS rune in the shrine colour. If wanted later: 7 icons 64 × 64 in the style of the skill icons (`icon-*.png`), one per shrine, magenta background.
+
+## Package D – Meta progression
+
+Owner rule: **no banner or header pictures for menus** (bounty board, codex, ember points and feats stay compact; they use existing item icons and CSS).
+The codex silhouettes are made in CSS from the existing item icons (`filter: brightness(0)`), so they need no art.
+Only world art is requested here. Placeholders now: tyrants reuse the area's monster sprite, scaled up (`scale`) and tinted (`tint`) from
+`src/content/meta.json`, with a code-drawn crimson sigil at their feet; the Rift Tear, the Blood Moon and the champion casing are Pixi graphics (`src/render/meta.ts`).
+
+### D1 – Area tyrants: `assets/sheets/mon-tyrant-<id>.png` (6 sheets, 2 poses, 3:2, e.g. 1536 × 1024, **magenta `#FF00FF`**)
+
+Format exactly like A1 / `docs/ui-assets.md` section 9: 2 columns × 1 row, same creature, same size, same baseline, facing bottom-right, full body, wide margins.
+Cut with `tools/slice_sheets.py` (`MONSTER_POSES`) to `tyrant-<id>.png` / `tyrant-<id>-attack.png`. Code use: add a monster entry per tyrant in
+`monsters.json` (copy of the base monster with the new `sprite`) and point `tyrants.list.<area>.monster` at it; set `scale` to 1 and drop `tint`.
+
+Shared prompt (fill in the creature):
+
+> photorealistic pre-rendered 3D character, gritty dark medieval fantasy, physically realistic skin, cloth, bone and metal, cold moonlit night, soft light from top-left, low saturation, muted tones, high detail, no stylization, character sheet with exactly 2 poses of the same creature side by side, 2 columns x 1 row, same size, same scale, feet (or lowest point) on the same baseline, each pose full body and centered in its half with wide empty margins, three-quarter view from about 30 degrees above, facing bottom-right. [CREATURE]. Left pose: standing, menacing, idle. Right pose: attacking to the bottom-right. Nothing pink, purple or violet. Flat pure magenta #FF00FF background, evenly lit, no ground, no shadow, no text
+
+Negative: `cartoon, painterly, stylized, cel shading, outlines, cute, saturated colors, glow, particles, ground, floor, cast shadow, text, frame, cropped`
+
+| id (area) | Name | [CREATURE] |
+|---|---|---|
+| `gallows-field` | The Hanged Reeve | a tall gaunt floating corpse of a village reeve, a broken noose still around his stretched neck with a length of frayed rope trailing behind, grey-blue frost-bitten skin, tattered dark wool coat with a tarnished chain of office, hollow pale eyes, long bony hands; below the knees the body ends in torn coat tails hanging down, hovering above the ground. Attack: both hands thrust forward, rope whipping |
+| `weeping-mire` | Old Brackwater | a huge armoured bog beetle the size of an ox, black-green shell crusted with peat, moss and dead reeds, small dull blue-white sparks crawling between the shell plates (no glow on the background), heavy mandibles, six thick jointed legs. Attack: rearing up with mandibles open |
+| `cinder-hollow` | Ashmaw | a gaunt kiln-hound twice the size of a wolf, body of cracked charcoal-black hide with thin dull orange ember seams, a long jaw full of blackened teeth, a collar of rusted chain, smoke-stained bristles along the spine. Attack: lunging with jaws wide open |
+| `stormwatch-ruins` | Corvane the Stormherald | a giant black crow-like bird with a wingspan of a man, ragged storm-torn feathers, a cracked bone mask over its beak, iron rings bound to its legs, faint pale violet-white sparks only on the feather tips. Left pose: perched with wings half spread. Right pose: diving to the bottom-right, talons forward |
+| `rimefrost-crypt` | The Rimebound Abbot | a hulking undead abbot, grey-blue frozen flesh, heavy hooded monk's robe stiff with ice, icicles hanging from the hood and sleeves, a cracked stone reliquary chained to his chest, long frost-white beard. Attack: raising both fists to slam the ground |
+| `pale-chapel` | Sister Candlewane | a tall emaciated nun in a stained white habit and a black veil, dozens of half-melted tallow candles fused to her shoulders and a crown of candle stubs on her head (unlit, the flames are drawn in code), wax dripping down the robe, a long iron censer in one hand. Attack: swinging the censer forward |
+
+### D2 – Rift Tear decal: `fx-rift-tear.jpg` (square 1024 × 1024, **black background**, effect image like the other `fx-*.jpg`)
+
+> top-down view of a circular crack torn into dark earth, jagged fissures radiating from the centre, a faint cold violet light deep inside the cracks, small floating stone fragments at the rim, seen from straight above, centred, round overall shape, pure black background outside the circle, no ground texture outside, no text
+
+Code use: drawn additively as an ellipse decal at the tear's centre and radius, replacing the Pixi crack lines in `src/render/meta.ts`.
+
+### D3 – Champion casings: `props-casing.png` (2 × 1, landscape 2:1, **magenta `#FF00FF`**)
+
+> [style sentence], two game prop sprites side by side, 2 columns x 1 row, each centered with wide spacing, three-quarter view from about 30 degrees above. Left: a tall jagged shell of clear blue-white ice crystals, hollow, open in the middle so a figure inside shows through, frost at the base. Right: a tall jagged shell of black cooling lava rock with dull orange glowing cracks, hollow in the middle. Flat pure magenta #FF00FF background, no ground, no shadow, no text
+
+Code use: drawn semi-transparent in front of the trapped champion while its casing holds (`m.mt.encased`), ice for cold/lightning monsters, lava for fire.
+
+### D4 – Blood Moon: `fx-blood-moon.jpg` (square 512 × 512, **black background**)
+
+> a large full moon tinted deep blood red, faint dark craters, thin red haze around it, centred, pure black background, no stars, no clouds, no text
+
+Code use: shown in the top right corner of the scene during a Blood Moon, additive, replacing the glow circle.
