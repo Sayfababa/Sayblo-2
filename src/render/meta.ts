@@ -89,10 +89,10 @@ export class MetaFx {
         if (left < 1) K.light(px, py, 90 * k, col, 0.4 * (1 - left));
       }
       if (m.mt?.encased && m.ward > 0) {
-        const col = ELEMENT_COLORS[m.el], g = K.fx.graphics(true), h = 62 * k, w = 26 * k, f = m.maxWard ? m.ward / m.maxWard : 1;
-        g.poly([px - w, py, px - w * 0.7, py - h * 0.75, px - w * 0.15, py - h, px + w * 0.5, py - h * 0.85, px + w, py - h * 0.3, px + w * 0.8, py])
-          .fill({ color: col, alpha: 0.14 + 0.1 * f }).stroke({ width: 1.6 * k, color: '#e6f6ff', alpha: 0.35 + 0.35 * f });
-        g.moveTo(px - w * 0.4, py - h * 0.2).lineTo(px - w * 0.1, py - h * 0.7).lineTo(px + w * 0.3, py - h * 0.5).stroke({ width: 1 * k, color: '#ffffff', alpha: 0.3 * f });
+        const col = ELEMENT_COLORS[m.el], h = 70 * k, f = m.maxWard ? m.ward / m.maxWard : 1;
+        // painted casing (props-casing.png): lava for fire monsters, ice otherwise; fades as the ward breaks
+        const cs = K.fx.sprite(tex(m.el === 'fire' ? 'casing-lava.png' : 'casing-ice.png'));
+        cs.anchor.set(0.5, 0.95); cs.position.set(px, py); cs.scale.set(h / Math.max(1, cs.texture.height)); cs.alpha = 0.45 + 0.5 * f;
         K.light(px, py - h * 0.5, 70 * k, col, 0.3 + 0.2 * Math.sin(t * 2.5));
       }
     }

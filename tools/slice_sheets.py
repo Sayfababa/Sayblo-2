@@ -68,11 +68,12 @@ UI_SHEETS = {
                           "shrine-fortune", "shrine-lore", "shrine-fury", "chest-vault"]),
     "icons-economy": (3, 3, ["mat-dust", "mat-essence", "mat-shard", "ember-change", "ember-choice", "ember-whet",
                              "ember-rise", "ember-bind", "ember-wax"]),
+    "props-casing": (2, 1, ["casing-ice", "casing-lava"]),
     "ground-decals": (3, 2, ["decal-puddle", "decal-ash", "decal-blood", "decal-leaves", "decal-cracks", "decal-grass"]),
 }
-MAGENTA = {"skill-icons-3", "skill-icons-cinder", "skill-icons-rime", "skill-icons-thunder", "items-warrior", "gems-general", "props-gallows", "ground-decals", "props-feel", "icons-economy", "vendor-parcel"}
+MAGENTA = {"skill-icons-3", "skill-icons-cinder", "skill-icons-rime", "skill-icons-thunder", "items-warrior", "gems-general", "props-gallows", "ground-decals", "props-feel", "icons-economy", "vendor-parcel", "props-casing"}
 # realistic sheets: brown and grey only, so every trace of magenta can go (no pink fringe on thorns and decal edges)
-MAGENTA_STRONG = {"props-gallows", "ground-decals", "props-feel"}
+MAGENTA_STRONG = {"props-gallows", "ground-decals", "props-feel", "props-casing"}
 # Sheets whose pieces do not sit on an even grid: name -> [(sprite, (x0, y0, x1, y1) as fractions of the sheet)]
 UI_BOXES = {
     # single picture (red wax must survive, so plain magenta key without despill)
@@ -92,7 +93,7 @@ UI_SIDE = {"ui-console": 640, "ui-trough": 520, "ui-orbmount": 256, "ui-arch": 3
 UI_SIDE.update({n: 320 for n in ["gf-gallows", "gf-gibbet", "gf-deadtree", "gf-lantern"]})
 UI_SIDE.update({n: 256 for n in ["gf-fence", "gf-cross", "gf-stone", "gf-bones", "gf-thorn", "gf-cart", "gf-scarecrow", "gf-well"]})
 UI_SIDE.update({n: 256 for n in ["decal-puddle", "decal-ash", "decal-blood", "decal-leaves", "decal-cracks", "decal-grass"]})
-UI_SIDE.update({"parcel": 192})
+UI_SIDE.update({"parcel": 192, "casing-ice": 256, "casing-lava": 256})
 UI_SIDE.update({n: 128 for n in ["item-notched-cleaver", "item-iron-maul", "item-grave-blade"]})
 UI_SIDE.update({n: 256 for n in ["shrine-embers", "shrine-greed", "shrine-frenzy", "shrine-bulwark", "shrine-fortune", "shrine-lore", "shrine-fury", "chest-vault"]})
 UI_SMALL = ("glyph-", "ic-", "gem-", "mat-", "ember-")  # 96 px icons
@@ -234,7 +235,7 @@ def slice_ui():
             continue
         cells = cut_framed(src, cols, rows, names) if sheet in FRAMED else cut_cells(key_for(sheet, Image.open(src)), cols, rows, names)
         for name, cell in cells:
-            if sheet in MAGENTA_STRONG and name != "decal-blood":
+            if sheet in MAGENTA_STRONG and name not in ("decal-blood", "casing-lava"):
                 cell = despill_red(cell)
             if name.startswith("icon-"):
                 cell = cell.resize((128, 128), Image.LANCZOS)
