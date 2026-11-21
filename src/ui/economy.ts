@@ -18,7 +18,7 @@ import { corruptNote, itemTooltip, modMark } from './tooltip.ts';
 
 export type TownView = 'main' | 'forge' | 'altar' | 'vendor' | 'stash' | 'board' | 'codex' | 'rift';
 // board and codex are rendered by meta.ts (work package D)
-const VIEWS: [TownView, string][] = [['main', 'Town'], ['forge', 'Forge'], ['altar', 'Altar'], ['vendor', 'Vendor'], ['stash', 'Stash'], ['board', 'Board'], ['codex', 'Codex'], ['rift', 'Rifts']];
+const VIEWS: [TownView, string][] = [['main', 'Town'], ['forge', 'Forge'], ['altar', 'Altar'], ['vendor', 'Shop'], ['stash', 'Stash'], ['board', 'Board'], ['codex', 'Codex'], ['rift', 'Rifts']];
 type Dropdown = (key: string, label: string, cur: string, options: [string, string, string?][]) => string;
 
 /* ---------- small shared pieces ---------- */
