@@ -10,6 +10,7 @@ import itemsJson from './items.json' with { type: 'json' };
 import heroJson from './hero.json' with { type: 'json' };
 import gemsJson from './gems.json' with { type: 'json' };
 import difficultyJson from './difficulty.json' with { type: 'json' };
+import feelJson from './feel.json' with { type: 'json' };
 
 export type Element = 'fire' | 'cold' | 'light';
 export const ELEMENTS: Element[] = ['fire', 'cold', 'light'];
@@ -46,9 +47,23 @@ export interface BossDef {
 export interface MonsterDef {
   name: string; element: Element; hp: number; dmg: number; attackTime: number; moveSpeed: number;
   sprite: string; height: number; flying?: boolean; facesLeft?: boolean; ranged?: number; boss?: BossDef;
+  /** fleeing treasure creature (never in an area pool) */ treasure?: boolean;
+  /** no own sprite yet: the renderer draws a placeholder */ placeholder?: boolean;
 }
 export interface RankDef { name: string; hp: number; dmg: number; xp: number; gold: number; size: number; color: string }
-export interface EliteModDef { attackTime?: number; moveSpeed?: number; wardPct?: number; vampPct?: number; ownResAdd?: number; dmg?: number }
+export interface EliteModDef {
+  attackTime?: number; moveSpeed?: number; wardPct?: number; vampPct?: number; ownResAdd?: number; dmg?: number;
+  /** explodes after a warning circle when it dies (damage = mult x monster damage) */
+  deathBlast?: { delay: number; radius: number; mult: number; element: Element; name: string };
+  /** pulses elemental damage and chills the hero nearby (slower casting) */
+  aura?: { radius: number; every: number; mult: number; chill: number; chillTime: number; element: Element };
+  /** blinks next to the hero when she keeps her distance */
+  teleport?: { every: number; minDist: number; near: number };
+  /** gives nearby allies a ward (pct of their life, up to max) */
+  shield?: { every: number; pct: number; max: number; radius: number };
+  /** splits off a weaker copy once below a share of its life */
+  mirror?: { below: number; hpPct: number; dmg: number; name: string };
+}
 
 export interface AreaDef { id: string; name: string; level: number; waves: number; pool: string[]; boss?: string; ground: string; groundPulse?: boolean; decor: [string, number][];
   /** optional winding path texture blended over the ground, props along its edges, flat decals lying on the ground */
@@ -84,7 +99,7 @@ export const CONDITIONS = sk.conditions;
 
 const mo = monstersJson as unknown as {
   monsters: Record<string, MonsterDef>; ranks: RankDef[]; eliteMods: Record<string, EliteModDef>; eliteModCount: [number, number];
-  eliteNames: { first: string[]; second: string[] };
+  eliteNames: { first: string[]; second: string[] }; championMods: { chance: number; pool: string[] };
   scaling: { hpBase: number; hpGrowth: number; dmgBase: number; dmgGrowth: number; xpBase: number; xpGrowth: number; ownElementRes: number; meleeRange: number; projectileSpeed: number };
   waves: { championChance: number; eliteChance: number; spawnDistance: number; bossDistance: number };
 };
@@ -93,6 +108,7 @@ export const RANKS = mo.ranks;
 export const ELITE_MODS = mo.eliteMods;
 export const ELITE_MOD_COUNT = mo.eliteModCount;
 export const ELITE_NAMES = mo.eliteNames;
+export const CHAMPION_MODS = mo.championMods;
 export const MONSTER_SCALING = mo.scaling;
 export const WAVES = mo.waves;
 
@@ -156,3 +172,21 @@ export interface DifficultyDef { name: string; levelAdd: number; resPenalty: num
 const df = difficultyJson as unknown as { difficulties: DifficultyDef[]; offline: { rate: number; maxHours: number; minSeconds: number } };
 export const DIFFICULTIES = df.difficulties;
 export const OFFLINE = df.offline;
+
+/* ---------- work package A (Feel) ---------- */
+export interface ShrineDef { name: string; text: string; color: string; duration: number; weight: number; effects: Record<string, number> }
+export interface FeelDef {
+  upgrade: { kindWeight: Record<AffixKind, number>; refLevel: number; uniqueBonus: number; minGain: number; minAbs: number };
+  perfect: { tier: number; rangeShare: number };
+  shrines: { chance: number; useRange: number; types: Record<string, ShrineDef> };
+  treasure: {
+    monster: string; name: string; sub: string; chance: number; lifetime: number; hpMult: number; spawnDistance: number; keepDistance: [number, number]; turnEvery: [number, number];
+    goldPiles: [number, number]; goldPerPile: number; items: [number, number]; minRarity: number; gemChance: number; vaultChance: number;
+  };
+  vault: {
+    name: string; duration: number; extraMonsters: number; chests: [number, number]; chestGoldPiles: [number, number]; chestItems: [number, number];
+    chestMinRarity: number; goldMult: number; goldChanceAdd: number; itemChanceAdd: number;
+  };
+}
+export const FEEL = feelJson as unknown as FeelDef;
+export const SHRINES = FEEL.shrines.types;

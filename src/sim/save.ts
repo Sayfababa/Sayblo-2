@@ -6,7 +6,7 @@
  */
 import { AREAS, ATTRS, DIFFICULTIES, GEMS, GEM_MAX_LEVEL, SKILLS, SLOTS, UNIQUES, isPassive } from '../content/index.ts';
 import { placeMissing } from './bag.ts';
-import { SAVE_VERSION, newSaveState } from './state.ts';
+import { DEFAULT_VOLUME, SAVE_VERSION, newSaveState } from './state.ts';
 import type { BagItem, GemItem, Item, SaveState } from './types.ts';
 
 export const STORAGE_KEY = 'grimlight-save';
@@ -33,6 +33,8 @@ const MIGRATIONS: Record<number, (s: Raw) => Raw> = {
       bag: ((s.bag as Item[]) || []).map(fix), equip,
     };
   },
+  // v5: sound settings (work package A)
+  4: s => ({ ...s, v: 5, settings: { ...((s.settings as Raw) || {}), sound: true, volume: DEFAULT_VOLUME } }),
 };
 
 export class SaveError extends Error {}
@@ -105,7 +107,7 @@ function sanitize(s: Raw): SaveState {
   if (!out.progress[out.difficulty]) out.difficulty = 0;
   out.zone = Math.floor(num(s.zone, 0, 0, out.progress[out.difficulty] - 1));
   const set = (s.settings || {}) as Raw;
-  out.settings = { dmgNumbers: bool(set.dmgNumbers, true), lootLabels: bool(set.lootLabels, true) };
+  out.settings = { dmgNumbers: bool(set.dmgNumbers, true), lootLabels: bool(set.lootLabels, true), sound: bool(set.sound, true), volume: num(set.volume, DEFAULT_VOLUME, 0, 1) };
   out.autoAdvance = bool(s.autoAdvance, true); out.autoReturn = bool(s.autoReturn, true); out.kite = bool(s.kite, true);
   out.speed = [1, 2, 4].includes(s.speed as number) ? (s.speed as number) : 1;
   out.life = s.life == null ? null : num(s.life, 0);

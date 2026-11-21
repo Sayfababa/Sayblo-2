@@ -57,3 +57,4 @@ console.log('Unlocked:'); console.log(reached.join('\n'));
 console.log('Skills:', JSON.stringify(s.skills));
 console.log('Gems:', Object.entries(s.sockets).map(([k, a]) => `${k}: ${a.filter(Boolean).map(g => g!.gem + g!.lvl).join(',')}`).join(' | '));
 console.log('Res:', JSON.stringify(sim.st.res), 'life', sim.st.maxLife);
+console.log('Feel:', JSON.stringify(sim.feel.stats));

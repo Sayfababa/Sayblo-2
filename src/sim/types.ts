@@ -15,7 +15,7 @@ export const isGem = (it: BagItem | null | undefined): it is GemItem => !!it && 
 
 export interface CastSlot { id: string | null; cond: string }
 
-export interface Settings { dmgNumbers: boolean; lootLabels: boolean }
+export interface Settings { dmgNumbers: boolean; lootLabels: boolean; /** sound effects on/off and volume 0..1 */ sound: boolean; volume: number }
 
 /** Everything that is saved. Plain JSON, versioned (see save.ts). */
 export interface SaveState {
@@ -54,6 +54,16 @@ export interface Monster {
   res: Record<Element, number>;
   x: number; y: number; px: number; py: number; f: number; walking: boolean;
   boss?: { phase: number; specT: number };
+  /** state of monster affixes and the treasure creature (see feel.ts) */
+  fe?: MonFeel;
+}
+export interface MonFeel {
+  /** treasure creature: seconds until it escapes, and its current flight angle */
+  flee?: number; ang?: number; turn?: number;
+  /** mirror image: no loot; split: already split off its image */
+  noLoot?: boolean; split?: boolean;
+  /** timers of monster affixes by affix name */
+  t?: Record<string, number>;
 }
 
 export interface SkillShot { kind: 'skill'; skill: string; hit: number[]; pierce: number; fork: number; echo: boolean }
@@ -82,4 +92,10 @@ export type SimEvent =
   | { t: 'heroHit' }
   | { t: 'monHit'; id: number }
   | { t: 'monAttack'; id: number }
-  | { t: 'clear' };
+  | { t: 'clear' }
+  /** a new drop lies on the ground (sound, beam pulse); up = upgrade for the hero */
+  | { t: 'loot'; id: number; x: number; y: number; kind: 'gold' | 'item' | 'gem'; r: number; up: boolean; perfect: boolean }
+  | { t: 'kill'; id: number; x: number; y: number; rank: number; overkill: number; treasure: boolean }
+  | { t: 'levelup' }
+  | { t: 'shrine'; x: number; y: number; shrine: string }
+  | { t: 'vault'; open: boolean };
