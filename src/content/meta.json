@@ -56,19 +56,19 @@
         "slots": ["weapon", "amulet"], "affixes": ["fireDmg", "firePen", "burnChance"], "uniques": ["lantern", "emberheart"]
       },
       "stormwatch-ruins": {
-        "name": "Corvane the Stormherald", "title": "Tyrant of Stormwatch Ruins", "monster": "crow", "scale": 1.8, "tint": "#c8a8ff",
+        "name": "Corvane the Stormherald", "title": "Tyrant of Stormwatch Ruins", "monster": "tyrant-stormwatch-ruins", "scale": 1.8, "tint": "",
         "intro": "Thunder rolls over the broken tower. **Corvane the Stormherald** descends!",
         "mechanic": { "kind": "scatter", "name": "Thunder Call", "element": "light", "every": 5.5, "delay": 1.2, "radius": 1.2, "count": 4, "mult": 1.5, "spread": 2.5 },
         "slots": ["weapon", "ring"], "affixes": ["lightPen", "castSpeed", "crit"], "uniques": ["stormcaller", "tidecrook"]
       },
       "rimefrost-crypt": {
-        "name": "The Rimebound Abbot", "title": "Tyrant of Rimefrost Crypt", "monster": "ghoul", "scale": 1.5, "tint": "#bfe6ff",
+        "name": "The Rimebound Abbot", "title": "Tyrant of Rimefrost Crypt", "monster": "tyrant-rimefrost-crypt", "scale": 1.5, "tint": "",
         "intro": "Frost creeps over the tombs. **The Rimebound Abbot** rises from his sarcophagus!",
         "mechanic": { "kind": "nova", "name": "Grave Frost", "element": "cold", "every": 7, "delay": 1.6, "radius": 3.2, "count": 1, "mult": 2.4 },
         "slots": ["ring", "amulet"], "affixes": ["coldPen", "coldDmg", "freezeChance"], "uniques": ["hollowreed", "choireye"]
       },
       "pale-chapel": {
-        "name": "Sister Candlewane", "title": "Tyrant of the Pale Chapel", "monster": "cultist", "scale": 1.4, "tint": "#ffe0a0",
+        "name": "Sister Candlewane", "title": "Tyrant of the Pale Chapel", "monster": "tyrant-pale-chapel", "scale": 1.4, "tint": "",
         "intro": "A thousand candles gutter at once. **Sister Candlewane** steps from the smoke!",
         "mechanic": { "kind": "scatter", "name": "Candle Rain", "element": "fire", "every": 5, "delay": 1.3, "radius": 1.0, "count": 6, "mult": 1.2, "spread": 3.2 },
         "slots": ["helm", "weapon"], "affixes": ["spellDmg", "castSpeed", "allRes"], "uniques": ["cinders", "lamplighter", "tallow", "ninthbell", "oathbreaker"]

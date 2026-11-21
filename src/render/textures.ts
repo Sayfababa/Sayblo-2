@@ -19,6 +19,7 @@ export function spriteFiles(): string[] {
   for (const p of Object.values(PROPS)) for (const [n] of p.variants) files.add(n + '.png');
   for (const i of [...Object.values(BASE_ICON), 'gold', 'potion-hp', 'potion-mp']) files.add(`item-${i}.png`);
   for (const f of FX_NAMES) files.add(`fx-${f}.jpg`);
+  files.add('fx-rift-tear.jpg'); files.add('fx-blood-moon.jpg'); // meta: area events
   for (const a of AREAS) {
     files.add(a.ground);
     if (a.path) files.add(a.path);

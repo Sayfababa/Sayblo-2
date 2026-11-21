@@ -8,7 +8,7 @@ import type { Sprite } from 'pixi.js';
 import { ELEMENT_COLORS, META, TYRANTS } from '../content/index.ts';
 import type { Sim } from '../sim/sim.ts';
 import type { Monster, SimEvent } from '../sim/types.ts';
-import { glowTexture } from './textures.ts';
+import { glowTexture, tex } from './textures.ts';
 import type { Kit } from './feel.ts';
 
 /** Size factor of a monster (tyrants are bigger). */
@@ -55,11 +55,14 @@ export class MetaFx {
       K.labels.graphics(true).rect(0, 0, K.w, K.h).fill({ color: '#6a0a10', alpha: 0.13 * this.moon });
       const g = K.labels.sprite(glowTexture(), true);
       g.position.set(K.w - 70 * k, 90 * k); g.width = g.height = 220 * k; g.tint = '#d0303a'; g.alpha = 0.55 * this.moon;
-      K.labels.graphics(true).circle(K.w - 70 * k, 90 * k, 22 * k).fill({ color: '#e0505a', alpha: 0.5 * this.moon });
+      const mo = K.labels.sprite(tex('fx-blood-moon.jpg'), true); // painted moon on black, drawn additively
+      mo.anchor.set(0.5); mo.position.set(K.w - 70 * k, 90 * k); mo.width = mo.height = 64 * k; mo.alpha = 0.9 * this.moon;
     }
     // Rift Tear: a violet circle with cracks, growing with every kill inside
     if (this.tear > 0.01 && ev?.id === 'tear' && ev.x != null && ev.r != null) {
       const [px, py] = K.iso(ev.x, ev.y!), rx = ev.r * K.tw / 2, ry = ev.r * K.th / 2, col = META.events.tear.color, a = this.tear;
+      const dec = K.fx.sprite(tex('fx-rift-tear.jpg'), true); // painted crack on black, additive: only the violet light shows
+      dec.anchor.set(0.5); dec.position.set(px, py); dec.width = rx * 2.1; dec.height = ry * 2.1; dec.alpha = 0.9 * a;
       const g = K.fx.graphics(true);
       g.ellipse(px, py, rx, ry).fill({ color: col, alpha: 0.08 * a }).stroke({ width: 2.2 * k, color: col, alpha: (0.55 + Math.sin(t * 3) * 0.2) * a });
       g.ellipse(px, py, rx * 0.92, ry * 0.92).stroke({ width: 1 * k, color: '#e6d6ff', alpha: 0.25 * a });
