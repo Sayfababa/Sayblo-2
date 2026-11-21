@@ -4,7 +4,7 @@
  * so another class's trees show up here without new code. ui.ts only routes clicks and renders the panel.
  */
 import {
-  CONDITIONS, GEMS, MOD_LEVELS, SKILLS, SKILL_SCALING, SOCKET_LEVELS, STAT_NAMES, TREES, ELEMENT_NAMES, isPassive, skillMaxLevel,
+  CONDITIONS, GEMS, MOD_LEVELS, SKILLS, SKILL_SCALING, SOCKET_LEVELS, STAT_NAMES, TREES, ELEMENT_NAMES, classDef, classText, classTrees, isPassive, skillMaxLevel,
 } from '../content/index.ts';
 import { calcStats, damageRange, formatMod, frostArmorBarrier, gemFits, gemText, skillCtx, type SkillCtx } from '../sim/formulas.ts';
 import { chooseMod, modChoice, modRespecCost, modTierOpen, pendingMods, resetMods } from '../sim/skillmods.ts';
@@ -18,11 +18,13 @@ import { gemColor } from './gemcolor.ts';
 export const ownedGems = (s: SaveState): GemItem[] => pouchPick(s.gems);
 
 type Dropdown = (key: string, label: string, cur: string, options: [string, string, string?][]) => string;
-const TREE_IDS = () => Object.keys(TREES);
+/** Trees of the hero's class (classes: a warrior sees Cinder, Rime and Thunder). Set by SkillsUI from its sim. */
+let TREE_CLASS: string = 'sorceress';
+const TREE_IDS = () => classTrees(TREE_CLASS);
 const treeSkills = (t: string) => Object.keys(SKILLS).filter(id => SKILLS[id].tree === t);
 const one = (v: number) => (Math.round(v * 10) / 10).toString();
 
-/** HUD buff chips of skill effects: Rime Shell and Storm Lanterns. */
+/** HUD buff chips of skill effects: Rime Shell, Storm Lanterns, warrior cries and auras. */
 export function skillBuffs(sim: Sim): string[] {
   const out: string[] = [], sh = sim.spells.shell;
   if (sh) out.push(`<span class="buff" title="${esc(SKILLS[sh.skill].name)}"><img src="${skillIcon(sh.skill)}" alt="${esc(SKILLS[sh.skill].name)}"><b>${Math.ceil(sh.t)}</b></span>`);
@@ -32,6 +34,9 @@ export function skillBuffs(sim: Sim): string[] {
     const n = sim.spells.constructs.filter(c => c.skill === id).length;
     out.push(`<span class="buff" title="${esc(SKILLS[id].name)}"><img src="${skillIcon(id)}" alt="${esc(SKILLS[id].name)}"><b>${n > 1 ? n + '×' : ''}${Math.ceil(t)}</b></span>`);
   }
+  // warrior: cries and auras
+  for (const x of [...sim.melee.cries.map(c => ({ id: c.skill, t: c.t })), ...sim.melee.auras.map(a => ({ id: a.skill, t: a.dur - a.t }))])
+    out.push(`<span class="buff" title="${esc(SKILLS[x.id].name)}"><img src="${skillIcon(x.id)}" alt="${esc(SKILLS[x.id].name)}"><b>${Math.ceil(x.t)}</b></span>`);
   return out;
 }
 
@@ -132,10 +137,12 @@ export class SkillsUI {
   /* ---------- rendering ---------- */
   render(dropdown: Dropdown): string {
     const sim = this.sim(), s = sim.s;
+    TREE_CLASS = s.cls;
+    if (!TREE_IDS().includes(SKILLS[this.sel]?.tree)) { this.sel = classDef(s.cls).startSkill; this.page = SKILLS[this.sel].tree; }
     // first open: start on the tree of the top skill of the cast list
     if (!this.opened) { this.opened = true; const top = s.slots.find(x => x.id)?.id; if (top && SKILLS[top]) { this.sel = top; this.page = SKILLS[top].tree; } }
     if (!SKILLS[this.sel]) this.sel = treeSkills(TREE_IDS()[0])[0];
-    if (this.page !== 'prio' && !TREES[this.page]) this.page = SKILLS[this.sel].tree;
+    if (this.page !== 'prio' && !TREE_IDS().includes(this.page)) this.page = SKILLS[this.sel].tree;
     const dot = (t: string) => treeSkills(t).some(id => (s.skillPts > 0 && sim.canLearn(id)) || pendingMods(s, id) > 0);
     const tabs = TREE_IDS().map(t => `<button role="tab" class="t-${TREES[t].element}" data-act="stree:${t}" aria-selected="${this.page === t}">${esc(TREES[t].name)}${dot(t) ? '<i class="dot"></i>' : ''}</button>`).join('')
       + `<button role="tab" data-act="stree:prio" aria-selected="${this.page === 'prio'}" title="Cast priority">Order${sim.blockedSlots().length ? '<i class="dot bad"></i>' : ''}</button>`;
@@ -189,11 +196,18 @@ export class SkillsUI {
       case 'field': add('Damage per pulse', dmg()); add('Pulses', `every ${one((sk.tick || 0.5) / c.rate)}s for ${one(c.duration)}s`); break;
       case 'ward': add('Barrier', `${one(c.wardPct)}% of life (${Math.round(sim.st.maxLife * c.wardPct / 100)})`); add('Damage taken', `−${one(c.wardDR)}%`); add('Duration', `${one(c.duration)}s`); if (c.g.wardNova) add('Burst damage', dmg()); break;
       case 'construct': add('Damage per strike', dmg()); add('Strikes', `every ${one((sk.attackEvery || 1) / c.rate)}s, ${sk.range} tiles`); add('Lasts', `${one(c.duration)}s · ${c.constructs} at a time`); break;
+      // warrior types (melee.ts)
+      case 'melee': add('Damage', dmg()); add('Reach', `${one(c.reach)} tiles`); break;
+      case 'fissure': add('Damage', dmg()); add('Fissure', `${one((sk.range || 6) * Math.max(0.3, 1 + (c.g.radius || 0) / 100))} tiles long`); break;
+      case 'leap': add('Damage', dmg()); add('Leap', `up to ${sk.range || 8} tiles`); break;
+      case 'cry': add('Bonus', `+${one(c.cryMore)}% damage${c.cryDR ? `, −${one(c.cryDR)}% taken` : ''}`); add('Duration', `${one(c.duration)}s`); if ((sk.max || 0) > 0) add('Burst damage', dmg()); break;
+      case 'aura': add('Damage per strike', dmg()); add('Strikes', `every ${one((sk.tick || 0.7) / c.rate)}s for ${one(c.duration)}s`); break;
       case 'orb': add('Damage per zap', dmg()); add('Zaps', `every ${one((sk.zapEvery || 0.4) / c.rate)}s for ${one(c.duration)}s`); add('Wisps', String(c.orbs)); break;
       default: add('Damage', dmg());
     }
-    add('Mana', String(c.mana));
-    if (type !== 'beam') add('Cast time', `${c.castTime.toFixed(2)}s`);
+    const C = classDef(this.s.cls);
+    add(C.resource, String(c.mana));
+    if (type !== 'beam') add(classText('Cast time'), `${c.castTime.toFixed(2)}s`);
     if (c.cooldown) add('Cooldown', `${one(c.cooldown)}s`);
     if (c.radius && type !== 'ward') add('Radius', `${c.radius.toFixed(1)} tiles`);
     if (type === 'projectile') add('Projectiles', String(c.projectiles));
@@ -214,7 +228,7 @@ export class SkillsUI {
     let next = '';
     if (lv && lv < skillMaxLevel(id)) {
       const n = this.ctxAt(id, 1);
-      if (hits) { const [a, b] = damageRange(n); next = `Next level: damage ${a}–${b}, mana ${n.mana}.`; }
+      if (hits) { const [a, b] = damageRange(n); next = `Next level: damage ${a}–${b}, ${C.resource.toLowerCase()} ${n.mana}.`; }
       else if (type === 'buff') next = `Next level: barrier ${Math.round(frostArmorBarrier(n.lvl) * (1 + (n.g.barrierPct || 0) / 100))}.`;
       else if (type === 'ward') next = `Next level: barrier ${one(n.wardPct)}% of life.`;
       else if (type === 'curse') next = `Next level: +${one(n.curse)}% damage taken.`;
@@ -278,10 +292,11 @@ export class SkillsUI {
 
   private prioView(dropdown: Dropdown): string {
     const sim = this.sim(), s = sim.s;
-    const learned = Object.keys(SKILLS).filter(k => s.skills[k] > 0 && !isPassive(k));
+    const learned = Object.keys(SKILLS).filter(k => s.skills[k] > 0 && !isPassive(k)), C = classDef(s.cls), [he] = C.pronoun;
+    const basic = C.basicDef?.name ?? 'Staff Spark', He = he[0].toUpperCase() + he.slice(1);
     const skillOpts: [string, string, string?][] = [['', 'Empty'], ...learned.map(k => [k, SKILLS[k].name, skillIcon(k)] as [string, string, string])];
     const condOpts: [string, string][] = Object.entries(CONDITIONS);
-    return `<p class="hint">She checks the slots from top to bottom and casts the first skill that is ready, affordable and whose condition is true. If none fits, she uses Staff Spark (free, weak). Drag a card by its handle to reorder.</p>
+    return `<p class="hint">${He} checks the slots from top to bottom and uses the first skill that is ready, affordable and whose condition is true${C.melee ? ' (melee skills need a foe in reach)' : ''}. If none fits, ${he} uses ${basic} (free, weak)${C.melee ? ' or walks to the next foe' : ''}. Drag a card by its handle to reorder.</p>
       ${sim.blockedSlots().map(([i, b]) => `<p class="hint bad">Slot ${i + 1} is never cast: slot ${b + 1} is set to "Always" and is always ready.</p>`).join('')}
       <div class="prio">${s.slots.map((sl, i) => `<div class="pcard" data-slot="${i}">
         <span class="grip" data-grip="${i}" aria-hidden="true"><b>${i + 1}</b></span>

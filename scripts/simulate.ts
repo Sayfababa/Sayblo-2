@@ -2,7 +2,7 @@
  * Headless balancing run: lets a hero play on her own and prints progress.
  * The bot spends points by a build plan, equips better items and sockets fitting gems.
  *
- *   node scripts/simulate.ts [minutes=60] [seed=1] [build=fire|lance|cold|storm, or fire0|cold0|storm0 = old six-skill plans]
+ *   node scripts/simulate.ts [minutes=60] [seed=1] [build=fire|lance|cold|storm, wfire|wcold|wstorm = warrior, or fire0|cold0|storm0 = old six-skill plans]
  *
  * Rifts (work package C), with a generated end-game hero (scripts/endgame.ts, level --level, default 60):
  *   node scripts/simulate.ts 60 1 fire --rift 20         auto mode from a tier 20 key for 60 minutes: keys, tiers, clear times
@@ -19,7 +19,8 @@ import { imprintBlock, imprintCost } from '../src/sim/codex.ts';
 import { UNIQUES, TYRANTS } from '../src/content/index.ts';
 import { isEquip } from '../src/sim/types.ts';
 import { rollKey, riftHpMult, riftDmgMult, riftLevel } from '../src/sim/rift.ts';
-import { PLANS, endgameSave, nextSkill, pickMods, planSlots } from './endgame.ts';
+import { PLANS, endgameSave, nextSkill, pickMods, planClass, planSlots } from './endgame.ts';
+import { newSaveState } from '../src/sim/state.ts';
 
 const args = process.argv.slice(2), flag = (k: string) => { const i = args.indexOf(k); if (i < 0) return null; const v = args[i + 1]; args.splice(i, 2); return v; };
 const riftStart = flag('--rift'), sweep = flag('--sweep'), heroLvl = Number(flag('--level') ?? 60), ref = flag('--ref');
@@ -29,7 +30,7 @@ const minutes = Number(args[0] ?? 60), seed = Number(args[1] ?? 1), build = args
 const riftMode = riftStart != null || sweep != null;
 const plan = PLANS[build];
 const attrOrder: Attr[] = ['vit', 'power', 'spirit', 'focus', 'vit'];
-const sim = new Sim(riftMode ? endgameSave(build, heroLvl, seed) : undefined, { seed, headless: true });
+const sim = new Sim(riftMode ? endgameSave(build, heroLvl, seed) : newSaveState(planClass(build)), { seed, headless: true });
 const crafts: Record<string, number> = {};
 
 /** Simple crafting: bind magic gear into rares, then raise affix tiers on equipped items while materials last. */

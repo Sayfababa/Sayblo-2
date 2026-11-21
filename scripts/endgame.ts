@@ -3,7 +3,7 @@
  * Level `lvl`, points spent by a build plan, five rare items picked from many rolls (resistances valued
  * highly because rifts take 80 % off them, like Hell), fitting support gems of a solid level in every skill.
  */
-import { GEMS, SKILLS, SLOTS, SOCKET_LEVELS, type Attr, type Slot } from '../src/content/index.ts';
+import { GEMS, SKILLS, SLOTS, SOCKET_LEVELS, type Attr, type ClassId, type Slot } from '../src/content/index.ts';
 import { gemFits, itemScore } from '../src/sim/formulas.ts';
 import { genItemOf } from '../src/sim/items.ts';
 import { Rng } from '../src/sim/rng.ts';
@@ -18,6 +18,10 @@ export const PLANS: Record<string, string[]> = {
   lance: ['flamelance', 'pyromancy', 'frostarmor', 'ashenhex', 'fireball', 'flamelance', 'flamelance', 'pyromancy', 'kindling', 'smoulder'],
   cold: ['frostbolt', 'coldmastery', 'frostarmor', 'hailstorm', 'icenova', 'rimeshell', 'frostbolt', 'frostbolt', 'coldmastery', 'hailstorm', 'permafrost', 'brittlefrost'],
   storm: ['chain', 'conductivity', 'stormlantern', 'frostarmor', 'nova', 'stormwisp', 'thunder', 'chain', 'chain', 'conductivity', 'stormmastery', 'capacitor'],
+  // warrior plans (Warrior package): one per tree, Glacier Shield for defence like the sorceress' Frost Armor
+  wfire: ['searblade', 'emberblood', 'cinderslam', 'kindleroar', 'sunder', 'glaciershield', 'searblade', 'searblade', 'emberblood', 'sunder', 'pyrebrand', 'heatofbattle', 'pyreheart'],
+  wcold: ['frostcleave', 'wintersbite', 'glaciershield', 'wintertaunt', 'shatterstrike', 'glacialstomp', 'frostcleave', 'frostcleave', 'wintersbite', 'shatterstrike', 'hoarfrost', 'icevein'],
+  wstorm: ['thundermaul', 'stormblood', 'hurledhammer', 'skyleap', 'tempestmantle', 'callstorm', 'thundermaul', 'thundermaul', 'stormblood', 'tempestmantle', 'staticskin', 'overload'],
   // the plans from before the skills package (first six skills per element, even spread), for comparison
   fire0: ['fireball', 'pyromancy', 'frostarmor', 'searing', 'meteor', 'fireball', 'pyromancy', 'kindling'],
   cold0: ['frostbolt', 'coldmastery', 'frostarmor', 'icenova', 'frostbolt', 'coldmastery', 'permafrost'],
@@ -29,7 +33,12 @@ export const MOD_PICKS: Record<string, Record<string, number[]>> = {
   lance: { flamelance: [0, 0, 0, 0], ashenhex: [1, 0, 1, 0] },
   cold: { frostbolt: [0, 1, 0, 1], icenova: [1, 0, 0, 0], hailstorm: [0, 0, 1, 0], rimeshell: [0, 0, 0, 0] },
   storm: { chain: [0, 0, 0, 0], nova: [0, 0, 0, 1], stormwisp: [0, 0, 1, 0], thunder: [0, 0, 0, 0], stormlantern: [0, 0, 1, 0] },
+  wfire: { searblade: [0, 0, 1, 0], cinderslam: [1, 0, 0, 0], kindleroar: [0, 0, 0, 0], sunder: [0, 0, 0, 0], glaciershield: [0, 0, 0, 0] },
+  wcold: { frostcleave: [0, 1, 1, 0], glaciershield: [0, 0, 0, 0], wintertaunt: [0, 0, 0, 0], shatterstrike: [0, 0, 0, 0], glacialstomp: [1, 0, 0, 0] },
+  wstorm: { thundermaul: [1, 0, 0, 0], hurledhammer: [0, 0, 0, 0], skyleap: [0, 0, 0, 0], tempestmantle: [0, 0, 0, 0], callstorm: [0, 0, 0, 0] },
 };
+/** Hero class of a plan: warrior plans start with "w". */
+export const planClass = (build: string): ClassId => (build.startsWith('w') ? 'warrior' : 'sorceress');
 /** Next skill to put a point in: unlearned plan skills first, then by weight (times listed in the plan) per level. */
 export function nextSkill(sim: Sim, plan: string[]): string | undefined {
   const s = sim.s, w = (k: string) => plan.filter(x => x === k).length;
@@ -56,7 +65,7 @@ const RES = ['fireRes', 'coldRes', 'lightRes'];
 
 /** Item score for the generator: resistances up to the cap (rifts take 80 % off them, like Hell) and life matter most. */
 function gearScore(it: Item, build: string, res: Record<string, number>) {
-  const el = build === 'fire' ? 'fire' : build === 'cold' ? 'cold' : 'light';
+  const b = build.replace(/^w/, ''), el = b === 'fire' ? 'fire' : b === 'cold' ? 'cold' : 'light';
   const need = (k: string) => Math.max(0, 160 - (res[k] ?? 0));
   let v = itemScore(it);
   for (const [k, x] of it.mods) {
@@ -70,7 +79,7 @@ function gearScore(it: Item, build: string, res: Record<string, number>) {
 }
 
 export function endgameSave(build = 'fire', lvl = 60, seed = 1, itemLevel = 60, rolls = 400, gemLvl = 6): SaveState {
-  const s = newSaveState(), rng = new Rng(seed * 7919 + 13);
+  const s = newSaveState(planClass(build)), rng = new Rng(seed * 7919 + 13);
   s.lvl = lvl; s.difficulty = 2; s.progress = [6, 6, 6]; s.zone = 5;
   s.gold = 50000; s.hpPot = 30; s.mpPot = 30;
   s.rift.open = true;
@@ -100,7 +109,7 @@ export function endgameSave(build = 'fire', lvl = 60, seed = 1, itemLevel = 60, 
     for (const [k, x] of best!.mods) { if (RES.includes(k)) res[k] = (res[k] ?? 0) + x; if (k === 'allRes') for (const r of RES) res[r] = (res[r] ?? 0) + x; }
   }
   // gems: the first fitting gems in a fixed preference order
-  const prefs = ['echo', 'spread', 'multi', 'wider', 'concentrated', 'chains', `added${build === 'storm' ? 'light' : build}`, 'quick', 'efficiency', 'lingering', 'searingburn', 'deepfreeze', 'overcharge', 'pierce', 'fork'];
+  const be = build.replace(/^w/, ''), prefs = ['echo', 'multistrike', 'spread', 'multi', 'wider', 'concentrated', 'chains', `added${be === 'storm' ? 'light' : be}`, 'swift', 'quick', 'efficiency', 'lingering', 'searingburn', 'deepfreeze', 'overcharge', 'pierce', 'fork'];
   for (const id of Object.keys(s.skills)) {
     if (SKILLS[id].kind === 'passive') continue;
     const arr = sim.socketsOf(id);
