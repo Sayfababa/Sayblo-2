@@ -45,6 +45,14 @@ const MIGRATIONS: Record<number, (s: Raw) => Raw> = {
   5: s => ({ ...s, v: 6, settings: { ...((s.settings as Raw) || {}), sound: true, volume: DEFAULT_VOLUME } }),
   // v7: meta progression (work package D): bounty board, tyrant counters, codex, ember points, feats
   6: s => ({ ...s, v: 7, meta: newMeta() }),
+  // v8: gem pouch (UI package): support gems leave the bag grid and the stash and go into their own pouch
+  7: s => {
+    const isG = (x: unknown) => !!x && (x as GemItem).kind === 'gem';
+    const bag = Array.isArray(s.bag) ? (s.bag as unknown[]) : [];
+    const stash = Array.isArray(s.stash) ? (s.stash as unknown[]).map(t => (Array.isArray(t) ? t : [])) : [];
+    const gems = [...bag, ...stash.flat()].filter(isG).map(g => { const { bx: _x, by: _y, ...rest } = g as GemItem; return rest; });
+    return { ...s, v: 8, gems, bag: bag.filter(x => !isG(x)), stash: stash.map(t => t.filter(x => !isG(x))) };
+  },
 };
 
 export class SaveError extends Error {}
@@ -106,8 +114,9 @@ function sanitize(s: Raw): SaveState {
   const equip = (s.equip || {}) as Raw;
   out.equip = { weapon: null, helm: null, armor: null, amulet: null, ring: null };
   for (const k of SLOTS) { const it = equip[k]; if (validItem(it) && it.slot === k) out.equip[k] = it; }
-  out.bag = (Array.isArray(s.bag) ? s.bag : []).filter((x): x is BagItem => validItem(x) || validGem(x));
+  out.bag = (Array.isArray(s.bag) ? s.bag : []).filter((x): x is BagItem => validItem(x));
   placeMissing(out.bag);
+  out.gems = (Array.isArray(s.gems) ? s.gems : []).filter(validGem).map(g => { const { bx: _x, by: _y, ...rest } = g; return rest; });
   const loot = (s.loot || {}) as Raw, minR = (loot.minR || {}) as Raw;
   out.loot = defaultLoot();
   for (const k of SLOTS) out.loot.minR[k] = Math.floor(num(minR[k], 0, 0, RARITIES.length - 1));
@@ -117,7 +126,7 @@ function sanitize(s: Raw): SaveState {
   for (const k of MAT_IDS) out.mats[k] = Math.floor(num(mats[k], 0, 0));
   const stash = Array.isArray(s.stash) ? s.stash : [];
   out.stash = Array.from({ length: ECONOMY.stash.tabs }, (_, i) => {
-    const tab = (Array.isArray(stash[i]) ? stash[i] : []).filter((x: unknown): x is BagItem => validItem(x) || validGem(x));
+    const tab = (Array.isArray(stash[i]) ? stash[i] : []).filter((x: unknown): x is BagItem => validItem(x));
     placeMissing(tab);
     return tab;
   });
@@ -136,7 +145,7 @@ function sanitize(s: Raw): SaveState {
   out.mana = s.mana == null ? null : num(s.mana, 0, 0);
   out.barrier = num(s.barrier, 0, 0);
   out.kills = Math.floor(num(s.kills, 0, 0)); out.deaths = Math.floor(num(s.deaths, 0, 0));
-  const maxId = Math.max(0, ...out.bag.map(i => i.id), ...out.stash.flat().map(i => i.id), ...Object.values(out.equip).filter((i): i is Item => !!i).map(i => i.id),
+  const maxId = Math.max(0, ...out.bag.map(i => i.id), ...out.stash.flat().map(i => i.id), ...out.gems.map(g => g.id), ...Object.values(out.equip).filter((i): i is Item => !!i).map(i => i.id),
     ...Object.values(out.sockets).flat().filter((g): g is GemItem => !!g).map(g => g.id));
   out.nextId = Math.max(Math.floor(num(s.nextId, 1, 1)), maxId + 1);
   out.savedAt = num(s.savedAt, 0, 0);

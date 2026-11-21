@@ -17,6 +17,7 @@ import { itemTooltip } from './tooltip.ts';
 import { gemColor } from './gemcolor.ts';
 import { EconomyUI, lootRulesHtml, matsHeader, matsKey, salvageBtn } from './economy.ts';
 import { salvage } from '../sim/economy.ts';
+import { pouchPick } from '../sim/pouch.ts';
 import { bagBadges, feelBuffs, soundInput, soundSettings } from './feel.ts';
 import { MetaUI, metaBuffs, titleText, tyrantInfo, xpBar } from './meta.ts';
 
@@ -371,14 +372,15 @@ export class UI {
 
   private gemPicker(skill: string, i: number): string {
     const sim = this.sim, cur = sim.socketsOf(skill)[i];
-    const gems = this.s.bag.filter(isGem).sort((a, b) => Number(gemFits(b.gem, skill)) - Number(gemFits(a.gem, skill)) || b.lvl - a.lvl);
+    const gems = pouchPick(this.s.gems).sort( // gem pouch: one gem per kind + level
+      (a, b) => Number(gemFits(b.gem, skill)) - Number(gemFits(a.gem, skill)) || b.lvl - a.lvl);
     const list = gems.map(g => {
       const fits = gemFits(g.gem, skill), dup = sim.socketsOf(skill).some((o, j) => o && j !== i && o.gem === g.gem);
       return `<button class="gemopt" data-act="sock:${skill}:${i}:${g.id}" ${fits && !dup ? '' : 'disabled'} style="--gc:${gemColor(g.gem)}">${itemPic(g, 'sockpic')}
         <span><b>${esc(GEMS[g.gem].name)}</b> <small>Lv ${g.lvl}</small><br><small>${fits ? (dup ? 'Already in this skill.' : esc(gemText(g))) : `Does not fit: needs ${GEMS[g.gem].requires.join(', ')}`}</small></span></button>`;
     }).join('');
     return `<div class="picker">${cur ? `<button class="btn sm" data-act="unsock:${skill}:${i}">Take ${esc(GEMS[cur.gem].name)} out</button>` : ''}
-      ${list || '<p class="hint">No support gems in the bag yet. Champions, elites and bosses drop them more often.</p>'}</div>`;
+      ${list || '<p class="hint">No support gems in the pouch yet. Champions, elites and bosses drop them more often.</p>'}</div>`;
   }
 
   /* ----- bag ----- */

@@ -53,7 +53,7 @@ function spend() {
     if (SKILLS[id].kind === 'passive') continue;
     SOCKET_LEVELS.forEach((_, si) => {
       if (!sim.socketOpen(id, si) || sim.socketsOf(id)[si]) return;
-      const g = s.bag.find(x => isGem(x) && gemFits(x.gem, id) && !sim.socketsOf(id).some(o => o?.gem === x.gem));
+      const g = s.gems.find(x => gemFits(x.gem, id) && !sim.socketsOf(id).some(o => o?.gem === x.gem));
       if (g) sim.socketGem(id, si, g.id);
     });
   }

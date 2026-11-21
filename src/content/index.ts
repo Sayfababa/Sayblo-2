@@ -132,6 +132,8 @@ const it = itemsJson as unknown as {
   implicits: Partial<Record<Slot, { affix: string; base: number; perLevel: number }>>; implicitRoll: [number, number];
   rarities: RarityDef[]; uniques: Record<string, UniqueDef>; uniqueRoll: [number, number]; rareNames: { first: string[]; second: string[] };
   sizes: Record<Slot | 'gem', [number, number]>; bag: { width: number; height: number };
+  /** gem pouch: how many support gems it holds (gems never take bag cells) */
+  pouch: number;
   sell: { base: number; perLevel: number; perRarity: number; gemBase: number; gemPerLevel: number };
   drops: { goldChance: number; goldPerLevel: [number, number]; itemChance: number; gemChance: number; champion: DropRule; elite: DropRule; boss: DropRule };
   filterNames: string[];
@@ -143,6 +145,7 @@ export const RARITIES = it.rarities;
 export const UNIQUES = it.uniques;
 export const ITEM_SIZES = it.sizes;
 export const BAG_W = it.bag.width, BAG_H = it.bag.height;
+export const POUCH_SIZE = it.pouch;
 
 /** Icon file name (without "item-" prefix) for an item base name. */
 export const BASE_ICON: Record<string, string> = Object.fromEntries(
