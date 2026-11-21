@@ -513,9 +513,9 @@ export class Scene {
     'hero-idle': [-0.159, 0.841], 'hero-cast': [0.068, 0.978], 'hero-walk1': [-0.119, 0.82], 'hero-walk2': [-0.112, 0.81],
   };
 
-  /** Weapon head of every warrior pose (printed by tools/slice_sheets.py for hero-warrior.png). */
+  /** Sword tip of every warrior pose, measured on the cut sprites (x from the feet, y up, in canvas heights). */
   private static readonly WEAPON_TIP: Record<string, [number, number]> = {
-    'warrior-idle': [-0.063, 0.741], 'warrior-strike': [0.144, 0.962], 'warrior-walk1': [-0.27, 0.994], 'warrior-walk2': [0.14, 0.876],
+    'warrior-idle': [-0.312, 0.141], 'warrior-strike': [0.201, 0.992], 'warrior-walk1': [0.219, 0.898], 'warrior-walk2': [0.203, 0.901],
   };
 
   private drawHero(sim: Sim, px: number, py: number) {

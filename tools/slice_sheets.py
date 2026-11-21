@@ -71,7 +71,7 @@ UI_SHEETS = {
     "props-casing": (2, 1, ["casing-ice", "casing-lava"]),
     "ground-decals": (3, 2, ["decal-puddle", "decal-ash", "decal-blood", "decal-leaves", "decal-cracks", "decal-grass"]),
 }
-MAGENTA = {"skill-icons-3", "skill-icons-cinder", "skill-icons-rime", "skill-icons-thunder", "items-warrior", "gems-general", "props-gallows", "ground-decals", "props-feel", "icons-economy", "vendor-parcel", "props-casing"}
+MAGENTA = {"skill-icons-2", "skill-icons-3", "skill-icons-cinder", "skill-icons-rime", "skill-icons-thunder", "items-warrior", "gems-general", "props-gallows", "ground-decals", "props-feel", "icons-economy", "vendor-parcel", "props-casing"}
 # realistic sheets: brown and grey only, so every trace of magenta can go (no pink fringe on thorns and decal edges)
 MAGENTA_STRONG = {"props-gallows", "ground-decals", "props-feel", "props-casing"}
 # Sheets whose pieces do not sit on an even grid: name -> [(sprite, (x0, y0, x1, y1) as fractions of the sheet)]
@@ -196,7 +196,7 @@ def cut_boxes(img, boxes):
 
 # Framed square icons on magenta: the key only finds the frame; everything inside the frame is taken
 # from the original picture, fully opaque (violet lightning is close to magenta and would get holes).
-FRAMED = {"skill-icons-3", "skill-icons-cinder", "skill-icons-rime", "skill-icons-thunder"}
+FRAMED = {"skill-icons-2", "skill-icons-3", "skill-icons-cinder", "skill-icons-rime", "skill-icons-thunder"}
 
 
 def cut_framed(src, cols, rows, names):
@@ -307,6 +307,27 @@ MONSTER_POSES = {
 }
 
 
+def drop_strays(cell, gap=6):
+    """Keep only the widest-mass block of columns: bits of the neighbouring pose that reach over the cell line
+    sit apart from the creature, separated by empty columns."""
+    a = np.array(cell)
+    cols = (a[..., 3] > 24).sum(0)
+    runs, start = [], None
+    for x, c in enumerate(list(cols) + [0] * gap):
+        if c and start is None:
+            start, last = x, x
+        elif c:
+            last = x
+        elif start is not None and x - last >= gap:
+            runs.append((start, last + 1)); start = None
+    if len(runs) <= 1:
+        return cell
+    keep = max(runs, key=lambda r: cols[r[0]:r[1]].sum())
+    a[:, :keep[0], 3] = 0; a[:, keep[1]:, 3] = 0
+    out = Image.fromarray(a, "RGBA")
+    return out.crop(out.getbbox())
+
+
 def slice_monsters():
     """Like slice_hero: both poses share one scale and one foot point, so the swap does not jump.
     Overwrites the old painted sprite of the same name (cut from monsters.png before)."""
@@ -316,7 +337,7 @@ def slice_monsters():
             continue
         img = Image.open(src)
         img = key_green(img) if key == "green" else key_magenta_strong(img)
-        cells = dict(cut_cells(img, len(names), 1, names))
+        cells = {n: drop_strays(c) for n, c in cut_cells(img, len(names), 1, names)}
         if not cells:
             continue
         feet = {}

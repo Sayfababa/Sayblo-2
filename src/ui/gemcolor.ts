@@ -4,7 +4,8 @@ import { ELEMENT_COLORS, GEMS } from '../content/index.ts';
 export const GEM_COLOR = '#5fd3a6';
 
 /** Gems with a painted icon (public/sprites/gem-<id>.png). The rest are drawn in CSS until their sheet exists. */
-export const GEM_ART = new Set(['multi', 'pierce', 'fork', 'wider', 'concentrated', 'chains', 'spread', 'echo', 'quick', 'efficiency', 'lingering']);
+export const GEM_ART = new Set(['multi', 'pierce', 'fork', 'wider', 'concentrated', 'chains', 'spread', 'echo', 'quick', 'efficiency', 'lingering',
+  'searingburn', 'addedfire', 'deepfreeze', 'addedcold', 'overcharge', 'addedlight']);
 
 /** Gem colour by what it needs: fire, cold, lightning or any skill. */
 export function gemColor(gem: string): string {
