@@ -22,7 +22,7 @@ The owner writes in **German**; answer in German. In-game text is **English**.
 ## Decisions already made (do not re-ask)
 
 - Semi-idle: the hero walks, fights and loots fully automatically. No manual movement.
-- One class for now: Sorceress. Skill trees Ember (fire), Frost (cold), Storm (lightning). Only these 3 elements, **no physical damage** anywhere (monsters too). Lightning colour is violet.
+- Classes: Sorceress (trees Ember/Frost/Storm, 8 skills each with modifier choices) and, in progress, the Warrior (elemental melee: Cinder/Rime/Thunder), both built from data per `docs/skill-system.md`. Only these 3 elements, **no physical damage** anywhere (monsters too). Lightning colour is violet.
 - Defense: resistances (cap 75 %, −40 % Nightmare, −80 % Hell), Barrier (regenerating shield), dodge. No armour stat.
 - Stats: 5 attribute points + 1 skill point per level (Power, Focus, Spirit, Vitality). Respec costs gold.
 - Cast priority list: 4 active skill slots, each with a condition; first ready skill top-down is cast.
