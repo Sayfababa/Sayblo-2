@@ -428,7 +428,7 @@ export class UI {
           <button class="btn" data-act="import">${this.importArm ? 'Tap again to replace your hero' : 'Load code'}</button></div>
       </div>
       <div class="scope"><h3>About this version</h3>
-        <ul><li>New: 15 skills incl. passives, burn/chill/freeze/shock, 17 support gems with sockets and gem fusing, affix tiers, +skill items, 7 uniques with special effects, bag grid, Nightmare and Hell, offline progress (50%, up to 8 hours).</li>
+        <ul><li>New: 24 skills (8 per tree) with a modifier choice at skill levels 3/6/10/15, one page per tree, burn/chill/freeze/shock, 17 support gems with sockets and gem fusing, affix tiers, +skill items, 7 uniques with special effects, bag grid, Nightmare and Hell, offline progress (50%, up to 8 hours).</li>
         <li>New: salvage, crafting embers at the forge, corruption altar, gambling vendor, loot rules, stash.</li>
         <li>New: bounty board, area tyrants, area events, unique codex with imprints, ember points after level 60, feats and titles.</li>
                 <li>New: endless rifts with keys and modifiers, timer, Rift Guardian, atlas, pinnacle boss with mythic uniques (Town › Rifts, open after Mother Vesper; add ?dev to the URL to test).</li>
