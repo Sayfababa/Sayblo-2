@@ -127,7 +127,11 @@ const VIEWS = [
   ['hero', async p => { await click(p, act('log')); await tab('hero')(p); }],
   ['hero-bottom', async p => { await tab('hero')(p); await p.evaluate(() => { document.querySelectorAll('#p-hero details').forEach(d => { d.open = true; }); const s = document.querySelector('#sheet'); s.scrollTop = s.scrollHeight; }); }],
   ['skills', async p => { await tab('skills')(p); }],
-  ['skills-prio', async p => { await tab('skills')(p); await click(p, act('sview:prio')); }],
+  // skills package: one page per tree, detail with modifiers and the gem picker, a long-named skill, an armed modifier
+  ['skills-ember', async p => { await tab('skills')(p); await click(p, act('stree:ember')); await click(p, act('skillsel:fireball')); await click(p, act('sockpick:2')); await p.evaluate(() => { const s = document.querySelector('#sheet'); s.scrollTop = s.scrollHeight; }); }],
+  ['skills-frost', async p => { await tab('skills')(p); await click(p, act('stree:frost')); await click(p, act('skillsel:rimeshell')); }],
+  ['skills-storm', async p => { await tab('skills')(p); await click(p, act('stree:storm')); await click(p, act('skillsel:stormlantern')); await click(p, '.mopt.pick'); await p.evaluate(() => { const s = document.querySelector('#sheet'); s.scrollTop = s.scrollHeight / 2; }); }],
+  ['skills-prio', async p => { await tab('skills')(p); await click(p, act('stree:prio')); }],
   ['bag', async p => { await tab('bag')(p); }],
   ['bag-item', async p => { await tab('bag')(p); await click(p, '#p-bag .bi.r2, #p-bag .bi'); }],
   ['bag-equipped', async p => { await tab('bag')(p); await click(p, '#p-bag .eqslot.e-armor'); }],
