@@ -49,6 +49,14 @@ describe('hero stats', () => {
     expect(st.dodge).toBe(40);
     expect(st.crit).toBe(60);
   });
+  it('elemental damage reduction is capped, % life multiplies all life', () => {
+    const s = newSaveState();
+    const base = calcStats(s).maxLife;
+    s.equip.armor = item([['elemDR', 90], ['lifePct', 50]]);
+    const st = calcStats(s);
+    expect(st.elemDR).toBe(30);
+    expect(st.maxLife).toBe(Math.round(base * 1.5));
+  });
   it('attributes from items count', () => {
     const s = newSaveState();
     s.equip.amulet = item([['vit', 10], ['life', 7]], { slot: 'amulet' });

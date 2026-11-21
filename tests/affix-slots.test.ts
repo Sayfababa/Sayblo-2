@@ -18,6 +18,15 @@ describe('affixes fit their slot', () => {
     }
   });
 
+  it('helm and armor can roll the new defense prefixes', () => {
+    const rng = new Rng(8), seen = new Set<string>();
+    for (let i = 0; i < 3000; i++) {
+      const it = genItem(rng, i, 40, 2, false);
+      if (it.slot === 'helm' || it.slot === 'armor') for (const [k] of it.mods.slice(it.imp)) seen.add(k);
+    }
+    for (const k of ['lifePct', 'barrierRegen', 'elemDR', 'lifeRegen', 'manaRegen']) expect(seen.has(k), k).toBe(true);
+  });
+
   it('uniques follow the same rule', () => {
     for (const [id, u] of Object.entries(UNIQUES)) for (const k of u.mods) expect(affixFits(k, u.slot), `${id} ${k}`).toBe(true);
   });

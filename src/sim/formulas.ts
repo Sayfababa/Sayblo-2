@@ -32,6 +32,8 @@ export interface Stats {
   castSpeed: number; crit: number; critMulti: number; spellDmg: number;
   el: Record<Element, number>; res: Record<Element, number>; rawRes: Record<Element, number>; pen: Record<Element, number>;
   barrier: number; dodge: number;
+  /** % faster barrier recharge, % less elemental damage taken (capped) */
+  barrierRegen: number; elemDR: number;
   /** +levels to skill trees */
   plus: Record<string, number>;
   /** ids of equipped uniques */
@@ -62,7 +64,7 @@ export function calcStats(s: SaveState): Stats {
   const res = (k: Element) => clamp(raw(k) + pen, C.resMin, C.res);
   return {
     mods: m, a, plus, uniques,
-    maxLife: Math.round(B.life + a.vit * B.lifePerVit + (s.lvl - 1) * HERO.perLevel.life + g('life')),
+    maxLife: Math.round((B.life + a.vit * B.lifePerVit + (s.lvl - 1) * HERO.perLevel.life + g('life')) * (1 + g('lifePct') / 100)),
     maxMana: Math.round(B.mana + a.spirit * B.manaPerSpirit + (s.lvl - 1) * HERO.perLevel.mana + g('mana')),
     manaRegen: B.manaRegen + a.spirit * B.manaRegenPerSpirit + g('manaRegen'),
     lifeRegen: B.lifeRegen + a.vit * B.lifeRegenPerVit + g('lifeRegen'),
@@ -76,6 +78,8 @@ export function calcStats(s: SaveState): Stats {
     pen: { fire: g('firePen'), cold: g('coldPen'), light: g('lightPen') },
     barrier: g('barrier'),
     dodge: Math.min(C.dodge, g('dodge')),
+    barrierRegen: g('barrierRegen'),
+    elemDR: Math.min(C.elemDR, g('elemDR')),
   };
 }
 

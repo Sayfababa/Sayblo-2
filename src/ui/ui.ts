@@ -234,6 +234,7 @@ export class UI {
         ${row('Life', String(st.maxLife))}${row('Life / s', st.lifeRegen.toFixed(1))}
         ${row('Mana', String(st.maxMana))}${row('Mana / s', st.manaRegen.toFixed(1))}
         ${row('Barrier (items)', String(st.barrier))}${row('Dodge', `${st.dodge}%`)}
+        ${st.barrierRegen ? row('Barrier recharge', `+${st.barrierRegen}%`) : ''}${st.elemDR ? row('Damage reduction', `${st.elemDR}%`) : ''}
         ${row('Fire resist', res('fire'), 'fire')}${row('Cold resist', res('cold'), 'cold')}
         ${row('Lightning resist', res('light'), 'light')}${row('Resist cap', `${HERO.caps.res}%`)}
       </div>${sim.diff.resPenalty ? `<p class="hint">${sim.diff.name}: ${sim.diff.resPenalty}% to all resistances (already included). Small numbers in brackets show resistance above the cap.</p>` : ''}</details>

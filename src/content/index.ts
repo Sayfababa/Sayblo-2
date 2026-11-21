@@ -137,7 +137,7 @@ export const HERO = heroJson as unknown as {
   startAttributes: Record<Attr, number>; startGold: number;
   perLevel: { attributePoints: number; skillPoints: number; life: number; mana: number };
   base: { life: number; lifePerVit: number; lifeRegen: number; lifeRegenPerVit: number; mana: number; manaPerSpirit: number; manaRegen: number; manaRegenPerSpirit: number; crit: number; critPerFocus: number; critMult: number };
-  caps: { res: number; resMin: number; crit: number; dodge: number };
+  caps: { res: number; resMin: number; crit: number; dodge: number; elemDR: number };
   xpCurve: { base: number; growth: number; linear: number };
   barrier: { regenDelay: number; regenPerSecond: number };
   potions: { start: number; life: number; mana: number; cooldown: number; priceBase: number; pricePerLevel: number; lifeThreshold: number; manaThreshold: number };

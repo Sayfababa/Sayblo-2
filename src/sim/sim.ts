@@ -254,7 +254,7 @@ export class Sim {
     s.life = Math.min(st.maxLife, this.life + st.lifeRegen * dt);
     this.noHit += dt;
     const mb = this.maxBarrier();
-    if (this.noHit > HERO.barrier.regenDelay && s.barrier < mb) s.barrier = Math.min(mb, s.barrier + mb * HERO.barrier.regenPerSecond * dt);
+    if (this.noHit > HERO.barrier.regenDelay && s.barrier < mb) s.barrier = Math.min(mb, s.barrier + mb * HERO.barrier.regenPerSecond * (1 + this.st.barrierRegen / 100) * dt);
   }
 
   private condOk(c: string, id: string, alive: Monster[]) {
@@ -467,7 +467,7 @@ export class Sim {
     if (this.phase !== 'fight') return;
     const st = this.st, h = this.hero, s = this.s;
     if (!label && this.rng.next() * 100 < st.dodge) { this.float(h.x, h.y, 'Dodge', '#86c46f'); return; }
-    let d = afterHeroRes(dmg * this.rng.range(0.85, 1.15) * mult, st.res[el]);
+    let d = afterHeroRes(dmg * this.rng.range(0.85, 1.15) * mult, st.res[el]) * (1 - st.elemDR / 100);
     const tot = d;
     this.noHit = 0;
     const hadBarrier = s.barrier > 0;

@@ -48,7 +48,8 @@
   "res": 75,
   "resMin": -100,
   "crit": 60,
-  "dodge": 40
+  "dodge": 40,
+  "elemDR": 30
  },
  "xpCurve": {
   "base": 30,
