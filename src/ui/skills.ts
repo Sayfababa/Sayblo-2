@@ -44,6 +44,7 @@ export class SkillsUI {
   private arm: string | null = null;
   private swipe: { x: number; y: number; id: number } | null = null;
   private swallowClick = false;
+  private opened = false;
   private sim: () => Sim;
   private redraw: () => void;
 
@@ -70,6 +71,8 @@ export class SkillsUI {
     document.addEventListener('pointercancel', () => { this.swipe = null; });
   }
   private get s() { return this.sim().s; }
+  /** Another hero was loaded: start again from its cast list. */
+  forget() { this.opened = false; this.arm = null; this.pickSocket = null; this.msg = ''; }
 
   private openTree(t: string) {
     this.page = t; this.arm = null; this.msg = '';
@@ -128,6 +131,8 @@ export class SkillsUI {
   /* ---------- rendering ---------- */
   render(dropdown: Dropdown): string {
     const sim = this.sim(), s = sim.s;
+    // first open: start on the tree of the top skill of the cast list
+    if (!this.opened) { this.opened = true; const top = s.slots.find(x => x.id)?.id; if (top && SKILLS[top]) { this.sel = top; this.page = SKILLS[top].tree; } }
     if (!SKILLS[this.sel]) this.sel = treeSkills(TREE_IDS()[0])[0];
     if (this.page !== 'prio' && !TREES[this.page]) this.page = SKILLS[this.sel].tree;
     const dot = (t: string) => treeSkills(t).some(id => (s.skillPts > 0 && sim.canLearn(id)) || pendingMods(s, id) > 0);

@@ -106,6 +106,7 @@ export class UI {
     for (const k of ['hero', 'skills', 'bag', 'town', 'slots', 'zones'] as const) this.sim.dirty.add(k);
     this.lastPot = ''; this.lastBuffs = '';
     this.selBag = null; this.selEq = null; this.moveMode = false;
+    this.skills.forget(); // skills menu
     this.draw();
   }
 
