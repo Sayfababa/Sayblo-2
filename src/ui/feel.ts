@@ -1,7 +1,7 @@
 /** Work package A (Feel), DOM side: shrine/vault buffs in the HUD, bag badges, sound settings. */
 import { FEEL, SHRINES, type Slot } from '../content/index.ts';
 import type { Sim } from '../sim/sim.ts';
-import { isGem, type BagItem, type Item, type SaveState } from '../sim/types.ts';
+import { isEquip, type BagItem, type Item, type SaveState } from '../sim/types.ts';
 import { hasPerfect, isUpgrade } from '../sim/upgrade.ts';
 import { esc } from './html.ts';
 
@@ -21,7 +21,7 @@ export function feelBuffs(sim: Sim): string[] {
 
 /** Small corner badges on a bag item: green upgrade arrow, perfect-roll star. */
 export function bagBadges(it: BagItem, equip: Record<Slot, Item | null>): string {
-  if (isGem(it)) return '';
+  if (!isEquip(it)) return '';
   return (isUpgrade(it, equip[it.slot]) ? '<i class="upg" title="Upgrade over your equipped item"></i>' : '')
     + (hasPerfect(it) ? '<i class="perf" title="Has a perfect roll"></i>' : '');
 }

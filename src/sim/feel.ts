@@ -12,7 +12,7 @@ import { lootFate } from './loot.ts';
 import { modsStep, onModDamaged, onModDeath, rollChampionMod } from './elitemods.ts';
 import { hasPerfect, isUpgrade } from './upgrade.ts';
 import type { Sim } from './sim.ts';
-import { isGem, type BagItem, type Monster } from './types.ts';
+import { isEquip, isGem, isKey, type BagItem, type Monster } from './types.ts';
 
 const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
 
@@ -83,14 +83,14 @@ export class Feel {
   onWave(cx: number, cy: number) {
     const sim = this.sim, rng = sim.rng, S = FEEL.shrines, T = FEEL.treasure;
     const px = -sim.dir.y, py = sim.dir.x;
-    if (!this.objects.some(o => o.kind === 'shrine') && rng.chance(S.chance)) {
+    if (!this.objects.some(o => o.kind === 'shrine') && rng.chance(S.chance * sim.rift.shrineMult())) { // rift: key/atlas shrine bonus
       const ids = Object.keys(SHRINES);
       let w = rng.next() * ids.reduce((a, id) => a + SHRINES[id].weight, 0), pick = ids[0];
       for (const id of ids) { w -= SHRINES[id].weight; if (w < 0) { pick = id; break; } }
       const side = rng.chance(0.5) ? 1 : -1, o = rng.range(2.5, 3.5) * side;
       this.objects.push({ id: sim.nextUid(), kind: 'shrine', type: pick, x: cx + px * o - sim.dir.x, y: cy + py * o - sim.dir.y });
     }
-    if (!this.vault && rng.chance(T.chance)) {
+    if (!this.vault && rng.chance(T.chance * sim.rift.wretchMult())) { // rift: key/atlas Coin-Wretch bonus
       const h = sim.hero, m = sim.mkMon(T.monster, sim.areaLevel(), 1, h.x + sim.dir.x * T.spawnDistance + px * 1.5, h.y + sim.dir.y * T.spawnDistance + py * 1.5);
       m.maxHp = m.hp = Math.round(m.maxHp * T.hpMult);
       m.name = T.name; m.sub = T.sub; m.mods = [];
@@ -158,9 +158,9 @@ export class Feel {
       this.lastDrop = d.id;
       if (!sim.collectEvents) continue;
       const it = d.item as BagItem | undefined;
-      const kind = d.gold ? 'gold' : isGem(it) ? 'gem' : 'item';
-      const up = !!it && !isGem(it) && isUpgrade(it, sim.s.equip[it.slot]);
-      sim.emit({ t: 'loot', id: d.id, x: d.x, y: d.y, kind, r: it && !isGem(it) ? it.r : 0, up, perfect: hasPerfect(it) });
+      const kind = d.gold ? 'gold' : isGem(it) ? 'gem' : isKey(it) ? 'key' : 'item';
+      const up = isEquip(it) && isUpgrade(it, sim.s.equip[it.slot]);
+      sim.emit({ t: 'loot', id: d.id, x: d.x, y: d.y, kind, r: isEquip(it) ? it.r : isKey(it) ? 2 : 0, up, perfect: hasPerfect(it) });
       if (up) sim.float(d.x, d.y, '▲ Upgrade', '#6fe36a');
     }
   }

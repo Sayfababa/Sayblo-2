@@ -16,10 +16,33 @@ export interface Item {
   ipr?: string;
 }
 export interface GemItem { id: number; kind: 'gem'; gem: string; lvl: number; bx?: number; by?: number }
-export type BagItem = Item | GemItem;
+/** Rift key (work package C): opens a rift of a tier with modifiers (ids in rift.json keyMods). */
+export interface KeyItem { id: number; kind: 'key'; tier: number; mods: string[]; bx?: number; by?: number }
+export type BagItem = Item | GemItem | KeyItem;
 export const isGem = (it: BagItem | null | undefined): it is GemItem => !!it && it.kind === 'gem';
+export const isKey = (it: BagItem | null | undefined): it is KeyItem => !!it && it.kind === 'key';
+/** Equipment (not a gem and not a key). */
+export const isEquip = (it: BagItem | null | undefined): it is Item => !!it && it.kind !== 'gem' && it.kind !== 'key';
 
 export interface CastSlot { id: string | null; cond: string }
+
+/** Saved rift progress (work package C, see rift.ts). */
+export interface RiftSave {
+  /** Mother Vesper beaten on the unlock difficulty */
+  open: boolean;
+  /** highest tier cleared, and the best clear time in seconds per tier */
+  maxTier: number; best: Record<string, number>;
+  /** ranks per atlas node */
+  atlas: Record<string, number>;
+  /** key fragments for the pinnacle, highest pinnacle beaten (1 = tier 25, ...) */
+  frags: number; pinnacle: number;
+  /** auto-run the next rift with the best key */
+  auto: boolean;
+  /** run in progress (resumed on load, farmed while offline) */
+  cur: { tier: number; mods: string[]; theme: number; pin?: number } | null;
+  /** finished runs and deaths in rifts */
+  runs: number; fails: number;
+}
 
 export interface Settings { dmgNumbers: boolean; lootLabels: boolean; /** sound effects on/off and volume 0..1 */ sound: boolean; volume: number }
 
@@ -55,6 +78,7 @@ export interface SaveState {
   settings: Settings;
   life: number | null; mana: number | null; barrier: number;
   kills: number; deaths: number;
+  rift: RiftSave;
   nextId: number;
   savedAt: number;
   /** work package D: bounties, tyrant counters, codex, ember points, feats (see meta.ts) */
@@ -76,6 +100,9 @@ export interface Monster {
   fe?: MonFeel;
   /** meta: tyrant, trapped champion, rift tear (see meta.ts) */
   mt?: MonMeta;
+  /** rift guardian / pinnacle boss (see rift.ts): mechanic timers; render size and tint */
+  rg?: { slam: number; rain: number; pin: boolean; el2: Element };
+  scale?: number; tint?: string;
 }
 export interface MonFeel {
   /** treasure creature: seconds until it escapes, and its current flight angle */
@@ -114,10 +141,17 @@ export type SimEvent =
   | { t: 'monAttack'; id: number }
   | { t: 'clear' }
   /** a new drop lies on the ground (sound, beam pulse); up = upgrade for the hero */
-  | { t: 'loot'; id: number; x: number; y: number; kind: 'gold' | 'item' | 'gem'; r: number; up: boolean; perfect: boolean }
+  | { t: 'loot'; id: number; x: number; y: number; kind: 'gold' | 'item' | 'gem' | 'key'; r: number; up: boolean; perfect: boolean }
   | { t: 'kill'; id: number; x: number; y: number; rank: number; overkill: number; treasure: boolean }
   | { t: 'levelup' }
   | { t: 'shrine'; x: number; y: number; shrine: string }
   | { t: 'vault'; open: boolean }
   /** meta: event start/end, tyrant arrival, feat earned, bounty done, ember point (toasts, pulses) */
-  | { t: 'meta'; kind: 'event' | 'eventEnd' | 'tyrant' | 'feat' | 'bounty' | 'ember' | 'codex'; id: string; text: string };
+  | { t: 'meta'; kind: 'event' | 'eventEnd' | 'tyrant' | 'feat' | 'bounty' | 'ember' | 'codex'; id: string; text: string }
+  /** a rift run ended (work package C) */
+  | { t: 'rift'; res: RiftResult };
+
+export interface RiftResult {
+  ok: boolean; tier: number; time: number; limit: number; beat: boolean; best: boolean; pin: number;
+  key: number | null; keys: number; frag: boolean; firstClear: boolean; atlasPoint: boolean; items: { name: string; r: number }[]; itemCount: number; gold: number; auto: boolean;
+}

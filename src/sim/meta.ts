@@ -19,7 +19,7 @@ import type { Bounty } from './meta-types.ts';
 import { emptyAlloc } from './meta-types.ts';
 import type { Sim } from './sim.ts';
 import { hasPerfect } from './upgrade.ts';
-import { isGem, type BagItem, type Item, type Mod, type Monster, type SaveState } from './types.ts';
+import { isEquip, type BagItem, type Item, type Mod, type Monster, type SaveState } from './types.ts';
 
 const TY = META.tyrants, EV = META.events;
 
@@ -163,7 +163,7 @@ export class Meta {
   /** Instead of the next wave: the area tyrant, once its kill counter is full. Returns true if it spawned. */
   onNextWave(): boolean {
     const sim = this.sim, s = this.s, area = AREAS[s.zone], T = TYRANTS[area.id];
-    if (!T || this.tyrantUp != null || (this.m.tyrant[tyrantKey(s.difficulty, s.zone)] || 0) < TY.kills) return false;
+    if (!T || this.tyrantUp != null || sim.rift.run || (this.m.tyrant[tyrantKey(s.difficulty, s.zone)] || 0) < TY.kills) return false;
     const h = sim.hero, d = 7, cx = h.x + sim.dir.x * d, cy = h.y + sim.dir.y * d, L = sim.areaLevel() + TY.levelAdd;
     const m = sim.mkMon(T.monster, L, 3, cx, cy);
     m.maxHp = m.hp = Math.round(m.maxHp * TY.hpMult);
@@ -206,7 +206,7 @@ export class Meta {
   /* ---------- events ---------- */
   private canStartEvent() {
     const sim = this.sim;
-    return !this.ev && !sim.feel.vault && this.tyrantUp == null && sim.phase !== 'town';
+    return !this.ev && !sim.feel.vault && this.tyrantUp == null && sim.phase !== 'town' && !sim.rift.run; // no area events inside rifts
   }
   private tickEvent(dt: number) {
     const sim = this.sim, ev = this.ev;
@@ -271,7 +271,7 @@ export class Meta {
     if (m.mt?.ty) return this.tyrantDown(m);
     // tyrant counter of this area
     const key = tyrantKey(s.difficulty, s.zone);
-    if (TYRANTS[AREAS[s.zone].id] && this.tyrantUp == null) {
+    if (TYRANTS[AREAS[s.zone].id] && this.tyrantUp == null && !this.sim.rift.run) { // no tyrant progress inside rifts
       const n = (this.m.tyrant[key] || 0) + 1;
       this.m.tyrant[key] = Math.min(TY.kills, n);
       if (n === TY.kills) sim.log(`The ground trembles. **${TYRANTS[AREAS[s.zone].id].name}** has noticed the slaughter.`, 'r3');
@@ -293,7 +293,7 @@ export class Meta {
 
   /** Count an item that dropped (bounties, feats). */
   onItem(it: BagItem) {
-    if (isGem(it)) return;
+    if (!isEquip(it)) return;
     if (it.r === 3) this.bump('uniques');
     if (hasPerfect(it)) this.bump('perfects');
     if (it.r === 2) this.progress(b => b.kind === 'findRare' && b.slot === it.slot);
@@ -443,7 +443,7 @@ export class Meta {
     const s = this.s;
     if (this.m.stats.corrupted) return;
     const all = [...Object.values(s.equip), ...s.bag, ...s.stash.flat()];
-    if (all.some(it => it && !isGem(it) && it.cor)) this.m.stats.corrupted = 1;
+    if (all.some(it => it && isEquip(it) && it.cor)) this.m.stats.corrupted = 1;
   }
 }
 

@@ -1,8 +1,8 @@
 /** Diablo-2-style bag grid: items take up width × height cells. */
 import { BAG_H, BAG_W, ITEM_SIZES } from '../content/index.ts';
-import { isGem, type BagItem } from './types.ts';
+import { isEquip, isGem, type BagItem } from './types.ts';
 
-export const itemSize = (it: BagItem): [number, number] => ITEM_SIZES[isGem(it) ? 'gem' : it.slot];
+export const itemSize = (it: BagItem): [number, number] => ITEM_SIZES[isEquip(it) ? it.slot : it.kind];
 
 function grid(bag: BagItem[], ignore?: BagItem): (BagItem | null)[][] {
   const g: (BagItem | null)[][] = Array.from({ length: BAG_H }, () => Array(BAG_W).fill(null));
@@ -36,8 +36,8 @@ export function itemAt(bag: BagItem[], x: number, y: number): BagItem | null {
 /** Re-pack the whole bag: big items first, then by kind. Items that do not fit keep no position. */
 export function autoSort(bag: BagItem[]): BagItem[] {
   const order = (it: BagItem) => { const [w, h] = itemSize(it); return -(w * h * 10 + h); };
-  const kind = (it: BagItem) => (isGem(it) ? 9 : ['weapon', 'armor', 'helm', 'amulet', 'ring'].indexOf(it.slot));
-  const sorted = bag.slice().sort((a, b) => order(a) - order(b) || kind(a) - kind(b) || (isGem(a) || isGem(b) ? 0 : b.r - a.r));
+  const kind = (it: BagItem) => (isGem(it) ? 9 : !isEquip(it) ? 8 : ['weapon', 'armor', 'helm', 'amulet', 'ring'].indexOf(it.slot));
+  const sorted = bag.slice().sort((a, b) => order(a) - order(b) || kind(a) - kind(b) || (isEquip(a) && isEquip(b) ? b.r - a.r : !isEquip(a) && !isEquip(b) && !isGem(a) && !isGem(b) ? b.tier - a.tier : 0));
   const out: BagItem[] = [];
   for (const it of sorted) {
     it.bx = it.by = undefined;

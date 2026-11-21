@@ -1,10 +1,10 @@
 /** Pure game formulas. No state, no randomness: easy to test and to use in balancing scripts. */
 import {
-  AFFIXES, DIFFICULTIES, ELEMENTS, GEMS, HERO, ITEMS, MONSTERS, MONSTER_SCALING, RANKS, SKILLS, SKILL_SCALING, SPARK, STATES,
+  AFFIXES, DIFFICULTIES, RIFT, ELEMENTS, GEMS, HERO, ITEMS, MONSTERS, MONSTER_SCALING, RANKS, SKILLS, SKILL_SCALING, SPARK, STATES,
   TREES, isPassive, type Attr, type Element, type SkillDef,
 } from '../content/index.ts';
 import { metaMods, metaPost } from './metastats.ts';
-import { isGem, type BagItem, type GemItem, type Item, type SaveState } from './types.ts';
+import { isEquip, isGem, type BagItem, type GemItem, type Item, type SaveState } from './types.ts';
 
 export const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
@@ -237,12 +237,14 @@ export const gemScore = (g: GemItem) => 20 + g.lvl * 15;
 export const itemScore = (it: BagItem | null | undefined): number => {
   if (!it) return 0;
   if (isGem(it)) return gemScore(it);
+  if (!isEquip(it)) return 0;
   return it.mods.reduce((s, [k, v]) => s + v * (AFFIXES[k]?.weight ?? 1), 0);
 };
 /** How much the hero wants to keep an item (for auto-selling when the bag is full). */
-export const keepValue = (it: BagItem) => (isGem(it) ? 50 + it.lvl * 30 : itemScore(it) + (it.r >= 3 ? 1000 : it.r * 40));
+export const keepValue = (it: BagItem) => (isGem(it) ? 50 + it.lvl * 30 : !isEquip(it) ? 2000 + it.tier * 10 : itemScore(it) + (it.r >= 3 ? 1000 : it.r * 40));
 export const sellValue = (it: BagItem): number => isGem(it)
   ? ITEMS.sell.gemBase + ITEMS.sell.gemPerLevel * it.lvl
+  : !isEquip(it) ? RIFT.keys.sellBase + RIFT.keys.sellPerTier * it.tier
   : Math.round((it.L * ITEMS.sell.perLevel + ITEMS.sell.base) * (1 + it.r * ITEMS.sell.perRarity));
 
 export const potionPrice = (lvl: number) => HERO.potions.priceBase + lvl * HERO.potions.pricePerLevel;

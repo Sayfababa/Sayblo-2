@@ -10,7 +10,7 @@ import { Rng } from '../src/sim/rng.ts';
 import { migrate } from '../src/sim/save.ts';
 import { Sim } from '../src/sim/sim.ts';
 import { SAVE_VERSION, defaultLoot, newSaveState } from '../src/sim/state.ts';
-import type { GemItem, Item } from '../src/sim/types.ts';
+import { isEquip, type GemItem, type Item } from '../src/sim/types.ts';
 
 const rare = (slot: Slot = 'ring', L = 30, seed = 1): Item => {
   const rng = new Rng(seed);
@@ -237,7 +237,7 @@ describe('loot filter rules', () => {
     for (const k of SLOTS) sim.s.loot.minR[k] = 3;
     sim.s.loot.keepUpgrades = false;
     sim.advance(600);
-    expect(sim.s.bag.filter(i => i.kind !== 'gem' && i.r < 3)).toHaveLength(0);
+    expect(sim.s.bag.filter(i => isEquip(i) && i.r < 3)).toHaveLength(0);
     expect(sim.s.mats.dust).toBeGreaterThan(0);
   });
 });

@@ -1,7 +1,7 @@
 /** Loot filter rules: what the hero keeps, sells or salvages when an item drops. */
 import type { Slot } from '../content/index.ts';
 import { itemScore } from './formulas.ts';
-import { isGem, type BagItem, type Item, type LootRules } from './types.ts';
+import { isGem, isKey, type BagItem, type Item, type LootRules } from './types.ts';
 
 export type Fate = 'keep' | 'sell' | 'salvage';
 
@@ -10,6 +10,7 @@ export const isUpgrade = (it: Item, equip: Record<Slot, Item | null>) => itemSco
 
 export function lootFate(rules: LootRules, it: BagItem, equip: Record<Slot, Item | null>): Fate {
   if (isGem(it)) return rules.keepGems ? 'keep' : 'sell';
+  if (isKey(it)) return 'keep';
   if (it.r >= rules.minR[it.slot]) return 'keep';
   if (rules.keepUniques && it.r === 3) return 'keep';
   if (rules.keepUpgrades && isUpgrade(it, equip)) return 'keep';

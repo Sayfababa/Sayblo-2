@@ -1,7 +1,7 @@
 {
   "slots": ["weapon", "helm", "armor", "amulet", "ring"],
   "slotNames": { "weapon": "Staff", "helm": "Helm", "armor": "Armor", "amulet": "Amulet", "ring": "Ring" },
-  "sizes": { "weapon": [1, 3], "helm": [2, 2], "armor": [2, 3], "amulet": [1, 1], "ring": [1, 1], "gem": [1, 1] },
+  "sizes": { "weapon": [1, 3], "helm": [2, 2], "armor": [2, 3], "amulet": [1, 1], "ring": [1, 1], "gem": [1, 1], "key": [1, 1] },
   "bag": { "width": 10, "height": 6 },
   "pouch": 150,
   "bases": {
@@ -55,7 +55,13 @@
     "choireye":  { "slot": "amulet", "base": "Amulet", "name": "Eye of the Sunken Choir", "mods": ["spellDmg", "coldDmg", "allRes", "mana"],
                    "effect": "Your hits penetrate 12% of all elemental resistances." },
     "oathbreaker": { "slot": "ring", "base": "Ring", "name": "Oathbreaker's Loop", "mods": ["castSpeed", "crit", "life", "spirit"],
-                   "effect": "+1 to all skill trees. -15% to all resistances." }
+                   "effect": "+1 to all skill trees. -15% to all resistances." },
+    "pyrewright": { "slot": "weapon", "base": "Ritual Staff", "name": "Pyrewright's Rod", "mods": ["spellDmg", "fireDmg", "coldDmg", "lightDmg", "castSpeed"], "pinnacle": true,
+                   "effect": "Your hits deal 20% more damage for each ailment on the target (burning, chilled or frozen, shocked)." },
+    "unburied":  { "slot": "armor", "base": "Shroud", "name": "Mantle of the Unburied", "mods": ["life", "allRes", "barrier", "barrierRegen"], "pinnacle": true,
+                   "effect": "When you would die, you keep 20% of your life instead, become untouchable for 2 seconds and your barrier refills. Once every 60 seconds." },
+    "stair":     { "slot": "ring", "base": "Band", "name": "Seal of the Endless Stair", "mods": ["castSpeed", "allRes", "spellDmg", "focus"], "pinnacle": true,
+                   "effect": "Each kill grants +3% cast speed for 8 seconds (up to 10 times) and restores 2% of your maximum barrier." }
   },
   "rareNames": {
     "first": ["Grim", "Pale", "Hollow", "Blight", "Dusk", "Woe", "Carrion", "Bone", "Storm", "Ash", "Gloam", "Rot"],
