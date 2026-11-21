@@ -59,15 +59,13 @@ UI_SHEETS = {
                              "ember-rise", "ember-bind", "ember-wax"]),
     "ground-decals": (3, 2, ["decal-puddle", "decal-ash", "decal-blood", "decal-leaves", "decal-cracks", "decal-grass"]),
 }
-MAGENTA = {"gems-general", "props-gallows", "ground-decals", "props-feel", "icons-economy", "altar", "vendor-parcel", "forge"}
+MAGENTA = {"gems-general", "props-gallows", "ground-decals", "props-feel", "icons-economy", "vendor-parcel"}
 # realistic sheets: brown and grey only, so every trace of magenta can go (no pink fringe on thorns and decal edges)
 MAGENTA_STRONG = {"props-gallows", "ground-decals", "props-feel"}
 # Sheets whose pieces do not sit on an even grid: name -> [(sprite, (x0, y0, x1, y1) as fractions of the sheet)]
 UI_BOXES = {
-    # single pictures (red wax, blood and coals must survive, so plain magenta key without despill)
-    "altar": [("altar", (0, 0, 1, 1))],
+    # single picture (red wax must survive, so plain magenta key without despill)
     "vendor-parcel": [("parcel", (0, 0, 1, 1))],
-    "forge": [("forge", (0, 0, 1, 1))],
     "ui-hud": [("ui-console", (0, 0, .65, .5)), ("ui-orbmount", (.65, 0, 1, .5)),
                ("ui-trough", (0, .5, .65, 1)), ("ui-arch", (.65, .5, 1, 1))],
     # rows are uneven: the first row reaches far down (tree roots, gallows feet)
@@ -83,7 +81,7 @@ UI_SIDE = {"ui-console": 640, "ui-trough": 520, "ui-orbmount": 256, "ui-arch": 3
 UI_SIDE.update({n: 320 for n in ["gf-gallows", "gf-gibbet", "gf-deadtree", "gf-lantern"]})
 UI_SIDE.update({n: 256 for n in ["gf-fence", "gf-cross", "gf-stone", "gf-bones", "gf-thorn", "gf-cart", "gf-scarecrow", "gf-well"]})
 UI_SIDE.update({n: 256 for n in ["decal-puddle", "decal-ash", "decal-blood", "decal-leaves", "decal-cracks", "decal-grass"]})
-UI_SIDE.update({"altar": 640, "parcel": 192, "forge": 640})
+UI_SIDE.update({"parcel": 192})
 UI_SIDE.update({n: 256 for n in ["shrine-embers", "shrine-greed", "shrine-frenzy", "shrine-bulwark", "shrine-fortune", "shrine-lore", "shrine-fury", "chest-vault"]})
 UI_SMALL = ("glyph-", "ic-", "gem-", "mat-", "ember-")  # 96 px icons
 MAX_H = {"vesper": 384}

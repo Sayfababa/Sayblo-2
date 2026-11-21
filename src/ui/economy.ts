@@ -60,7 +60,6 @@ export class EconomyUI {
   private sel: number | null = null;
   private selMod: number | null = null;
   private msg = { text: '', cls: '' };
-  private altarOut = false;
   private flash = false;
   private bought: number | null = null;
   private tab = 0;
@@ -145,16 +144,14 @@ export class EconomyUI {
   /* ---------- altar ---------- */
   private altarView(): string {
     const s = this.s, it = this.selected();
-    // wick tips of the five candles in altar.png (x, y as % of the picture)
-    const wicks: [number, number][] = [[16.3, 9.6], [31.3, 4.7], [48.8, 0], [67.5, 4.7], [82.5, 10.6]];
-    const candles = wicks.map(([x, y], i) => `<b class="flame" style="left:${x}%;top:${y}%;--i:${i}"></b>`).join('');
     let body = '<p class="hint">Pick an item to lay on the altar.</p>';
     if (it) {
       const c = corruptCost(it), why = corruptBlock(it), afford = canAfford(s.mats, c.mats) && s.gold >= c.gold;
       body = itemTooltip(it, null, `<button class="btn primary danger" data-act="corrupt" ${why || !afford ? 'disabled' : ''}>Offer · ${matList(c.mats, s.mats)} <span class="gold">${fmt(c.gold)}</span>${ic('gold')}</button>`)
         + (why ? `<p class="hint bad">${esc(why)}</p>` : '');
     }
-    return `<div class="altar ${this.altarOut ? 'out' : ''}" aria-hidden="true"><div class="altarpic"><img src="${spriteUrl('altar.png')}" alt="">${candles}</div>${this.flash ? '<div class="redflash"></div>' : ''}</div>
+    // no picture (saves room on phones); a short red screen flash marks a corruption
+    return `${this.flash ? '<div class="redflash" aria-hidden="true"></div>' : ''}
       <p class="hint">Once per item. A quarter of the time each: an extra strong affix beyond the normal limits · one affix doubled · nothing, but the item is sealed · one affix replaced and the item sealed. Sealed items can no longer be crafted.</p>
       ${this.picker(i => !!i.cor)}${this.msgLine()}${body}`;
   }
@@ -213,10 +210,10 @@ export class EconomyUI {
     const sim = this.sim, D = sim.dirty;
     const done = () => { D.add('town'); D.add('bag'); return true; };
     switch (a) {
-      case 'tview': this.view = x as TownView; this.msg = { text: '', cls: '' }; this.stSel = null; this.altarOut = false; return done();
+      case 'tview': this.view = x as TownView; this.msg = { text: '', cls: '' }; this.stSel = null; return done();
       case 'fitem': {
         const id = +x;
-        this.sel = this.sel === id ? null : id; this.selMod = null; this.msg = { text: '', cls: '' }; this.altarOut = false;
+        this.sel = this.sel === id ? null : id; this.selMod = null; this.msg = { text: '', cls: '' };
         return done();
       }
       case 'fmod': this.selMod = this.selMod === +x ? null : +x; return done();
@@ -238,7 +235,7 @@ export class EconomyUI {
         const r = corruptItem(sim, it.id);
         if (r.err) { this.say(r.err, 'bad'); return done(); }
         this.say(r.text!, r.outcome === 'extra' || r.outcome === 'double' ? 'good' : 'bad');
-        this.altarOut = true; this.flash = true;
+        this.flash = true;
         setTimeout(() => { this.flash = false; this.sim.dirty.add('town'); }, 900);
         return done();
       }

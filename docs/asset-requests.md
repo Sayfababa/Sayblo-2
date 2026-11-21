@@ -29,13 +29,18 @@ the altar is a CSS slab with five CSS candles, the forge has no picture yet.
 Cells hold no pink or violet (magenta key). Glow stays inside the objects, not on the background.
 Code use: `<img src="sprites/mat-*.png">` / `ember-*.png` in place of the CSS `.mat` and `.emb` elements.
 
-### Image B2 – `altar.png` (landscape 3:1, e.g. 1536 × 512, magenta)
+### ~~Image B2 – `altar.png`~~ (dropped by the owner: takes too much room on phones; altar.png stays in assets/sheets unused)
+
+<!-- old prompt kept for reference -->
+### Image B2 (old) (landscape 3:1, e.g. 1536 × 512, magenta)
 
 > [style sentence], wide low stone altar slab seen from the front and slightly above, dark cracked basalt with dried blood running down the sides, a shallow carved basin in the middle, five tall unlit tallow candles standing on the slab at even spacing, iron candle holders, chains hanging from the front edge, flat pure magenta #FF00FF background, no ground, no shadow, no flames
 
 Candles unlit on purpose: the code draws the flames, lets them die and flashes red when an item is corrupted.
 
-### Image B3 – `forge.png` (landscape 3:1, e.g. 1536 × 512, magenta)
+### ~~Image B3 – `forge.png`~~ (dropped by the owner, same reason)
+
+### Image B3 (old) (landscape 3:1, e.g. 1536 × 512, magenta)
 
 > [style sentence], blacksmith's anvil and small stone forge seen from the front and slightly above, glowing coals in the forge mouth, hammer and tongs lying on the anvil, soot-blackened bricks, a leather apron hanging on a hook, flat pure magenta #FF00FF background, no ground, no shadow, no smoke, no sparks
 

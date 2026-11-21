@@ -52,20 +52,10 @@ button.fmod:hover{border-color:var(--line2)}
 .eshort{font-size:.72rem;color:var(--muted);line-height:1.15}
 .ecost{display:flex;gap:6px}
 
-/* altar (altar.png, flames drawn in CSS on the wicks) */
-.altar{position:relative;padding:18px 6% 4px;overflow:hidden;border:1px solid #3a1414;
-  background:radial-gradient(ellipse at 50% 80%,rgba(120,20,20,.4),transparent 65%),linear-gradient(#0b0607,#160909)}
-.altarpic{position:relative;max-width:420px;margin:0 auto}
-.altarpic img{display:block;width:100%;height:auto}
-.flame{position:absolute;width:9px;height:15px;transform:translate(-50%,-100%);border-radius:50% 50% 50% 50%/60% 60% 40% 40%;
-  background:radial-gradient(circle at 50% 70%,#fff 0 15%,#ffcf6a 35%,#ff6a1a 70%,transparent 72%);
-  box-shadow:0 0 14px 4px rgba(255,140,40,.45);animation:flick 1.4s ease-in-out infinite alternate;animation-delay:calc(var(--i) * -.3s);transition:opacity .5s}
-@keyframes flick{from{transform:translate(-50%,-100%) scale(1,1)}to{transform:translate(-50%,-100%) scale(.85,1.12)}}
-.altar.out .flame{opacity:0;animation:none}
-.altar.out{background:radial-gradient(ellipse at 50% 80%,rgba(90,0,0,.55),transparent 70%),#050304}
-.redflash{position:absolute;inset:0;background:radial-gradient(circle,rgba(255,30,30,.85),rgba(120,0,0,.6));animation:redflash .8s ease-out forwards;pointer-events:none}
+/* altar: red screen flash on corruption */
+.redflash{position:fixed;inset:0;z-index:50;background:radial-gradient(circle,rgba(255,30,30,.85),rgba(120,0,0,.6));animation:redflash .8s ease-out forwards;pointer-events:none}
 @keyframes redflash{0%{opacity:0}15%{opacity:1}100%{opacity:0}}
-@media (prefers-reduced-motion:reduce){.flame{animation:none}.redflash{animation-duration:.01s}}
+@media (prefers-reduced-motion:reduce){.redflash{animation-duration:.01s}}
 .btn.danger{color:#ff8a7a}
 
 /* gambling vendor */
