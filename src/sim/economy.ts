@@ -43,6 +43,7 @@ export function salvage(sim: Sim, id: number): string | null {
   const y = salvageYield(it);
   s.bag.splice(i, 1);
   s.mats = addMats(s.mats, y) as SaveState['mats'];
+  sim.loot.stats.salvMats = addMats(sim.loot.stats.salvMats, y); sim.loot.stats.fate.salvage[it.r]++; // loot report
   unlockCodex(s, it); // meta: salvaged uniques fill the codex
   sim.log(`Salvaged **${it.name}** into ${matText(y) || 'nothing'}.`);
   changed(sim, 'bag');
@@ -59,6 +60,7 @@ export function salvageBelow(sim: Sim, r: number): { n: number; mats: Mats } {
     return false;
   });
   s.mats = addMats(s.mats, mats) as SaveState['mats'];
+  sim.loot.stats.salvMats = addMats(sim.loot.stats.salvMats, mats); // loot report
   if (n) sim.log(`Salvaged ${n} item${n > 1 ? 's' : ''} into ${matText(mats) || 'nothing'}.`, 'good');
   changed(sim, 'bag');
   return { n, mats };

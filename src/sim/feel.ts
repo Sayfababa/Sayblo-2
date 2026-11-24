@@ -7,8 +7,7 @@
 import { ELITE_MODS, FEEL, HERO, MONSTERS, SHRINES, type Element } from '../content/index.ts';
 import type { Stats } from './formulas.ts';
 import { genGem, genItem } from './items.ts';
-import { disposeItem } from './economy.ts';
-import { lootFate } from './loot.ts';
+import type { LootSource } from './drops.ts';
 import { modsStep, onModDamaged, onModDeath, rollChampionMod } from './elitemods.ts';
 import { hasPerfect, isUpgrade } from './upgrade.ts';
 import type { Sim } from './sim.ts';
@@ -194,7 +193,7 @@ export class Feel {
     sim.emit({ t: 'ring', x: o.x, y: o.y, r0: 0.2, r1: 1.8, dur: 0.6, el: 'gold' });
     const before = sim.drops.length;
     this.goldShower(o.x, o.y, rng.int(V.chestGoldPiles[0], V.chestGoldPiles[1]), 1);
-    this.lootItems(o.x, o.y, rng.int(V.chestItems[0], V.chestItems[1]), V.chestMinRarity, 0);
+    this.lootItems('chest', o.x, o.y, rng.int(V.chestItems[0], V.chestItems[1]), V.chestMinRarity, 0);
     // walk over the new loot before going on
     const fresh = sim.drops.slice(before), route: { x: number; y: number }[] = [];
     let cur: { x: number; y: number } = sim.hero;
@@ -216,15 +215,12 @@ export class Feel {
       sim.drops.push({ id: sim.nextUid(), x: x + Math.cos(a) * r, y: y + Math.sin(a) * r, gold: g });
     }
   }
-  private lootItems(x: number, y: number, n: number, minR: number, gemChance: number) {
-    const sim = this.sim, rng = sim.rng, L = sim.areaLevel(), s = sim.s;
+  private lootItems(src: LootSource, x: number, y: number, n: number, minR: number, gemChance: number) {
+    const sim = this.sim, rng = sim.rng, L = sim.areaLevel();
     for (let i = 0; i < n; i++) {
-      const it = genItem(rng, sim.itemId(), L, minR, false, this.rarityBoost());
-      const fate = lootFate(s.loot, it, s.equip);
-      if (fate !== 'keep') { sim.run.gold += disposeItem(s, it, fate); continue; }
-      sim.drops.push({ id: sim.nextUid(), x: x + rng.range(-1, 1), y: y + rng.range(-1, 1), item: it });
+      sim.loot.put(src, genItem(rng, sim.itemId(), L, minR, false, this.rarityBoost()), x, y);
     }
-    if (rng.chance(gemChance)) sim.drops.push({ id: sim.nextUid(), x: x + rng.range(-1, 1), y: y + rng.range(-1, 1), item: genGem(rng, sim.itemId(), L) });
+    if (rng.chance(gemChance)) sim.loot.put(src, genGem(rng, sim.itemId(), L), x, y);
   }
 
   /* ---------- monsters ---------- */
@@ -275,7 +271,7 @@ export class Feel {
       sim.log(`The **${T.name}** bursts in a shower of gold!`, 'gold');
       sim.emit({ t: 'ring', x: m.x, y: m.y, r0: 0.3, r1: 2.4, dur: 0.7, el: 'gold' });
       this.goldShower(m.x, m.y, sim.rng.int(T.goldPiles[0], T.goldPiles[1]), T.goldPerPile);
-      this.lootItems(m.x, m.y, sim.rng.int(T.items[0], T.items[1]), T.minRarity, T.gemChance);
+      this.lootItems('wretch', m.x, m.y, sim.rng.int(T.items[0], T.items[1]), T.minRarity, T.gemChance);
       if (!this.vault && sim.rng.chance(T.vaultChance)) {
         this.vault = { t: FEEL.vault.duration, dur: FEEL.vault.duration };
         this.stats.vaults++;

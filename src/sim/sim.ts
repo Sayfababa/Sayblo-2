@@ -19,9 +19,8 @@ import { Mythic } from './mythic.ts';
 import { Spells } from './spells.ts';
 import { Melee } from './melee.ts';
 import { genGem, genItem } from './items.ts';
-import { disposeItem } from './economy.ts';
 import { addGem, takeGem } from './pouch.ts';
-import { lootFate } from './loot.ts';
+import { Loot } from './drops.ts';
 import { isUpgrade } from './upgrade.ts';
 import { Rng } from './rng.ts';
 import { emptySlots, newSaveState } from './state.ts';
@@ -86,6 +85,8 @@ export class Sim {
   /** work package C: rifts, keys, atlas, pinnacle (see rift.ts) and the mythic uniques (mythic.ts) */
   rift = new Rift(this);
   mythic = new Mythic(this);
+  /** loot package: every drop goes through here (rules, counters, rarity tables; see drops.ts) */
+  loot = new Loot(this);
   /** skills package: beams, fields, orbs, constructs, hexes, ward, modifier behaviour (see spells.ts) */
   spells = new Spells(this);
   /** warrior package: melee reach, closing in, leaps, cries, auras, fissures (see melee.ts) */
@@ -603,18 +604,13 @@ export class Sim {
       n = rng.int(rule.count[0], rule.count[1]); minR = rule.minRarity; gemChance = rule.gemChance;
     }
     n = R.qty(n);
+    const src = (['monster', 'champion', 'elite', 'boss'] as const)[m.rank] ?? 'monster';
     for (let i = 0; i < n; i++) {
       const it = genItem(rng, this.itemId(), m.L, minR, m.rank === 3, F.rarityBoost() + this.meta.rarityBoost() + R.rarity());
       this.meta.onItem(it); // meta: found items for bounties and feats
-      // loot filter rules (loot.ts): items not kept are sold or salvaged on the spot
-      const fate = lootFate(s.loot, it, s.equip);
-      if (fate !== 'keep') { this.run.gold += disposeItem(s, it, fate); continue; }
-      this.drops.push({ id: this.nextUid(), x: m.x + rng.range(-1, 1), y: m.y + rng.range(-1, 1), item: it });
+      this.loot.put(src, it, m.x, m.y); // loot rules (drops.ts): items not kept are sold or salvaged on the spot
     }
-    if (rng.chance(gemChance)) {
-      const d: Drop = { id: this.nextUid(), x: m.x + rng.range(-1, 1), y: m.y + rng.range(-1, 1), item: genGem(rng, this.itemId(), m.L) };
-      if (lootFate(s.loot, d.item!, s.equip) === 'keep') this.drops.push(d); else this.run.gold += disposeItem(s, d.item!, 'sell');
-    }
+    if (rng.chance(gemChance)) this.loot.put(src, genGem(rng, this.itemId(), m.L), m.x, m.y);
     if (burning && this.st.uniques.has('cinders')) {
       this.emit({ t: 'ring', x: m.x, y: m.y, r0: 0.3, r1: 2, dur: 0.45, el: 'fire', fill: true });
       this.emit({ t: 'burst', x: m.x, y: m.y, z: 0.6, el: 'fire', size: 110 });
@@ -834,7 +830,7 @@ export class Sim {
     while (!spot) {
       const worst: BagItem = [...s.bag, it].sort((a, b) => keepValue(a) - keepValue(b))[0];
       const how = s.loot.autoSalvage && !isGem(worst) ? 'salvaged' : `sold for ${sellValue(worst)} gold`;
-      disposeItem(s, worst, s.loot.autoSalvage ? 'salvage' : 'sell');
+      this.loot.dispose(worst, s.loot.autoSalvage && !isGem(worst) ? 'salvage' : 'sell');
       if (worst === it) { if (!quiet) this.log(`Bag full: ${how} **${this.itemName(it)}**.`); this.dirty.add('bag'); return; }
       s.bag.splice(s.bag.indexOf(worst), 1);
       if (!quiet) this.log(`Bag full: ${how} **${this.itemName(worst)}**.`);

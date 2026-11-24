@@ -11,10 +11,10 @@ import {
 import { bountyDone, bountyText, fillBoard, genBounty, swapCost } from './bounty.ts';
 import { imprintBlock, imprintCost } from './codex.ts';
 import { addMats, bestTier, canAfford } from './crafting.ts';
-import { disposeItem, findItem, matText } from './economy.ts';
+import { findItem, matText } from './economy.ts';
 import { affixValue, xpNeeded } from './formulas.ts';
 import { affixFits, genGem, genItem, genItemOf, genUnique, rollAffix } from './items.ts';
-import { lootFate } from './loot.ts';
+import type { LootSource } from './drops.ts';
 import type { Bounty } from './meta-types.ts';
 import { emptyAlloc } from './meta-types.ts';
 import type { Sim } from './sim.ts';
@@ -278,7 +278,7 @@ export class Meta {
     }
     if (m.mt?.champion) {
       const it = bonusAffixItem(sim, m.L);
-      this.drop(m, it);
+      this.drop(m, it, 'event');
       sim.log(`The champion's hoard: **${it.name}** with a bonus affix.`, 'r2');
       this.endEvent('');
     }
@@ -286,7 +286,7 @@ export class Meta {
       const T = EV.tear, ev = this.ev!, rng = sim.rng;
       ev.r = Math.min(T.maxRadius, ev.r! + T.growPerKill);
       sim.drops.push({ id: sim.nextUid(), x: m.x + rng.range(-0.6, 0.6), y: m.y + rng.range(-0.6, 0.6), gold: Math.round(m.L * rng.range(1, 3) * T.goldMult * sim.diff.goldMult) });
-      if (rng.chance(T.itemChance)) this.drop(m, genItem(rng, sim.itemId(), m.L, 0, false, T.rarityBoost + this.rarityBoost()));
+      if (rng.chance(T.itemChance)) this.drop(m, genItem(rng, sim.itemId(), m.L, 0, false, T.rarityBoost + this.rarityBoost()), 'tear');
     }
     return true;
   }
@@ -300,12 +300,9 @@ export class Meta {
   }
 
   /** Put an item on the ground near a monster, through the loot rules. */
-  private drop(at: { x: number; y: number }, it: BagItem) {
-    const sim = this.sim, s = this.s, rng = sim.rng;
+  private drop(at: { x: number; y: number }, it: BagItem, src: LootSource) {
     this.onItem(it);
-    const fate = lootFate(s.loot, it, s.equip);
-    if (fate !== 'keep') { sim.run.gold += disposeItem(s, it, fate); return; }
-    sim.drops.push({ id: sim.nextUid(), x: at.x + rng.range(-1.2, 1.2), y: at.y + rng.range(-1.2, 1.2), item: it });
+    this.sim.loot.put(src, it, at.x, at.y, 1.2);
   }
 
   private tyrantDown(m: Monster): boolean {
@@ -321,12 +318,12 @@ export class Meta {
       const a = rng.range(0, Math.PI * 2), r = rng.range(0.4, 1.8);
       sim.drops.push({ id: sim.nextUid(), x: m.x + Math.cos(a) * r, y: m.y + Math.sin(a) * r, gold: Math.round(m.L * rng.range(2, 4) * sim.diff.goldMult * this.goldMult()) });
     }
-    for (let i = 0, n = rng.int(Lt.count[0], Lt.count[1]); i < n; i++) this.drop(m, tyrantItem(sim, T.slots, T.affixes, m.L));
+    for (let i = 0, n = rng.int(Lt.count[0], Lt.count[1]); i < n; i++) this.drop(m, tyrantItem(sim, T.slots, T.affixes, m.L), 'tyrant');
     if (rng.chance(Lt.uniqueChance)) {
       const pool = T.uniques.filter(u => UNIQUES[u]);
-      if (pool.length) this.drop(m, genUnique(rng, sim.itemId(), m.L, rng.pick(pool)));
+      if (pool.length) this.drop(m, genUnique(rng, sim.itemId(), m.L, rng.pick(pool)), 'tyrant');
     }
-    if (rng.chance(Lt.gemChance)) this.drop(m, genGem(rng, sim.itemId(), m.L));
+    if (rng.chance(Lt.gemChance)) this.drop(m, genGem(rng, sim.itemId(), m.L), 'tyrant');
     return false;
   }
 
@@ -353,8 +350,8 @@ export class Meta {
     const got: string[] = [`${R.gold} gold`];
     if (matText(R.mats)) got.push(matText(R.mats));
     const give = (it: BagItem) => {
-      const fate = lootFate(s.loot, it, s.equip);
-      if (fate === 'keep') sim.takeItem(it, true); else disposeItem(s, it, fate);
+      sim.loot.note('bounty', it);
+      if (sim.loot.fate(it, 'sell') === 'keep') sim.takeItem(it, true);
       got.push(sim.itemName(it));
     };
     if (R.gem) give(genGem(rng, sim.itemId(), b.L));

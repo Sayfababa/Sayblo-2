@@ -9,8 +9,7 @@ import {
 } from '../content/index.ts';
 import { clamp, monsterDmg, monsterHp, type Stats } from './formulas.ts';
 import { genGem, genItem, genUnique } from './items.ts';
-import { disposeItem } from './economy.ts';
-import { lootFate } from './loot.ts';
+import type { LootSource } from './drops.ts';
 import type { Rng } from './rng.ts';
 import type { Sim } from './sim.ts';
 import { isEquip, isKey, type BagItem, type KeyItem, type Monster, type RiftResult, type RiftSave, type SaveState } from './types.ts';
@@ -362,7 +361,7 @@ export class Rift {
       const first = r.pin > rs.pinnacle;
       if (first || rng.chance(P.mythicChance)) {
         const it = genUnique(rng, sim.itemId(), riftLevel(r.tier), rng.pick(MYTHIC_UNIQUES));
-        this.dropItem(it, m.x, m.y);
+        this.dropItem(it, m.x, m.y, 'pinnacle');
         sim.log(`A mythic relic falls from the Matriarch: **${it.name}**!`, 'r3');
       }
       if (!free && first) rs.pinnacle = r.pin;
@@ -402,11 +401,8 @@ export class Rift {
     sim.dirty.add('town');
   }
 
-  private dropItem(it: BagItem, x: number, y: number) {
-    const sim = this.sim, rng = sim.rng, s = sim.s;
-    const fate = lootFate(s.loot, it, s.equip);
-    if (fate !== 'keep') { sim.run.gold += disposeItem(s, it, fate); return; }
-    sim.drops.push({ id: sim.nextUid(), x: x + rng.range(-1.2, 1.2), y: y + rng.range(-1.2, 1.2), item: it });
+  private dropItem(it: BagItem, x: number, y: number, src: LootSource = 'guardian') {
+    this.sim.loot.put(src, it, x, y, 1.2);
   }
   private dropKey(x: number, y: number, tier: number) {
     const sim = this.sim;
@@ -422,8 +418,9 @@ export class Rift {
       sim.drops.push({ id: sim.nextUid(), x: x + Math.cos(a) * d, y: y + Math.sin(a) * d, gold: Math.max(1, Math.round(lvl * L.goldPerPile * rng.range(1, 3) * gm)) });
     }
     const n = this.qty(rng.int(L.items[0], L.items[1]) + extra);
-    for (let i = 0; i < n; i++) this.dropItem(genItem(rng, sim.itemId(), lvl, L.minRarity, boss, sim.feel.rarityBoost() + this.rarity() + (L.rarityBoost ?? 0)), x, y);
-    if (rng.chance(L.gemChance)) this.dropItem(genGem(rng, sim.itemId(), lvl), x, y);
+    const src: LootSource = boss ? 'pinnacle' : 'guardian';
+    for (let i = 0; i < n; i++) this.dropItem(genItem(rng, sim.itemId(), lvl, L.minRarity, boss, sim.feel.rarityBoost() + this.rarity() + (L.rarityBoost ?? 0)), x, y, src);
+    if (rng.chance(L.gemChance)) this.dropItem(genGem(rng, sim.itemId(), lvl), x, y, src);
   }
 
   /* ---------- the end of a run ---------- */
