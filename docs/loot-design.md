@@ -56,7 +56,7 @@ Stages as the bot plays them: Act I Normal ≈ first 15 min, Nightmare from ≈ 
 | equipment generated (all rarities) | 60–120 | 60–110 | 120–220 | 120–220 |
 | shown on the ground | 25–50 | 25–50 | 50–100 | 50–100 |
 | magic | 25–45 | 20–40 | 40–90 | 40–90 |
-| rare | 4–9 | 5–10 | 10–22 | 10–22 |
+| rare | 4–12 | 6–15 | 10–30 | 10–30 |
 | unique (all sources) | 0.3–0.8 | 0.3–0.8 | 0.6–1.5 | 0.8–1.8 |
 | real upgrades equipped | 6–15 (filling slots) | 1–4 hour 2–3, then 0.3–2 | 0.3–1.5 | 0.2–1 |
 | crafts done by the bot | some | 3–15 | 5–20 | 5–20 |
@@ -82,7 +82,7 @@ Stages as the bot plays them: Act I Normal ≈ first 15 min, Nightmare from ≈ 
 
 ## 3. What was built
 
-See section 4 (results) for the measured numbers; tables are in `npm run loot` output.
+Section 4 has the measured numbers (`npm run loot`).
 
 - All drop sources go through `src/sim/drops.ts` (`sim.loot`): per-source rarity tables and counts in
   `items.json › dropTables`, class-aware base and unique choice, currency drops (`economy.json › currencyDrops`),
@@ -94,3 +94,30 @@ See section 4 (results) for the measured numbers; tables are in `npm run loot` o
   weapons), `skillFx` (data-driven effect for the three new warrior weapon uniques).
 - Crafting: Gloam Pearl, Crowning Ember (add an affix to a rare), Ember of Ascension (re-forge a unique), Whetstone on
   uniques; salvage and costs retuned; the bot crafts.
+- Default loot rules hide normal items (salvaged on the spot); the tooltip shows the item level and the best tier it allows.
+- The rift guardian burst and rift monsters are thinned (`rift.json run.itemQuantity` −55 %, guardian 1–2 items).
+- Uniques of another class never drop (`offClassUnique` 0); the codex lists only the hero's class.
+
+## 4. Results (bots, `npm run loot`, average of 3 seeds, per hour)
+
+Campaign, 6 h (hour 1 = Act I Normal + start of Nightmare, then Nightmare):
+
+| build | items gen. before → after | shown before → after | uniques/h before → after | crafts/h h3–6 before → after | level after 6 h before → after | deaths 6 h before → after |
+|---|---|---|---|---|---|---|
+| fire  | 233 → 80 | 233 → 53 | 3.4 → 0.6 | 0.8 → 7.0 | 33.7 → 32.3 | 46 → 57 |
+| cold  | 174 → 74 | 174 → 48 | 3.1 → 0.6 | 0 → 5.3 | 36.7 → 34.7 | 29 → 33 |
+| storm | 259 → 92 | 259 → 57 | 4.1 → 0.7 | 2.0 → 5.3 | 34.7 → 33.3 | 53 → 63 |
+| wfire | 249 → 95 | 249 → 59 | 3.3 → 0.5 | 0.8 → 5.5 | 33.3 → 32.7 | 67 → 70 |
+| wcold | 133 → 68 | 133 → 43 | 2.2 → 0.3 | 0.3 → 2.3 | 33.3 → 34.7 | 371 → 343 (Hell wall) |
+| wstorm | 436 → 185 | 436 → 123 | 7.6 → 1.2 | 0 → 7.8 | 34.0 → 34.3 | 85 → 105 |
+
+Off-class weapons/uniques: warrior 2–8 per hour before → 0 after. Found upgrades: ~20 in hour 1 (empty slots fill),
+then 0.3–5 per hour; crafted improvements 3–10 per hour. Materials per hour in Nightmare (fire): dust ~530, essence ~55,
+shards ~3–4, pearls ~0.1–0.2 (one per 5–10 h).
+
+Rifts (level-60 test hero, 3 h, seeds 1–2, from tier 1 / 10 / 30): items per hour 650–950 → 120–330 (all shown before;
+now 90–250 shown), uniques per hour 10–23 → 0.3–2.0, crafts per hour 0–1 after hour 1 → 5–14.
+
+Open points: the bot dies a lot in Nightmare/Hell (balance package F); some rift runs stall when an elite pack with
+Shielding + Vampiric + Warded out-heals the hero (combat, not loot); rift progress is ~10 % slower without the
+old unique flood.
