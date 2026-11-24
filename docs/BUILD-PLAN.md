@@ -44,3 +44,5 @@ Running / next:
 Known balance issues for F: Hell is not reachable (monster curve 1.17/1.15 per level too steep); level cap 60 + ember points unreachable (XP curve 1.36× per level); storm builds clearly slower in rifts.
 Art waiting for prompts to the owner: 6 tyrant sheets, `mon-matriarch.png`, rift tear / blood moon / champion casing fx, new skill icons (prompts in `docs/asset-requests.md`). Imp/Wraith prompts: `docs/ui-assets.md` section 9.
 Publishing: `node scripts/build-artifact.mjs`, upload every renamed file in `dist-artifact/assets/` plus new/changed sprites, remove old chunks with `null`.
+
+**Paused (owner request):** balance package F is half done. Its commits are saved as `wip/balance-f.patch` (apply with `git am wip/balance-f.patch` on top of the commit it was made from, then finish: XP curve/level cap, deaths, class parity, before/after tables, checks). Done so far: fight limits (capped vampiric healing, shield lockout, exhaustion), death-streak rule (save v13), flatter monster curve with bigger difficulty steps, xp growth 1.42, class damage factor, rift pack factors — not yet verified.

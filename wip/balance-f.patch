@@ -1,0 +1,1459 @@
+From dd24dff3f7df86a11f9aa40a18a65a054adb5e57 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 24 Nov 2026 16:41:22 +0000
+Subject: [PATCH 1/6] Balance F: fight limits (capped vampiric healing, shield
+ lockout, exhaustion after long fights), balance report script
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01K7GT1onmNzUN1jshG2PQmk
+---
+ scripts/balance.ts        | 78 +++++++++++++++++++++++++++++++++++++++
+ src/content/index.ts      |  9 ++++-
+ src/content/monsters.json |  6 +++
+ src/sim/elitemods.ts      |  3 +-
+ src/sim/sim.ts            |  9 ++++-
+ src/sim/stall.ts          | 45 ++++++++++++++++++++++
+ src/sim/types.ts          |  2 +
+ 7 files changed, 149 insertions(+), 3 deletions(-)
+ create mode 100644 scripts/balance.ts
+ create mode 100644 src/sim/stall.ts
+
+diff --git a/scripts/balance.ts b/scripts/balance.ts
+new file mode 100644
+index 0000000..da2c928
+--- /dev/null
++++ b/scripts/balance.ts
+@@ -0,0 +1,78 @@
++/**
++ * Balance report (package F): lets the bot (scripts/bot.ts) play whole careers and prints progress, deaths and the
++ * longest fight per build, averaged over seeds.
++ *
++ *   node scripts/balance.ts [hours=8] [seeds=1,2,3] [builds=fire,lance,cold,storm,wfire,wcold,wstorm] [--career] [--every 2] [--csv]
++ *
++ * Campaign: the bot walks Normal → Nightmare → Hell (it steps back when it dies too often, see bot.ts).
++ * --career: after Mother Vesper falls on Hell the bot switches to rifts in auto mode (keys, tiers) and keeps going.
++ * Columns per checkpoint: lvl = level, stage = furthest area unlocked (N/NM/H + area 1-6) or best rift tier, d/h = deaths
++ * per hour since the last checkpoint. Milestones: hours until Mother Vesper falls on Normal / Nightmare / Hell, level 60.
++ */
++import { DIFFICULTIES, AREAS } from '../src/content/index.ts';
++import { Sim } from '../src/sim/sim.ts';
++import { newSaveState } from '../src/sim/state.ts';
++import { Bot } from './bot.ts';
++import { planClass } from './endgame.ts';
++
++const args = process.argv.slice(2), flag = (k: string) => { const i = args.indexOf(k); if (i < 0) return null; const v = args[i + 1]; args.splice(i, 2); return v; };
++const bool = (k: string) => { const i = args.indexOf(k); if (i < 0) return false; args.splice(i, 1); return true; };
++const career = bool('--career'), csv = bool('--csv'), every = Number(flag('--every') ?? 2);
++const hours = Number(args[0] ?? 8), seeds = (args[1] ?? '1,2,3').split(',').map(Number);
++const builds = (args[2] ?? 'fire,lance,cold,storm,wfire,wcold,wstorm').split(',');
++
++interface Point { h: number; lvl: number; stage: number; tier: number; deaths: number; xpPct: number }
++interface Run { pts: Point[]; vesper: (number | null)[]; lvl60: number | null; maxFight: number; riftFails: number; riftRuns: number; deaths: number; stepBacks: number }
++
++const stageIdx = (sim: Sim) => {
++  let best = 0;
++  for (let d = 0; d < DIFFICULTIES.length; d++) if (sim.s.progress[d]) best = d * AREAS.length + sim.s.progress[d];
++  return best;
++};
++const stageName = (i: number) => i <= 0 ? '-' : `${['N', 'NM', 'H'][Math.floor((i - 1) / AREAS.length)]}${((i - 1) % AREAS.length) + 1}`;
++
++function play(build: string, seed: number): Run {
++  const sim = new Sim(newSaveState(planClass(build)), { seed, headless: true });
++  const bot = new Bot(sim, build);
++  const vesper: (number | null)[] = DIFFICULTIES.map(() => null);
++  let t = 0, lvl60: number | null = null, maxFight = 0, inRift = false;
++  const orig = sim.rift.onActBoss.bind(sim.rift);
++  sim.rift.onActBoss = (d: number) => { if (vesper[d] == null) vesper[d] = t / 3600; orig(d); };
++  const pts: Point[] = [];
++  let d0 = 0;
++  for (let h = every; h <= hours; h += every) {
++    for (; t < h * 3600; t += 5) {
++      sim.advance(5);
++      bot.step();
++      maxFight = Math.max(maxFight, (sim as unknown as { fightT?: number }).fightT ?? 0);
++      if (lvl60 == null && sim.s.lvl >= 60) lvl60 = t / 3600;
++      if (career && !inRift && vesper[DIFFICULTIES.length - 1] != null && sim.phase !== 'town') {
++        inRift = true; bot.opts.rift = true; sim.s.rift.auto = true; sim.rift.startFree();
++      }
++    }
++    pts.push({ h, lvl: sim.s.lvl, stage: stageIdx(sim), tier: sim.s.rift.maxTier, deaths: (sim.s.deaths - d0) / every, xpPct: sim.s.xp });
++    d0 = sim.s.deaths;
++  }
++  return { pts, vesper, lvl60, maxFight, riftFails: sim.rift.stats.fails, riftRuns: sim.rift.stats.runs, deaths: sim.s.deaths, stepBacks: ((bot as unknown as { stepBacks?: number }).stepBacks ?? 0) + ((sim.s as unknown as { retreats?: number }).retreats ?? 0) };
++}
++
++const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length);
++const f1 = (x: number) => (Math.round(x * 10) / 10).toFixed(1);
++const fm = (xs: (number | null)[]) => xs.map(x => x == null ? '  -  ' : f1(x).padStart(5)).join(' ');
++
++if (!csv) console.log(`balance · ${hours} h · seeds ${seeds.join(',')}${career ? ' · career (rifts after Hell)' : ''}`);
++for (const build of builds) {
++  const runs = seeds.map(s => play(build, s));
++  if (csv) {
++    runs.forEach((r, i) => r.pts.forEach(p => console.log([build, seeds[i], p.h, p.lvl, stageName(p.stage), p.tier, f1(p.deaths), ...r.vesper.map(v => v == null ? '' : f1(v)), r.lvl60 == null ? '' : f1(r.lvl60), Math.round(r.maxFight)].join(','))));
++    continue;
++  }
++  console.log(`\n=== ${build} ===`);
++  console.log('   h   lvl   stage(per seed)       tier   d/h(per seed)');
++  for (let i = 0; i < runs[0].pts.length; i++) {
++    const ps = runs.map(r => r.pts[i]);
++    console.log(`${String(ps[0].h).padStart(4)}  ${f1(avg(ps.map(p => p.lvl))).padStart(5)}   ${ps.map(p => stageName(p.stage).padEnd(4)).join(' ').padEnd(20)} ${f1(avg(ps.map(p => p.tier))).padStart(5)}   ${ps.map(p => f1(p.deaths).padStart(4)).join(' ')}  avg ${f1(avg(ps.map(p => p.deaths)))}`);
++  }
++  console.log(`  Vesper N/NM/H (h, per seed): ${runs.map(r => fm(r.vesper)).join(' | ')}`);
++  console.log(`  level 60 at (h): ${runs.map(r => r.lvl60 == null ? '-' : f1(r.lvl60)).join(', ')} · deaths ${runs.map(r => r.deaths).join(', ')} · step-backs ${runs.map(r => r.stepBacks).join(', ')} · longest fight ${Math.round(Math.max(...runs.map(r => r.maxFight)))} s${career ? ` · rifts ${runs.map(r => `${r.riftRuns} ok/${r.riftFails} died`).join(', ')}` : ''}`);
++}
+diff --git a/src/content/index.ts b/src/content/index.ts
+index 5cc6787..81124fa 100644
+--- a/src/content/index.ts
++++ b/src/content/index.ts
+@@ -98,6 +98,11 @@ export interface EliteModDef {
+   mirror?: { below: number; hpPct: number; dmg: number; name: string };
+ }
+ 
++export interface FightLimits {
++  vampPerSecond: number; shieldLockout: number;
++  exhaust: { after: number; bossAfter: number; wardDecay: number; takenPerSecond: number; takenMax: number };
++}
++
+ export interface AreaDef { id: string; name: string; level: number; waves: number; pool: string[]; boss?: string; ground: string; groundPulse?: boolean; decor: [string, number][];
+   /** optional winding path texture blended over the ground, props along its edges, flat decals lying on the ground */
+   path?: string; pathDecor?: [string, number][]; decals?: [string, number][] }
+@@ -145,7 +150,7 @@ export const isFiller = (id: string) => { const d = SKILLS[id]; return !!d && !d
+ 
+ const mo = monstersJson as unknown as {
+   monsters: Record<string, MonsterDef>; ranks: RankDef[]; eliteMods: Record<string, EliteModDef>; eliteModCount: [number, number];
+-  eliteNames: { first: string[]; second: string[] }; championMods: { chance: number; pool: string[] };
++  eliteNames: { first: string[]; second: string[] }; championMods: { chance: number; pool: string[] }; fightLimits: FightLimits;
+   scaling: { hpBase: number; hpGrowth: number; dmgBase: number; dmgGrowth: number; xpBase: number; xpGrowth: number; ownElementRes: number; meleeRange: number; projectileSpeed: number };
+   waves: { championChance: number; eliteChance: number; spawnDistance: number; bossDistance: number };
+ };
+@@ -157,6 +162,8 @@ export const ELITE_NAMES = mo.eliteNames;
+ export const CHAMPION_MODS = mo.championMods;
+ export const MONSTER_SCALING = mo.scaling;
+ export const WAVES = mo.waves;
++/** package F: caps on monster healing and shields, and the exhaustion that ends overlong fights */
++export const FIGHT_LIMITS = mo.fightLimits;
+ 
+ const ar = areasJson as unknown as { act: string; areas: AreaDef[]; props: Record<string, PropDef>; unlockedAtStart: number };
+ export const ACT_NAME = ar.act;
+diff --git a/src/content/monsters.json b/src/content/monsters.json
+index 2a80541..5b725c0 100644
+--- a/src/content/monsters.json
++++ b/src/content/monsters.json
+@@ -61,6 +61,12 @@
+     "Shielding":      { "shield": { "every": 5, "pct": 0.2, "max": 0.5, "radius": 5 } },
+     "Mirrored":       { "mirror": { "below": 0.5, "hpPct": 0.35, "dmg": 0.6, "name": "Mirror Image" } }
+   },
++  "_fightLimits": "package F: every fight must end. Vampiric heals at most vampPerSecond of max life per second; a monster takes a Shielding ward at most once every shieldLockout seconds (however many shielders are near). After exhaust.after seconds alive (bosses: bossAfter) a monster is Exhausted: no more healing or shields, its ward crumbles (wardDecay of max ward per second) and it takes takenPerSecond more damage per further second (up to takenMax).",
++  "fightLimits": {
++    "vampPerSecond": 0.02,
++    "shieldLockout": 5,
++    "exhaust": { "after": 45, "bossAfter": 150, "wardDecay": 0.1, "takenPerSecond": 0.03, "takenMax": 5 }
++  },
+   "_championMods": "champions roll one affix from this pool with this chance (elites roll eliteModCount from all of eliteMods)",
+   "championMods": { "chance": 0.25, "pool": ["Fast", "Frost Aura", "Teleporting", "Shielding", "Fire-Enchanted"] },
+   "eliteModCount": [1, 3],
+diff --git a/src/sim/elitemods.ts b/src/sim/elitemods.ts
+index 6291755..4b5e8a9 100644
+--- a/src/sim/elitemods.ts
++++ b/src/sim/elitemods.ts
+@@ -6,6 +6,7 @@
+  */
+ import { CHAMPION_MODS, ELITE_MODS, MONSTERS } from '../content/index.ts';
+ import type { Sim } from './sim.ts';
++import { takeShield } from './stall.ts';
+ import type { Monster } from './types.ts';
+ 
+ const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
+@@ -70,7 +71,7 @@ export function modsStep(sim: Sim, m: Monster, dt: number) {
+       for (const o of sim.monsters) {
+         if (o === m || o.hp <= 0 || dist(o, m) > S.radius || MONSTERS[o.def].treasure) continue;
+         const cap = Math.round(o.maxHp * S.max);
+-        if (o.ward >= cap) continue;
++        if (o.ward >= cap || !takeShield(o)) continue; // package F: one shield per lockout, none when Exhausted
+         o.ward = Math.min(cap, o.ward + Math.round(o.maxHp * S.pct)); o.maxWard = Math.max(o.maxWard, o.ward);
+         any = true;
+       }
+diff --git a/src/sim/sim.ts b/src/sim/sim.ts
+index 10fdf7b..dacf890 100644
+--- a/src/sim/sim.ts
++++ b/src/sim/sim.ts
+@@ -21,6 +21,7 @@ import { Melee } from './melee.ts';
+ import { genGem } from './items.ts';
+ import { addGem, takeGem } from './pouch.ts';
+ import { Loot } from './drops.ts';
++import { exhaustTaken, fightStep, vampHeal } from './stall.ts';
+ import { isUpgrade } from './upgrade.ts';
+ import { Rng } from './rng.ts';
+ import { emptySlots, newSaveState } from './state.ts';
+@@ -78,6 +79,8 @@ export class Sim {
+   townT = 0;
+   returnZone = 0;
+   targetId: number | null = null;
++  /** package F: seconds the current fight has lasted (0 outside fights), for the stall watchdog */
++  fightT = 0;
+   /** work package A: shrines, treasure creature, vault, monster affixes (see feel.ts) */
+   feel = new Feel(this);
+   /** work package D: bounties, tyrants, area events, codex, ember points, feats (see meta.ts) */
+@@ -515,6 +518,7 @@ export class Sim {
+ 
+   dmgMon(m: Monster, amt: number) {
+     if (m.hp <= 0) return;
++    amt *= exhaustTaken(m); // package F: overlong fights end (stall.ts)
+     if (m.ward > 0) { const a = Math.min(m.ward, amt); m.ward -= a; amt -= a; }
+     m.hp -= amt;
+     const bd = m.boss && MONSTERS[m.def].boss;
+@@ -548,7 +552,7 @@ export class Sim {
+     s.life = this.life - d;
+     this.emit({ t: 'heroHit' });
+     this.float(h.x, h.y, '-' + Math.max(1, Math.round(tot)), '#ff6a5e');
+-    if (vampMon && vampMon.vamp && vampMon.hp > 0) vampMon.hp = Math.min(vampMon.maxHp, vampMon.hp + tot * vampMon.vamp);
++    if (vampMon && vampMon.vamp) vampHeal(vampMon, tot * vampMon.vamp); // package F: capped per second
+     if (label) this.log(`**${name}** casts ${label} for ${Math.round(tot)} ${ELEMENT_NAMES[el]} damage!`, 'bad');
+   }
+ 
+@@ -744,6 +748,7 @@ export class Sim {
+     }
+     this.potH -= dt; this.potM -= dt; this.lastCastT -= dt; this.saintCd -= dt;
+     if (this.phase === 'walk') {
++      this.fightT = 0;
+       if (!this.wps.length) { h.walking = false; this.waitT -= dt; if (this.waitT <= 0) this.nextWave(); return; }
+       const wp = this.wps[0], dx = wp.x - h.x, dy = wp.y - h.y, d = Math.hypot(dx, dy), st = M.walkSpeed * dt;
+       h.walking = true;
+@@ -779,8 +784,10 @@ export class Sim {
+         this.melee.step(dt); // warrior: close in on the next foe
+       }
+     }
++    this.fightT += dt;
+     for (const m of alive) {
+       if (m.hp <= 0) continue;
++      fightStep(m, dt); // package F: age, heal budget, exhaustion
+       if (m.chill > 0) { m.chill -= dt; if (m.chill <= 0) m.chillEff = 0; }
+       if (m.shock > 0) { m.shock -= dt; if (m.shock <= 0) m.shockEff = 0; }
+       if (m.freezeCd > 0) m.freezeCd -= dt;
+diff --git a/src/sim/stall.ts b/src/sim/stall.ts
+new file mode 100644
+index 0000000..1cd7e49
+--- /dev/null
++++ b/src/sim/stall.ts
+@@ -0,0 +1,45 @@
++/**
++ * Package F: every fight must end. Monsters heal and shield each other only up to fixed rates, and a monster that
++ * stays alive too long becomes Exhausted (no more healing or shields, its ward crumbles, it takes rising damage).
++ * Numbers in src/content/monsters.json › fightLimits. Pure state changes, no randomness.
++ */
++import { FIGHT_LIMITS } from '../content/index.ts';
++import type { Monster } from './types.ts';
++
++const F = FIGHT_LIMITS, X = F.exhaust;
++
++/** Seconds a monster may live before it is Exhausted. */
++export const exhaustAfter = (m: Monster) => (m.rank >= 3 || m.rg ? X.bossAfter : X.after);
++/** Is the monster past its time? */
++export const exhausted = (m: Monster) => (m.fe?.age ?? 0) > exhaustAfter(m);
++/** Damage taken factor of an Exhausted monster (1 before). */
++export function exhaustTaken(m: Monster): number {
++  const over = (m.fe?.age ?? 0) - exhaustAfter(m);
++  return over > 0 ? 1 + Math.min(X.takenMax, over * X.takenPerSecond) : 1;
++}
++
++/** Per tick for every living monster in a fight (also frozen ones): age, heal budget, shield lockout, crumbling ward. */
++export function fightStep(m: Monster, dt: number) {
++  const fe = (m.fe ??= {});
++  fe.age = (fe.age ?? 0) + dt;
++  const cap = m.maxHp * F.vampPerSecond;
++  fe.vb = Math.min(cap, (fe.vb ?? cap) + cap * dt);
++  if (fe.shT) fe.shT = Math.max(0, fe.shT - dt);
++  if (m.ward > 0 && exhausted(m)) m.ward = Math.max(0, m.ward - Math.max(1, m.maxWard) * X.wardDecay * dt);
++}
++
++/** Vampiric healing of `amount`, limited by the per-second budget; Exhausted monsters do not heal. */
++export function vampHeal(m: Monster, amount: number) {
++  if (m.hp <= 0 || amount <= 0 || exhausted(m)) return;
++  const fe = (m.fe ??= {}), cap = m.maxHp * F.vampPerSecond, b = fe.vb ?? cap, h = Math.min(b, amount);
++  fe.vb = b - h;
++  m.hp = Math.min(m.maxHp, m.hp + h);
++}
++
++/** May this monster take a Shielding ward now? Starts the lockout when it does. */
++export function takeShield(m: Monster): boolean {
++  const fe = (m.fe ??= {});
++  if ((fe.shT ?? 0) > 0 || exhausted(m)) return false;
++  fe.shT = F.shieldLockout;
++  return true;
++}
+diff --git a/src/sim/types.ts b/src/sim/types.ts
+index 98c9148..d3f5ec7 100644
+--- a/src/sim/types.ts
++++ b/src/sim/types.ts
+@@ -113,6 +113,8 @@ export interface Monster {
+ /** Curse on a monster: seconds left, % more damage taken per element, slow (0..1), skill that cast it. */
+ export interface Hex { t: number; taken: Record<Element, number>; slow: number; skill: string }
+ export interface MonFeel {
++  /** package F (stall.ts): seconds alive in the fight, vampiric heal budget, seconds until it may take another shield */
++  age?: number; vb?: number; shT?: number;
+   /** treasure creature: seconds until it escapes, and its current flight angle */
+   flee?: number; ang?: number; turn?: number;
+   /** mirror image: no loot; split: already split off its image */
+-- 
+2.43.0
+
+
+From 685cf2371c886a77e890841cbaaa043d9ff81b3b Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 24 Nov 2026 16:42:52 +0000
+Subject: [PATCH 2/6] Balance F: death streak rule (hold auto-advance one area
+ back), bot climbs difficulty only when not held, save v13
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01K7GT1onmNzUN1jshG2PQmk
+---
+ scripts/balance.ts    |  4 +--
+ scripts/bot.ts        |  5 +++-
+ src/content/hero.json |  4 ++-
+ src/content/index.ts  |  2 +-
+ src/sim/retreat.ts    | 61 +++++++++++++++++++++++++++++++++++++++++++
+ src/sim/save.ts       | 11 +++++++-
+ src/sim/sim.ts        |  9 ++++---
+ src/sim/state.ts      |  3 ++-
+ src/sim/types.ts      |  5 ++++
+ 9 files changed, 94 insertions(+), 10 deletions(-)
+ create mode 100644 src/sim/retreat.ts
+
+diff --git a/scripts/balance.ts b/scripts/balance.ts
+index da2c928..b3eca31 100644
+--- a/scripts/balance.ts
++++ b/scripts/balance.ts
+@@ -44,7 +44,7 @@ function play(build: string, seed: number): Run {
+     for (; t < h * 3600; t += 5) {
+       sim.advance(5);
+       bot.step();
+-      maxFight = Math.max(maxFight, (sim as unknown as { fightT?: number }).fightT ?? 0);
++      maxFight = Math.max(maxFight, sim.fightT);
+       if (lvl60 == null && sim.s.lvl >= 60) lvl60 = t / 3600;
+       if (career && !inRift && vesper[DIFFICULTIES.length - 1] != null && sim.phase !== 'town') {
+         inRift = true; bot.opts.rift = true; sim.s.rift.auto = true; sim.rift.startFree();
+@@ -53,7 +53,7 @@ function play(build: string, seed: number): Run {
+     pts.push({ h, lvl: sim.s.lvl, stage: stageIdx(sim), tier: sim.s.rift.maxTier, deaths: (sim.s.deaths - d0) / every, xpPct: sim.s.xp });
+     d0 = sim.s.deaths;
+   }
+-  return { pts, vesper, lvl60, maxFight, riftFails: sim.rift.stats.fails, riftRuns: sim.rift.stats.runs, deaths: sim.s.deaths, stepBacks: ((bot as unknown as { stepBacks?: number }).stepBacks ?? 0) + ((sim.s as unknown as { retreats?: number }).retreats ?? 0) };
++  return { pts, vesper, lvl60, maxFight, riftFails: sim.rift.stats.fails, riftRuns: sim.rift.stats.runs, deaths: sim.s.deaths, stepBacks: sim.s.retreats };
+ }
+ 
+ const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length);
+diff --git a/scripts/bot.ts b/scripts/bot.ts
+index d22fc6a..a45dd9e 100644
+--- a/scripts/bot.ts
++++ b/scripts/bot.ts
+@@ -9,6 +9,7 @@ import { canAfford, craftCost, craftableMods, emberBlock } from '../src/sim/craf
+ import { ascendLevel, forge, salvage } from '../src/sim/economy.ts';
+ import { topTier } from '../src/sim/items.ts';
+ import { bountyDone } from '../src/sim/bounty.ts';
++import { held } from '../src/sim/retreat.ts';
+ import { imprintBlock, imprintCost } from '../src/sim/codex.ts';
+ import { isEquip, type Item } from '../src/sim/types.ts';
+ import { isUpgrade, itemPower, modPower } from '../src/sim/upgrade.ts';
+@@ -60,7 +61,9 @@ export class Bot {
+     this.craft();
+     if (s.hpPot < 5) sim.buyPotions('hp', 5);
+     if (s.mpPot < 5) sim.buyPotions('mp', 5);
+-    if (!this.opts.rift) for (let d = DIFFICULTIES.length - 1; d > s.difficulty; d--) if (s.progress[d]) { sim.setDifficulty(d); break; }
++    // difficulty: one step up once the current one is beaten, unless the game holds auto-advance after a death streak (retreat.ts)
++    const up = s.difficulty + 1;
++    if (!this.opts.rift && sim.phase !== 'town' && up < DIFFICULTIES.length && s.progress[up] && !held(s, up, 0)) sim.setDifficulty(up);
+   }
+ 
+   private equipBest() {
+diff --git a/src/content/hero.json b/src/content/hero.json
+index 51c405a..a8ff169 100644
+--- a/src/content/hero.json
++++ b/src/content/hero.json
+@@ -73,7 +73,9 @@
+  "death": {
+   "xpLoss": 0.1,
+   "goldLoss": 0.2,
+-  "townTime": 5
++  "townTime": 5,
++  "_retreat": "package F: after `deaths` deaths in one area without clearing it, auto-advance holds one area back (first area of a difficulty: last area of the one below) until `levels` level ups or `kills` kills",
++  "retreat": { "deaths": 3, "levels": 1, "kills": 300 }
+  },
+  "_levelCap": "highest character level; after it every full XP bar of the cap level gives one ember point (meta.json ember)",
+  "levelCap": 60,
+diff --git a/src/content/index.ts b/src/content/index.ts
+index 81124fa..63a9a75 100644
+--- a/src/content/index.ts
++++ b/src/content/index.ts
+@@ -214,7 +214,7 @@ export const HERO = heroJson as unknown as {
+   xpCurve: { base: number; growth: number; linear: number };
+   barrier: { regenDelay: number; regenPerSecond: number };
+   potions: { start: number; life: number; mana: number; cooldown: number; priceBase: number; pricePerLevel: number; lifeThreshold: number; manaThreshold: number };
+-  death: { xpLoss: number; goldLoss: number; townTime: number };
++  death: { xpLoss: number; goldLoss: number; townTime: number; /** package F: hold auto-advance after this many deaths in one area */ retreat: { deaths: number; levels: number; kills: number } };
+   respecPerLevel: number;
+   /** highest character level (ember points after it, see meta.json) */ levelCap: number;
+   xpPenalty: { freeLevels: number; perLevel: number; min: number };
+diff --git a/src/sim/retreat.ts b/src/sim/retreat.ts
+new file mode 100644
+index 0000000..da9ffd2
+--- /dev/null
++++ b/src/sim/retreat.ts
+@@ -0,0 +1,61 @@
++/**
++ * Package F: no death loops. When the hero dies `deaths` times in the same area without clearing it, auto-advance holds
++ * one area back (on the first area of a difficulty: the last area of the difficulty below) until the hero gains
++ * `levels` levels or slays `kills` monsters. Numbers in src/content/hero.json › death.retreat. Rifts have their own rule.
++ */
++import { AREAS, HERO } from '../content/index.ts';
++import type { Sim } from './sim.ts';
++import type { SaveState } from './types.ts';
++
++const R = HERO.death.retreat;
++
++/** Is auto-advance into area `z` of difficulty `d` on hold? */
++export function held(s: SaveState, d: number, z: number): boolean {
++  const h = s.retreat;
++  return !!h?.held && (d > h.hd || (d === h.hd && z >= h.hz));
++}
++
++/**
++ * On a death outside rifts: count it and pick the area to return to (one back, as before). Returns the zone; may lower
++ * the difficulty when the hold starts on the first area of a difficulty.
++ */
++export function retreatOnDeath(sim: Sim): number {
++  const s = sim.s, d = s.difficulty, z = s.zone;
++  const r = (s.retreat ??= { d, z, n: 0, held: false, hd: d, hz: z, lvl: s.lvl, kills: s.kills });
++  if (r.d !== d || r.z !== z) { r.d = d; r.z = z; r.n = 0; }
++  r.n++;
++  if (!s.autoReturn || r.n < R.deaths) return Math.max(0, z - 1);
++  // too many deaths here: hold auto-advance below this area
++  r.held = true; r.n = 0; r.lvl = s.lvl; r.kills = s.kills; r.hd = d; r.hz = z;
++  s.retreats++;
++  if (z > 0) {
++    sim.log(`Too many deaths in **${AREAS[z].name}**. Auto-advance waits one area back until you are stronger (a level up or ${R.kills} kills).`, 'bad');
++    return z - 1;
++  }
++  if (d > 0) {
++    s.difficulty = d - 1;
++    sim.recalc();
++    sim.dirty.add('town'); sim.dirty.add('zones');
++    const back = Math.max(0, (s.progress[d - 1] || 1) - 1);
++    sim.log(`Too many deaths in **${AREAS[z].name}**. Back to the last area of the difficulty below until you are stronger (a level up or ${R.kills} kills).`, 'bad');
++    return back;
++  }
++  return 0;
++}
++
++/** After a level up or a kill: the hero got stronger, the hold ends. */
++export function retreatCheck(sim: Sim) {
++  const s = sim.s, r = s.retreat;
++  if (!r?.held) return;
++  if (s.lvl >= r.lvl + R.levels || s.kills >= r.kills + R.kills) {
++    r.held = false;
++    sim.log(`You feel ready for **${AREAS[r.hz]?.name ?? 'the next area'}** again. Auto-advance resumes.`, 'lvl');
++    sim.dirty.add('zones');
++  }
++}
++
++/** An area was cleared: deaths there no longer count. */
++export function retreatCleared(s: SaveState, d: number, z: number) {
++  const r = s.retreat;
++  if (r && r.d === d && r.z === z) r.n = 0;
++}
+diff --git a/src/sim/save.ts b/src/sim/save.ts
+index 631341b..b2d2cee 100644
+--- a/src/sim/save.ts
++++ b/src/sim/save.ts
+@@ -11,7 +11,7 @@ import { placeMissing } from './bag.ts';
+ import { sanitizeSkillMods } from './skillmods.ts';
+ import { DEFAULT_VOLUME, SAVE_VERSION, defaultLoot, newRiftSave, newSaveState } from './state.ts';
+ import { newMeta, sanitizeMeta } from './meta-types.ts';
+-import type { BagItem, GemItem, Item, KeyItem, RiftSave, SaveState } from './types.ts';
++import type { BagItem, GemItem, Item, KeyItem, RetreatState, RiftSave, SaveState } from './types.ts';
+ 
+ export const STORAGE_KEY = 'grimlight-save';
+ 
+@@ -72,6 +72,8 @@ const MIGRATIONS: Record<number, (s: Raw) => Raw> = {
+     for (const tab of (s.stash as unknown[][]) || []) for (const it of tab || []) fix(it);
+     return { ...s, v: 12, mats: { ...(s.mats as object), pearl: 0 } };
+   },
++  // v13: balance package F. No death streak yet, no hold on auto-advance.
++  12: s => ({ ...s, v: 13, retreat: null, retreats: 0 }),
+ };
+ 
+ /** v12: a unique from before the loot package rolled every stat at item level x1.15-1.35. Map its roll onto the new range and tier. */
+@@ -186,6 +188,7 @@ function sanitize(s: Raw): SaveState {
+   out.mana = s.mana == null ? null : num(s.mana, 0, 0);
+   out.barrier = num(s.barrier, 0, 0);
+   out.kills = Math.floor(num(s.kills, 0, 0)); out.deaths = Math.floor(num(s.deaths, 0, 0));
++  out.retreat = sanitizeRetreat(s.retreat, out, num); out.retreats = Math.floor(num(s.retreats, 0, 0));
+   out.rift = sanitizeRift((s.rift || {}) as Raw, num, bool);
+   const maxId = Math.max(0, ...out.bag.map(i => i.id), ...out.stash.flat().map(i => i.id), ...out.gems.map(g => g.id), ...Object.values(out.equip).filter((i): i is Item => !!i).map(i => i.id),
+     ...Object.values(out.sockets).flat().filter((g): g is GemItem => !!g).map(g => g.id));
+@@ -196,6 +199,12 @@ function sanitize(s: Raw): SaveState {
+   return out;
+ }
+ 
++function sanitizeRetreat(x: unknown, out: SaveState, num: (x: unknown, def: number, min?: number, max?: number) => number): RetreatState | null {
++  if (!x || typeof x !== 'object') return null;
++  const r = x as Raw, D = DIFFICULTIES.length - 1, Z = AREAS.length - 1, i = (v: unknown, max = Infinity) => Math.floor(num(v, 0, 0, max));
++  return { d: i(r.d, D), z: i(r.z, Z), n: i(r.n), held: r.held === true, hd: i(r.hd, D), hz: i(r.hz, Z), lvl: i(r.lvl) || out.lvl, kills: i(r.kills) };
++}
++
+ function sanitizeRift(r: Raw, num: (x: unknown, def: number, min?: number, max?: number) => number, bool: (x: unknown, def: boolean) => boolean): RiftSave {
+   const out = newRiftSave();
+   out.open = bool(r.open, false); out.auto = bool(r.auto, false);
+diff --git a/src/sim/sim.ts b/src/sim/sim.ts
+index dacf890..c83f869 100644
+--- a/src/sim/sim.ts
++++ b/src/sim/sim.ts
+@@ -22,6 +22,7 @@ import { genGem } from './items.ts';
+ import { addGem, takeGem } from './pouch.ts';
+ import { Loot } from './drops.ts';
+ import { exhaustTaken, fightStep, vampHeal } from './stall.ts';
++import { held, retreatCheck, retreatCleared, retreatOnDeath } from './retreat.ts';
+ import { isUpgrade } from './upgrade.ts';
+ import { Rng } from './rng.ts';
+ import { emptySlots, newSaveState } from './state.ts';
+@@ -286,6 +287,7 @@ export class Sim {
+   private zoneCleared() {
+     const z = AREAS[this.s.zone], s = this.s, d = s.difficulty;
+     this.log(`**${z.name}** cleared.`, 'good');
++    retreatCleared(s, d, s.zone); // package F: deaths here no longer count
+     if (s.zone + 1 >= this.unlocked && s.zone + 1 < AREAS.length) {
+       s.progress[d] = s.zone + 2;
+       this.log(`New area unlocked: **${AREAS[s.zone + 1].name}**.`, 'lvl');
+@@ -300,7 +302,7 @@ export class Sim {
+         this.dirty.add('town'); this.dirty.add('zones');
+       } else this.log(`Act I is complete on ${this.diff.name}. Keep farming for loot.`, 'lvl');
+     }
+-    this.enterZone(s.autoAdvance && s.zone + 1 < this.unlocked ? s.zone + 1 : s.zone);
++    this.enterZone(s.autoAdvance && s.zone + 1 < this.unlocked && !held(s, d, s.zone + 1) ? s.zone + 1 : s.zone); // package F: hold after a death streak
+   }
+ 
+   /* ---------- combat ---------- */
+@@ -645,17 +647,18 @@ export class Sim {
+       this.log(`Level ${s.lvl}! +${HERO.perLevel.attributePoints} attribute points, +${HERO.perLevel.skillPoints} skill point.`, 'lvl');
+       this.dirty.add('hero'); this.dirty.add('skills');
+     }
++    retreatCheck(this); // package F: stronger now, the hold ends
+     this.meta.onXp(); // meta: ember points after the level cap
+   }
+ 
+   private die() {
+-    const s = this.s, D = HERO.death;
++    const s = this.s, D = HERO.death, inRift = !!this.rift.run;
+     this.rift.onDeath(); this.mythic.reset(); // rift: the run fails, the key is lost
+     s.deaths++; this.run.deaths++;
+     const xl = Math.floor(s.xp * D.xpLoss), gl = Math.floor(s.gold * D.goldLoss);
+     s.xp -= xl; s.gold -= gl;
+     this.log(`You died. Lost ${xl} XP and ${gl} gold.`, 'bad');
+-    this.phase = 'town'; this.townT = D.townTime; this.returnZone = Math.max(0, s.zone - 1);
++    this.phase = 'town'; this.townT = D.townTime; this.returnZone = inRift ? Math.max(0, s.zone - 1) : retreatOnDeath(this); // package F: step back after a death streak
+     this.monsters = []; this.projectiles = []; this.strikes = []; this.echoes = []; this.drops = []; this.buffs = {}; this.faAmt = 0; this.cd = {};
+     this.feel.reset(true); // feel: lose shrine buffs
+     this.spells.reset(); this.melee.reset(); // skills, warrior
+diff --git a/src/sim/state.ts b/src/sim/state.ts
+index b190d4e..446d623 100644
+--- a/src/sim/state.ts
++++ b/src/sim/state.ts
+@@ -2,7 +2,7 @@ import { AREAS, DEFAULT_CLASS, ECONOMY, HERO, UNLOCKED_AT_START, classDef, heroF
+ import { newMeta } from './meta-types.ts';
+ import type { CastSlot, LootRules, RiftSave, SaveState } from './types.ts';
+ 
+-export const SAVE_VERSION = 12;
++export const SAVE_VERSION = 13;
+ 
+ /** Sounds are on by default, but quiet. */
+ export const DEFAULT_VOLUME = 0.3;
+@@ -38,6 +38,7 @@ export function newSaveState(cls: ClassId = DEFAULT_CLASS): SaveState {
+     settings: { dmgNumbers: true, lootLabels: true, sound: true, volume: DEFAULT_VOLUME },
+     life: null, mana: null, barrier: 0,
+     kills: 0, deaths: 0,
++    retreat: null, retreats: 0,
+     rift: newRiftSave(),
+     nextId: 1,
+     savedAt: 0,
+diff --git a/src/sim/types.ts b/src/sim/types.ts
+index d3f5ec7..6deef22 100644
+--- a/src/sim/types.ts
++++ b/src/sim/types.ts
+@@ -82,6 +82,8 @@ export interface SaveState {
+   settings: Settings;
+   life: number | null; mana: number | null; barrier: number;
+   kills: number; deaths: number;
++  /** package F (retreat.ts): deaths in the current area, and the hold on auto-advance after too many; retreats = holds so far */
++  retreat: RetreatState | null; retreats: number;
+   rift: RiftSave;
+   nextId: number;
+   savedAt: number;
+@@ -89,6 +91,9 @@ export interface SaveState {
+   meta: MetaSave;
+ }
+ 
++/** d/z/n: area of the last deaths and how many; held: auto-advance stops before area hz of difficulty hd until level lvl+1 or more kills */
++export interface RetreatState { d: number; z: number; n: number; held: boolean; hd: number; hz: number; lvl: number; kills: number }
++
+ export interface Vec { x: number; y: number }
+ 
+ export interface Monster {
+-- 
+2.43.0
+
+
+From 639207b0422444f6f827e2770624b3aa7cb552ce Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 24 Nov 2026 16:52:16 +0000
+Subject: [PATCH 3/6] WIP balance F: monster curve 1.15/1.125, softer elites
+ and bosses, Hell 1.7/1.3, rifts walk through Nightmare and Hell (tier 13 =
+ Hell end), bot values resistances
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01K7GT1onmNzUN1jshG2PQmk
+---
+ scripts/bot.ts              | 26 +++++++++++++++++++++-----
+ scripts/simulate.ts         |  2 +-
+ src/content/difficulty.json |  2 +-
+ src/content/index.ts        |  7 +++++--
+ src/content/monsters.json   | 20 ++++++++++----------
+ src/content/rift.json       | 18 ++++++++++--------
+ src/sim/formulas.ts         |  6 ++++--
+ src/sim/rift.ts             | 28 ++++++++++++++++++++--------
+ tests/formulas.test.ts      |  6 ++++--
+ tests/rift.test.ts          | 29 ++++++++++++++++++++---------
+ 10 files changed, 96 insertions(+), 48 deletions(-)
+
+diff --git a/scripts/bot.ts b/scripts/bot.ts
+index a45dd9e..c17575f 100644
+--- a/scripts/bot.ts
++++ b/scripts/bot.ts
+@@ -2,7 +2,7 @@
+  * The balancing bot shared by scripts/simulate.ts and scripts/loot-report.ts: spends points by a build plan,
+  * equips upgrades, sockets gems, claims bounties, imprints codex effects and crafts at the forge.
+  */
+-import { AFFIXES, AFFIX_ROLL, AFFIX_TIERS, DIFFICULTIES, ITEMS, SKILLS, SOCKET_LEVELS, UNIQUES, type Attr, type EmberId, type Slot } from '../src/content/index.ts';
++import { AFFIXES, AFFIX_ROLL, AFFIX_TIERS, DIFFICULTIES, HERO, ITEMS, SKILLS, SOCKET_LEVELS, UNIQUES, type Attr, type EmberId, type Slot } from '../src/content/index.ts';
+ import { gemFits } from '../src/sim/formulas.ts';
+ import { Sim } from '../src/sim/sim.ts';
+ import { canAfford, craftCost, craftableMods, emberBlock } from '../src/sim/crafting.ts';
+@@ -12,7 +12,7 @@ import { bountyDone } from '../src/sim/bounty.ts';
+ import { held } from '../src/sim/retreat.ts';
+ import { imprintBlock, imprintCost } from '../src/sim/codex.ts';
+ import { isEquip, type Item } from '../src/sim/types.ts';
+-import { isUpgrade, itemPower, modPower } from '../src/sim/upgrade.ts';
++import { itemPower, modPower } from '../src/sim/upgrade.ts';
+ import { PLANS, nextSkill, pickMods, planSlots } from './endgame.ts';
+ 
+ const attrOrder: Attr[] = ['vit', 'power', 'spirit', 'focus', 'vit'];
+@@ -66,17 +66,33 @@ export class Bot {
+     if (!this.opts.rift && sim.phase !== 'town' && up < DIFFICULTIES.length && s.progress[up] && !held(s, up, 0)) sim.setDifficulty(up);
+   }
+ 
++  /**
++   * Equip found items like a sensible player: item power plus closing the resistance gap of the current difficulty
++   * (raw resistance needed = cap minus the penalty) and some life.
++   */
+   private equipBest() {
+-    const s = this.sim.s;
++    const sim = this.sim, s = sim.s;
+     for (const it of s.bag.slice()) {
+       if (!isEquip(it) || it.unid) continue;
+       const cur = s.equip[it.slot as Slot];
+-      if (!isUpgrade(it, cur)) continue;
++      if (cur && this.value(it, cur) <= this.value(cur, cur) * 1.05 + 0.05) continue;
+       if (this.opts.rift && resOf(it) < resOf(cur) * 0.9) continue;
+-      this.sim.equip(it.id);
++      sim.equip(it.id);
+       this.upgrades++;
+     }
+   }
++  /** Bot value of an item that would replace `cur`: item power + resistance gap closed (3 power per 100 points) + life. */
++  private value(it: Item, cur: Item | null): number {
++    const st = this.sim.st, pen = this.opts.rift ? -80 : (DIFFICULTIES[this.sim.s.difficulty].resPenalty ?? 0), need = HERO.caps.res - pen;
++    const RK = ['fire', 'cold', 'light'] as const, ofIt = (x: Item | null, e: string) => (x ? x.mods.reduce((a, [k, v]) => a + (k === `${e}Res` || k === 'allRes' ? v : 0), 0) : 0);
++    let gap = 0;
++    for (const e of RK) {
++      const base = st.rawRes[e] - ofIt(cur, e);
++      gap += Math.min(need, Math.max(0, base + ofIt(it, e))) - Math.min(need, Math.max(0, base + ofIt(cur, e)));
++    }
++    const life = it.mods.reduce((a, [k, v]) => a + (k === 'life' ? v : k === 'lifePct' ? v * st.maxLife / 100 : 0), 0);
++    return itemPower(it) + gap * 0.03 + life / Math.max(100, st.maxLife) * 2;
++  }
+ 
+   /** Claim finished bounties, swap those for other areas, imprint codex effects on equipped rares. */
+   private meta() {
+diff --git a/scripts/simulate.ts b/scripts/simulate.ts
+index b9e9da7..f368173 100644
+--- a/scripts/simulate.ts
++++ b/scripts/simulate.ts
+@@ -19,7 +19,7 @@ import { newSaveState } from '../src/sim/state.ts';
+ const args = process.argv.slice(2), flag = (k: string) => { const i = args.indexOf(k); if (i < 0) return null; const v = args[i + 1]; args.splice(i, 2); return v; };
+ const riftStart = flag('--rift'), sweep = flag('--sweep'), heroLvl = Number(flag('--level') ?? 60), ref = flag('--ref');
+ // --ref L:D anchors tier 1 at monster level L of difficulty D instead of rift.json (to test pacing while Hell itself is not beatable)
+-if (ref) { const [L, D] = ref.split(':').map(Number); RIFT.scaling.refLevel = L; RIFT.scaling.refDifficulty = D ?? 2; RIFT.scaling.level.base = L; }
++if (ref) { const [L, D] = ref.split(':').map(Number); RIFT.scaling.refDifficulty = D ?? 2; RIFT.scaling.level.base = L; }
+ const minutes = Number(args[0] ?? 60), seed = Number(args[1] ?? 1), build = args[2] ?? 'fire';
+ const riftMode = riftStart != null || sweep != null;
+ const sim = new Sim(riftMode ? endgameSave(build, heroLvl, seed) : newSaveState(planClass(build)), { seed, headless: true });
+diff --git a/src/content/difficulty.json b/src/content/difficulty.json
+index 67d40d5..aa0aa5f 100644
+--- a/src/content/difficulty.json
++++ b/src/content/difficulty.json
+@@ -2,7 +2,7 @@
+   "difficulties": [
+     { "name": "Normal",    "levelAdd": 0,  "resPenalty": 0,   "hpMult": 1,   "dmgMult": 1,   "xpMult": 1,   "goldMult": 1 },
+     { "name": "Nightmare", "levelAdd": 18, "resPenalty": -40, "hpMult": 1.4, "dmgMult": 1.2, "xpMult": 1.5, "goldMult": 1.5 },
+-    { "name": "Hell",      "levelAdd": 36, "resPenalty": -80, "hpMult": 1.9, "dmgMult": 1.4, "xpMult": 2,   "goldMult": 2 }
++    { "name": "Hell",      "levelAdd": 36, "resPenalty": -80, "hpMult": 1.7, "dmgMult": 1.3, "xpMult": 2,   "goldMult": 2 }
+   ],
+   "offline": { "rate": 0.5, "maxHours": 8, "minSeconds": 60 }
+ }
+diff --git a/src/content/index.ts b/src/content/index.ts
+index 63a9a75..417bb95 100644
+--- a/src/content/index.ts
++++ b/src/content/index.ts
+@@ -151,7 +151,7 @@ export const isFiller = (id: string) => { const d = SKILLS[id]; return !!d && !d
+ const mo = monstersJson as unknown as {
+   monsters: Record<string, MonsterDef>; ranks: RankDef[]; eliteMods: Record<string, EliteModDef>; eliteModCount: [number, number];
+   eliteNames: { first: string[]; second: string[] }; championMods: { chance: number; pool: string[] }; fightLimits: FightLimits;
+-  scaling: { hpBase: number; hpGrowth: number; dmgBase: number; dmgGrowth: number; xpBase: number; xpGrowth: number; ownElementRes: number; meleeRange: number; projectileSpeed: number };
++  scaling: { hpBase: number; hpGrowth: number; dmgBase: number; dmgGrowth: number; xpBase: number; xpGrowth: number; xpSoftLevel: number; xpGrowthAfter: number; ownElementRes: number; meleeRange: number; projectileSpeed: number };
+   waves: { championChance: number; eliteChance: number; spawnDistance: number; bossDistance: number };
+ };
+ export const MONSTERS = mo.monsters;
+@@ -392,7 +392,10 @@ export interface RiftMechanic { name: string; label: string; first: number; ever
+ export interface RiftLoot { items: [number, number]; minRarity: number; goldPiles: [number, number]; goldPerPile: number; gemChance: number; rarityBoost?: number }
+ export interface RiftDef {
+   unlock: { difficulty: number };
+-  scaling: { refLevel: number; refDifficulty: number; hpGrowth: number; hpLinear: number; dmgGrowth: number; dmgLinear: number; level: { base: number; perTier: number; max: number }; resPenalty: number };
++  scaling: {
++    refDifficulty: number; hellDifficulty: number; hellTier: number; hpGrowth: number; hpLinear: number; dmgGrowth: number; dmgLinear: number;
++    level: { base: number; perTier: number; knee: number; perTierAfter: number; max: number }; resPenalty: number; resPenaltyHell: number;
++  };
+   run: { progressNeed: number; points: number[]; timer: number; waveSize: [number, number]; typesPerWave: number; championChance: number; eliteChance: number; autoTierAboveBest: number; itemQuantity: number };
+   guardian: { pool: string[]; hpMult: number; dmgMult: number; scale: number; sub: string; epithets: string[]; slam: RiftMechanic; rain: RiftMechanic; enrageBelow: number; enrageRate: number; loot: RiftLoot };
+   rewards: { lowerChance: number; eliteKeyChance: number; fragChance: number };
+diff --git a/src/content/monsters.json b/src/content/monsters.json
+index 5b725c0..0f38599 100644
+--- a/src/content/monsters.json
++++ b/src/content/monsters.json
+@@ -25,7 +25,7 @@
+           { "belowHp": 0.5, "element": "cold", "res": { "fire": 0.2, "cold": 0.4, "light": 0.2 },
+             "message": "Mother Vesper's flame gutters out. Frost pours from her robes." }
+         ],
+-        "special": { "name": "Pale Toll", "first": 6, "every": 8, "mult": 2.5, "radius": 7 }
++        "special": { "name": "Pale Toll", "first": 6, "every": 8, "mult": 2, "radius": 7 }
+       }
+     },
+     "matriarch": { "name": "The Hollow Matriarch", "element": "fire", "hp": 1, "dmg": 1, "attackTime": 1.5, "moveSpeed": 1.05, "sprite": "matriarch", "height": 175, "ranged": 6,
+@@ -45,16 +45,16 @@
+   },
+   "ranks": [
+     { "name": "",         "hp": 1,  "dmg": 1,   "xp": 1,  "gold": 1,  "size": 1,    "color": "#d8d0c2" },
+-    { "name": "Champion", "hp": 3,  "dmg": 1.4, "xp": 3,  "gold": 2,  "size": 1.15, "color": "#8aa2ff" },
+-    { "name": "Elite",    "hp": 5,  "dmg": 1.7, "xp": 6,  "gold": 4,  "size": 1.25, "color": "#e8cc5c" },
+-    { "name": "Boss",     "hp": 24, "dmg": 2,   "xp": 30, "gold": 15, "size": 1,    "color": "#e0913f" }
++    { "name": "Champion", "hp": 3,  "dmg": 1.3, "xp": 3,  "gold": 2,  "size": 1.15, "color": "#8aa2ff" },
++    { "name": "Elite",    "hp": 5,  "dmg": 1.5, "xp": 6,  "gold": 4,  "size": 1.25, "color": "#e8cc5c" },
++    { "name": "Boss",     "hp": 24, "dmg": 1.6,   "xp": 30, "gold": 15, "size": 1,    "color": "#e0913f" }
+   ],
+   "eliteMods": {
+-    "Fast":      { "attackTime": 0.6, "moveSpeed": 1.5 },
++    "Fast":      { "attackTime": 0.75, "moveSpeed": 1.4 },
+     "Warded":    { "wardPct": 0.3 },
+     "Vampiric":  { "vampPct": 0.3 },
+-    "Enchanted": { "ownResAdd": 0.4, "dmg": 1.3 },
+-    "Mighty":    { "dmg": 1.6 },
++    "Enchanted": { "ownResAdd": 0.4, "dmg": 1.15 },
++    "Mighty":    { "dmg": 1.35 },
+     "Fire-Enchanted": { "deathBlast": { "delay": 1.1, "radius": 2.4, "mult": 2, "element": "fire", "name": "Death Pyre" } },
+     "Frost Aura":     { "aura": { "radius": 3.2, "every": 1, "mult": 0.22, "chill": 0.25, "chillTime": 1.5, "element": "cold" } },
+     "Teleporting":    { "teleport": { "every": 4, "minDist": 3, "near": 1.3 } },
+@@ -75,9 +75,9 @@
+     "second": ["the Cruel", "the Unwept", "the Hungry", "the Lantern-Eater", "the Gnawing", "Twice-Buried", "of the Mire", "the Ashen"]
+   },
+   "scaling": {
+-    "hpBase": 18, "hpGrowth": 1.17,
+-    "dmgBase": 2.4, "dmgGrowth": 1.15,
+-    "xpBase": 5, "xpGrowth": 1.22,
++    "hpBase": 18, "hpGrowth": 1.15,
++    "dmgBase": 2.4, "dmgGrowth": 1.125,
++    "xpBase": 5, "xpGrowth": 1.22, "_xpSoft": "package F: above monster level xpSoftLevel experience grows only by xpGrowthAfter per level (deep rift tiers would flood ember points)", "xpSoftLevel": 60, "xpGrowthAfter": 1.06,
+     "ownElementRes": 0.25,
+     "meleeRange": 1.55,
+     "projectileSpeed": 7
+diff --git a/src/content/rift.json b/src/content/rift.json
+index c6fb398..29cd6e7 100644
+--- a/src/content/rift.json
++++ b/src/content/rift.json
+@@ -5,15 +5,17 @@
+     "difficulty": 0
+   },
+   "scaling": {
+-    "_doc": "Tier t: life = life of a monster at refLevel on refDifficulty x hpGrowth^(t-1) x (1 + hpLinear x (t-1)); damage the same with dmgGrowth/dmgLinear. Monster level (experience, gold, item level) = base + floor((t-1) x perTier), at most max. Resistances of the hero get resPenalty in every rift, like Nightmare.",
+-    "refLevel": 18,
++    "_doc": "Package F: rift monsters are campaign monsters of the tier's monster level. Level = base + perTier per tier up to tier knee, then perTierAfter per tier (at most max; fractions count for life and damage, the whole level for experience, gold and items). Tier 1 = start of Nightmare (refDifficulty); up to hellTier the Nightmare multipliers and the hero's resistance penalty slide to those of Hell (hellDifficulty, resPenaltyHell), so tier hellTier is as hard as the end of Hell. Beyond it, life and damage grow by hpGrowth/dmgGrowth per tier on top (x (1 + linear x tiers)).",
+     "refDifficulty": 1,
+-    "hpGrowth": 1.035,
+-    "hpLinear": 0.02,
+-    "dmgGrowth": 1.018,
+-    "dmgLinear": 0.01,
+-    "level": { "base": 18, "perTier": 0.75, "max": 99 },
+-    "resPenalty": -40
++    "hellDifficulty": 2,
++    "hellTier": 13,
++    "hpGrowth": 1.02,
++    "hpLinear": 0,
++    "dmgGrowth": 1.01,
++    "dmgLinear": 0,
++    "level": { "base": 18, "perTier": 2.5, "knee": 13, "perTierAfter": 0.5, "max": 99 },
++    "resPenalty": -40,
++    "resPenaltyHell": -80
+   },
+   "run": {
+     "_doc": "Kills fill the progress bar (points per rank: normal, champion, elite, boss). When it is full the Rift Guardian appears. Beating the timer upgrades the next key.",
+diff --git a/src/sim/formulas.ts b/src/sim/formulas.ts
+index 79a374b..b256943 100644
+--- a/src/sim/formulas.ts
++++ b/src/sim/formulas.ts
+@@ -16,8 +16,10 @@ export const monsterHp = (def: string, L: number, rank: number, diff = 0) =>
+   Math.round(MONSTER_SCALING.hpBase * Math.pow(MONSTER_SCALING.hpGrowth, L - 1) * MONSTERS[def].hp * RANKS[rank].hp * DIFFICULTIES[diff].hpMult);
+ export const monsterDmg = (def: string, L: number, rank: number, diff = 0) =>
+   MONSTER_SCALING.dmgBase * Math.pow(MONSTER_SCALING.dmgGrowth, L - 1) * MONSTERS[def].dmg * RANKS[rank].dmg * DIFFICULTIES[diff].dmgMult;
+-export const monsterXp = (L: number, rank: number, diff = 0) =>
+-  Math.round(MONSTER_SCALING.xpBase * Math.pow(MONSTER_SCALING.xpGrowth, L - 1) * RANKS[rank].xp * DIFFICULTIES[diff].xpMult);
++export const monsterXp = (L: number, rank: number, diff = 0) => {
++  const S = MONSTER_SCALING, soft = Math.min(L, S.xpSoftLevel); // package F: slower growth above the soft level
++  return Math.round(S.xpBase * Math.pow(S.xpGrowth, soft - 1) * Math.pow(S.xpGrowthAfter, Math.max(0, L - soft)) * RANKS[rank].xp * DIFFICULTIES[diff].xpMult);
++};
+ 
+ const EL_KEY: Record<Element, string> = { fire: 'fire', cold: 'cold', light: 'light' };
+ const TREE_PLUS: Record<string, string> = { ember: 'plusEmber', frost: 'plusFrost', storm: 'plusStorm', cinder: 'plusCinder', rime: 'plusRime', thunder: 'plusThunder' };
+diff --git a/src/sim/rift.ts b/src/sim/rift.ts
+index b2c7cca..a8b0682 100644
+--- a/src/sim/rift.ts
++++ b/src/sim/rift.ts
+@@ -5,7 +5,7 @@
+  * few marked lines. All numbers live in src/content/rift.json. Seeded RNG only.
+  */
+ import {
+-  AREAS, ATLAS_NODES, ELEMENTS, HERO, KEY_MODS, MONSTERS, MYTHIC_UNIQUES, RIFT, type Element, type RiftFx, type RiftLoot, type RiftMechanic,
++  AREAS, ATLAS_NODES, DIFFICULTIES, ELEMENTS, HERO, KEY_MODS, MONSTERS, MYTHIC_UNIQUES, RIFT, type Element, type RiftFx, type RiftLoot, type RiftMechanic,
+ } from '../content/index.ts';
+ import { clamp, monsterDmg, monsterHp, type Stats } from './formulas.ts';
+ import { genGem, genUnique } from './items.ts';
+@@ -17,13 +17,25 @@ import { isEquip, isKey, type BagItem, type KeyItem, type Monster, type RiftResu
+ const S = RIFT.scaling;
+ 
+ /* ---------- scaling (pure) ---------- */
+-/** Monster life multiplier of a tier, relative to monsters at the reference level and difficulty. */
+-export const riftHpMult = (t: number) => Math.pow(S.hpGrowth, t - 1) * (1 + S.hpLinear * (t - 1));
+-export const riftDmgMult = (t: number) => Math.pow(S.dmgGrowth, t - 1) * (1 + S.dmgLinear * (t - 1));
++/** Exact monster level of a tier (fractions count for life and damage). */
++export const riftLevelExact = (t: number) => {
++  const L = S.level, k = Math.max(1, L.knee);
++  return Math.min(L.max, L.base + L.perTier * (Math.min(t, k) - 1) + L.perTierAfter * Math.max(0, t - k));
++};
+ /** Monster level of a tier (experience, gold, item level). */
+-export const riftLevel = (t: number) => Math.min(S.level.max, S.level.base + Math.floor((t - 1) * S.level.perTier));
+-export const riftMonHp = (def: string, rank: number, t: number) => monsterHp(def, S.refLevel, rank, S.refDifficulty) * riftHpMult(t);
+-export const riftMonDmg = (def: string, rank: number, t: number) => monsterDmg(def, S.refLevel, rank, S.refDifficulty) * riftDmgMult(t);
++export const riftLevel = (t: number) => Math.floor(riftLevelExact(t));
++/** 0 at tier 1, 1 from hellTier on: how far Nightmare multipliers and resistance penalty have slid towards Hell. */
++const hellMix = (t: number) => clamp((t - 1) / Math.max(1, S.hellTier - 1), 0, 1);
++const blend = (t: number, k: 'hpMult' | 'dmgMult') => 1 + (DIFFICULTIES[S.hellDifficulty][k] / DIFFICULTIES[S.refDifficulty][k] - 1) * hellMix(t);
++const beyond = (t: number, g: number, lin: number) => { const n = Math.max(0, t - S.hellTier); return Math.pow(g, n) * (1 + lin * n); };
++/** Monster life of a tier (campaign monster of the tier level, Nightmare→Hell blend, extra growth beyond hellTier). */
++export const riftMonHp = (def: string, rank: number, t: number) => monsterHp(def, riftLevelExact(t), rank, S.refDifficulty) * blend(t, 'hpMult') * beyond(t, S.hpGrowth, S.hpLinear);
++export const riftMonDmg = (def: string, rank: number, t: number) => monsterDmg(def, riftLevelExact(t), rank, S.refDifficulty) * blend(t, 'dmgMult') * beyond(t, S.dmgGrowth, S.dmgLinear);
++/** Monster life and damage of a tier relative to tier 1 (for reports and tests). */
++export const riftHpMult = (t: number) => riftMonHp('husk', 0, t) / riftMonHp('husk', 0, 1);
++export const riftDmgMult = (t: number) => riftMonDmg('husk', 0, t) / riftMonDmg('husk', 0, 1);
++/** Resistance penalty of the hero in a tier (Nightmare's at tier 1, Hell's from hellTier on). */
++export const riftResPenalty = (t: number) => Math.round(S.resPenalty + (S.resPenaltyHell - S.resPenalty) * hellMix(t));
+ 
+ /* ---------- modifiers (pure) ---------- */
+ type NumKey = Exclude<keyof RiftFx, 'monRes'>;
+@@ -261,7 +273,7 @@ export class Rift {
+   applyStats(st: Stats) {
+     const fx = this.run?.fx;
+     if (!fx) return;
+-    const C = HERO.caps, pen = S.resPenalty + fxv(fx, 'heroRes');
++    const C = HERO.caps, pen = riftResPenalty(this.run!.tier) + fxv(fx, 'heroRes');
+     for (const e of ELEMENTS) st.res[e] = clamp(st.rawRes[e] + pen, C.resMin, C.res);
+     st.barrierRegen += fxv(fx, 'heroBarrierRegen');
+   }
+diff --git a/tests/formulas.test.ts b/tests/formulas.test.ts
+index da8ad9c..1620e24 100644
+--- a/tests/formulas.test.ts
++++ b/tests/formulas.test.ts
+@@ -3,6 +3,7 @@ import {
+   afterHeroRes, afterRes, affixValue, calcStats, castTime, damageRange, gemFits, gemValue, hitDamage, itemScore, monsterDmg, monsterHp,
+   monsterXp, sellValue, skillCtx, total, xpFactor, xpNeeded,
+ } from '../src/sim/formulas.ts';
++import { MONSTER_SCALING, RANKS } from '../src/content/index.ts';
+ import { newSaveState } from '../src/sim/state.ts';
+ import type { Item } from '../src/sim/types.ts';
+ 
+@@ -18,9 +19,10 @@ describe('experience and monsters', () => {
+   it('monster scaling', () => {
+     expect(monsterHp('imp', 1, 0)).toBe(18);
+     expect(monsterHp('imp', 1, 3)).toBe(18 * 24);
+-    expect(monsterHp('husk', 7, 0)).toBe(Math.round(18 * 1.17 ** 6 * 1.6));
++    const S = MONSTER_SCALING;
++    expect(monsterHp('husk', 7, 0)).toBe(Math.round(18 * S.hpGrowth ** 6 * 1.6));
+     expect(monsterDmg('imp', 1, 0)).toBeCloseTo(2.4);
+-    expect(monsterDmg('imp', 3, 2)).toBeCloseTo(2.4 * 1.15 ** 2 * 1.7);
++    expect(monsterDmg('imp', 3, 2)).toBeCloseTo(2.4 * S.dmgGrowth ** 2 * RANKS[2].dmg);
+     expect(monsterXp(1, 0)).toBe(5);
+     expect(monsterXp(1, 2)).toBe(30);
+   });
+diff --git a/tests/rift.test.ts b/tests/rift.test.ts
+index b28eeec..21f8736 100644
+--- a/tests/rift.test.ts
++++ b/tests/rift.test.ts
+@@ -1,10 +1,10 @@
+ import { describe, expect, it } from 'vitest';
+-import { ATLAS_NODES, COMMON_UNIQUES, KEY_MODS, MONSTERS, MYTHIC_UNIQUES, RIFT, UNIQUES } from '../src/content/index.ts';
++import { AREAS, ATLAS_NODES, COMMON_UNIQUES, DIFFICULTIES, KEY_MODS, MONSTERS, MYTHIC_UNIQUES, RIFT, UNIQUES } from '../src/content/index.ts';
+ import { monsterDmg, monsterHp } from '../src/sim/formulas.ts';
+ import { genItem } from '../src/sim/items.ts';
+ import { ailmentMult } from '../src/sim/mythic.ts';
+ import {
+-  atlasBlock, atlasEarned, atlasFree, keyReward, keyRisk, pinnacleOpen, riftDmgMult, riftHpMult, riftLevel, riftMonDmg, riftMonHp, rollKey, runFx,
++  atlasBlock, atlasEarned, atlasFree, keyReward, keyRisk, pinnacleOpen, riftDmgMult, riftHpMult, riftLevel, riftLevelExact, riftMonDmg, riftMonHp, riftResPenalty, rollKey, runFx,
+ } from '../src/sim/rift.ts';
+ import { Rng } from '../src/sim/rng.ts';
+ import { exportCode, importCode, migrate } from '../src/sim/save.ts';
+@@ -38,20 +38,31 @@ describe('rift scaling', () => {
+     const S = RIFT.scaling;
+     expect(riftLevel(1)).toBe(S.level.base);
+     expect(riftHpMult(1)).toBe(1);
+-    expect(riftMonHp('cultist', 0, 1)).toBeCloseTo(monsterHp('cultist', S.refLevel, 0, S.refDifficulty), -1);
+-    expect(riftMonDmg('cultist', 2, 1)).toBeCloseTo(monsterDmg('cultist', S.refLevel, 2, S.refDifficulty), 5);
++    expect(riftMonHp('cultist', 0, 1)).toBeCloseTo(monsterHp('cultist', S.level.base, 0, S.refDifficulty), -1);
++    expect(riftMonDmg('cultist', 2, 1)).toBeCloseTo(monsterDmg('cultist', S.level.base, 2, S.refDifficulty), 5);
++    expect(riftResPenalty(1)).toBe(S.resPenalty);
++  });
++  it('the Hell tier is as hard as the end of Hell (package F)', () => {
++    const S = RIFT.scaling, L = riftLevelExact(S.hellTier);
++    expect(riftMonHp('husk', 0, S.hellTier)).toBeCloseTo(monsterHp('husk', L, 0, S.hellDifficulty), -1);
++    expect(riftMonDmg('husk', 2, S.hellTier)).toBeCloseTo(monsterDmg('husk', L, 2, S.hellDifficulty), 3);
++    expect(riftResPenalty(S.hellTier)).toBe(S.resPenaltyHell);
++    expect(riftResPenalty(S.hellTier + 20)).toBe(S.resPenaltyHell);
++    // the end of Hell (last area + boss levels) lies between tiers 10 and 15
++    const hellEnd = AREAS[AREAS.length - 1].level + DIFFICULTIES[S.hellDifficulty].levelAdd;
++    expect(riftLevel(10)).toBeLessThanOrEqual(hellEnd + 2);
++    expect(riftLevel(15)).toBeGreaterThanOrEqual(hellEnd);
+   });
+   it('grows smoothly and stays finite and sane at tier 100 and beyond', () => {
+     for (let t = 1; t < 200; t++) {
+       expect(riftHpMult(t + 1)).toBeGreaterThan(riftHpMult(t));
+       expect(riftDmgMult(t + 1)).toBeGreaterThan(riftDmgMult(t));
+-      expect(riftHpMult(t + 1) / riftHpMult(t)).toBeLessThan(1.06);
+-      expect(riftLevel(t + 1) - riftLevel(t)).toBeLessThanOrEqual(1);
++      // steep while it walks through Nightmare and Hell, gentle beyond (endless tiers)
++      expect(riftHpMult(t + 1) / riftHpMult(t)).toBeLessThan(t < RIFT.scaling.hellTier ? 1.5 : 1.12);
++      expect(riftLevel(t + 1) - riftLevel(t)).toBeLessThanOrEqual(3);
+     }
+     const hp = riftMonHp('husk', 3, 100), dmg = riftMonDmg('husk', 3, 100);
+     expect(Number.isFinite(hp) && Number.isFinite(dmg)).toBe(true);
+-    expect(riftHpMult(100)).toBeLessThan(200);
+-    expect(riftDmgMult(100)).toBeLessThan(25);
+     expect(riftLevel(100)).toBeLessThanOrEqual(RIFT.scaling.level.max);
+     expect(Number.isFinite(riftMonHp('husk', 3, 1000))).toBe(true);
+   });
+@@ -61,7 +72,7 @@ describe('rift scaling', () => {
+     const m = sim.mkMon('imp', sim.areaLevel(), 0, 0, 0);
+     expect(m.maxHp).toBe(Math.round(riftMonHp('imp', 0, 10)));
+     expect(m.L).toBe(riftLevel(10));
+-    expect(sim.st.res.fire).toBeLessThanOrEqual(RIFT.scaling.resPenalty + sim.st.rawRes.fire + 0.001);
++    expect(sim.st.res.fire).toBeLessThanOrEqual(riftResPenalty(10) + sim.st.rawRes.fire + 0.001);
+   });
+ });
+ 
+-- 
+2.43.0
+
+
+From fc6087c3213a23020fe1542ca060a9dfa34e392f Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 24 Nov 2026 21:42:06 +0000
+Subject: [PATCH 4/6] WIP balance F: flatter monster curve (1.12/1.095) with
+ bigger difficulty steps, xp growth 1.42, smarter step-out of warning circles,
+ balance report shows hero level at milestones
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01K7GT1onmNzUN1jshG2PQmk
+---
+ scripts/balance.ts          | 9 +++++----
+ scripts/bot.ts              | 2 +-
+ src/content/difficulty.json | 4 ++--
+ src/content/hero.json       | 2 +-
+ src/content/monsters.json   | 4 ++--
+ src/sim/feel.ts             | 8 ++++++++
+ 6 files changed, 19 insertions(+), 10 deletions(-)
+
+diff --git a/scripts/balance.ts b/scripts/balance.ts
+index b3eca31..e771519 100644
+--- a/scripts/balance.ts
++++ b/scripts/balance.ts
+@@ -22,7 +22,7 @@ const hours = Number(args[0] ?? 8), seeds = (args[1] ?? '1,2,3').split(',').map(
+ const builds = (args[2] ?? 'fire,lance,cold,storm,wfire,wcold,wstorm').split(',');
+ 
+ interface Point { h: number; lvl: number; stage: number; tier: number; deaths: number; xpPct: number }
+-interface Run { pts: Point[]; vesper: (number | null)[]; lvl60: number | null; maxFight: number; riftFails: number; riftRuns: number; deaths: number; stepBacks: number }
++interface Run { pts: Point[]; vesper: (number | null)[]; vlvl: (number | null)[]; lvl60: number | null; maxFight: number; riftFails: number; riftRuns: number; deaths: number; stepBacks: number }
+ 
+ const stageIdx = (sim: Sim) => {
+   let best = 0;
+@@ -34,10 +34,10 @@ const stageName = (i: number) => i <= 0 ? '-' : `${['N', 'NM', 'H'][Math.floor((
+ function play(build: string, seed: number): Run {
+   const sim = new Sim(newSaveState(planClass(build)), { seed, headless: true });
+   const bot = new Bot(sim, build);
+-  const vesper: (number | null)[] = DIFFICULTIES.map(() => null);
++  const vesper: (number | null)[] = DIFFICULTIES.map(() => null), vlvl: (number | null)[] = DIFFICULTIES.map(() => null);
+   let t = 0, lvl60: number | null = null, maxFight = 0, inRift = false;
+   const orig = sim.rift.onActBoss.bind(sim.rift);
+-  sim.rift.onActBoss = (d: number) => { if (vesper[d] == null) vesper[d] = t / 3600; orig(d); };
++  sim.rift.onActBoss = (d: number) => { if (vesper[d] == null) { vesper[d] = t / 3600; vlvl[d] = sim.s.lvl; } orig(d); };
+   const pts: Point[] = [];
+   let d0 = 0;
+   for (let h = every; h <= hours; h += every) {
+@@ -53,7 +53,7 @@ function play(build: string, seed: number): Run {
+     pts.push({ h, lvl: sim.s.lvl, stage: stageIdx(sim), tier: sim.s.rift.maxTier, deaths: (sim.s.deaths - d0) / every, xpPct: sim.s.xp });
+     d0 = sim.s.deaths;
+   }
+-  return { pts, vesper, lvl60, maxFight, riftFails: sim.rift.stats.fails, riftRuns: sim.rift.stats.runs, deaths: sim.s.deaths, stepBacks: sim.s.retreats };
++  return { pts, vesper, vlvl, lvl60, maxFight, riftFails: sim.rift.stats.fails, riftRuns: sim.rift.stats.runs, deaths: sim.s.deaths, stepBacks: sim.s.retreats };
+ }
+ 
+ const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length);
+@@ -74,5 +74,6 @@ for (const build of builds) {
+     console.log(`${String(ps[0].h).padStart(4)}  ${f1(avg(ps.map(p => p.lvl))).padStart(5)}   ${ps.map(p => stageName(p.stage).padEnd(4)).join(' ').padEnd(20)} ${f1(avg(ps.map(p => p.tier))).padStart(5)}   ${ps.map(p => f1(p.deaths).padStart(4)).join(' ')}  avg ${f1(avg(ps.map(p => p.deaths)))}`);
+   }
+   console.log(`  Vesper N/NM/H (h, per seed): ${runs.map(r => fm(r.vesper)).join(' | ')}`);
++  console.log(`  hero level then:             ${runs.map(r => r.vlvl.map(x => x == null ? '  -  ' : String(x).padStart(5)).join(' ')).join(' | ')}`);
+   console.log(`  level 60 at (h): ${runs.map(r => r.lvl60 == null ? '-' : f1(r.lvl60)).join(', ')} · deaths ${runs.map(r => r.deaths).join(', ')} · step-backs ${runs.map(r => r.stepBacks).join(', ')} · longest fight ${Math.round(Math.max(...runs.map(r => r.maxFight)))} s${career ? ` · rifts ${runs.map(r => `${r.riftRuns} ok/${r.riftFails} died`).join(', ')}` : ''}`);
+ }
+diff --git a/scripts/bot.ts b/scripts/bot.ts
+index c17575f..e5863b7 100644
+--- a/scripts/bot.ts
++++ b/scripts/bot.ts
+@@ -91,7 +91,7 @@ export class Bot {
+       gap += Math.min(need, Math.max(0, base + ofIt(it, e))) - Math.min(need, Math.max(0, base + ofIt(cur, e)));
+     }
+     const life = it.mods.reduce((a, [k, v]) => a + (k === 'life' ? v : k === 'lifePct' ? v * st.maxLife / 100 : 0), 0);
+-    return itemPower(it) + gap * 0.03 + life / Math.max(100, st.maxLife) * 2;
++    return itemPower(it) + gap * 0.05 + life / Math.max(100, st.maxLife) * 2;
+   }
+ 
+   /** Claim finished bounties, swap those for other areas, imprint codex effects on equipped rares. */
+diff --git a/src/content/difficulty.json b/src/content/difficulty.json
+index aa0aa5f..e617777 100644
+--- a/src/content/difficulty.json
++++ b/src/content/difficulty.json
+@@ -1,8 +1,8 @@
+ {
+   "difficulties": [
+     { "name": "Normal",    "levelAdd": 0,  "resPenalty": 0,   "hpMult": 1,   "dmgMult": 1,   "xpMult": 1,   "goldMult": 1 },
+-    { "name": "Nightmare", "levelAdd": 18, "resPenalty": -40, "hpMult": 1.4, "dmgMult": 1.2, "xpMult": 1.5, "goldMult": 1.5 },
+-    { "name": "Hell",      "levelAdd": 36, "resPenalty": -80, "hpMult": 1.7, "dmgMult": 1.3, "xpMult": 2,   "goldMult": 2 }
++    { "name": "Nightmare", "levelAdd": 18, "resPenalty": -40, "hpMult": 2.6, "dmgMult": 1.4, "xpMult": 1.5, "goldMult": 1.5 },
++    { "name": "Hell",      "levelAdd": 36, "resPenalty": -80, "hpMult": 2.8, "dmgMult": 1.4, "xpMult": 2,   "goldMult": 2 }
+   ],
+   "offline": { "rate": 0.5, "maxHours": 8, "minSeconds": 60 }
+ }
+diff --git a/src/content/hero.json b/src/content/hero.json
+index a8ff169..fccef9c 100644
+--- a/src/content/hero.json
++++ b/src/content/hero.json
+@@ -53,7 +53,7 @@
+  },
+  "xpCurve": {
+   "base": 30,
+-  "growth": 1.36,
++  "growth": 1.42,
+   "linear": 20
+  },
+  "barrier": {
+diff --git a/src/content/monsters.json b/src/content/monsters.json
+index 0f38599..2f2d5d7 100644
+--- a/src/content/monsters.json
++++ b/src/content/monsters.json
+@@ -75,8 +75,8 @@
+     "second": ["the Cruel", "the Unwept", "the Hungry", "the Lantern-Eater", "the Gnawing", "Twice-Buried", "of the Mire", "the Ashen"]
+   },
+   "scaling": {
+-    "hpBase": 18, "hpGrowth": 1.15,
+-    "dmgBase": 2.4, "dmgGrowth": 1.125,
++    "hpBase": 18, "hpGrowth": 1.12,
++    "dmgBase": 2.4, "dmgGrowth": 1.095,
+     "xpBase": 5, "xpGrowth": 1.22, "_xpSoft": "package F: above monster level xpSoftLevel experience grows only by xpGrowthAfter per level (deep rift tiers would flood ember points)", "xpSoftLevel": 60, "xpGrowthAfter": 1.06,
+     "ownElementRes": 0.25,
+     "meleeRange": 1.55,
+diff --git a/src/sim/feel.ts b/src/sim/feel.ts
+index 4dfc15a..cfe9fba 100644
+--- a/src/sim/feel.ts
++++ b/src/sim/feel.ts
+@@ -143,6 +143,14 @@ export class Feel {
+         let ax = h.x - b.x, ay = h.y - b.y;
+         const l = Math.hypot(ax, ay);
+         if (l < 0.05) { ax = -sim.dir.x; ay = -sim.dir.y; } else { ax /= l; ay /= l; }
++        // package F: of 16 directions take the one closest to "away" whose end point is clear of every circle
++        // (a line of circles is left sideways instead of along the line)
++        const step = HERO.movement.kiteSpeed * HERO.movement.kiteTime * 1.5, a0 = Math.atan2(ay, ax);
++        const clear = (x: number, y: number) => this.blasts.every(o => dist(o, { x, y }) > o.r + 0.2);
++        for (let i = 0; i < 16; i++) {
++          const a = a0 + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * (Math.PI / 8);
++          if (clear(h.x + Math.cos(a) * step, h.y + Math.sin(a) * step)) { ax = Math.cos(a); ay = Math.sin(a); break; }
++        }
+         sim.kdir = { x: ax, y: ay }; sim.kite = HERO.movement.kiteTime;
+       }
+     }
+-- 
+2.43.0
+
+
+From 4119ca00d013decc360124c309e76c130591e758 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 24 Nov 2026 21:46:47 +0000
+Subject: [PATCH 5/6] WIP balance F: class damage factor (warrior 0.82, elemDR
+ 20), Nightmare tougher, Hell softer, rift pack factors
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01K7GT1onmNzUN1jshG2PQmk
+---
+ src/content/classes.json    | 4 +++-
+ src/content/difficulty.json | 4 ++--
+ src/content/hero.json       | 2 +-
+ src/content/index.ts        | 3 ++-
+ src/content/rift.json       | 3 +++
+ src/sim/formulas.ts         | 2 +-
+ src/sim/rift.ts             | 4 ++--
+ tests/formulas.test.ts      | 9 +++++----
+ tests/rift.test.ts          | 8 ++++----
+ 9 files changed, 23 insertions(+), 16 deletions(-)
+
+diff --git a/src/content/classes.json b/src/content/classes.json
+index 08d16dc..9d70505 100644
+--- a/src/content/classes.json
++++ b/src/content/classes.json
+@@ -24,6 +24,8 @@
+       "melee": true,
+       "reach": 1.9,
+       "furyPerSwing": 3,
++      "_damageMult": "package F: class balance. The warrior hits harder per skill point than the sorceress; this hidden factor evens out kill speed (see scripts/balance.ts).",
++      "damageMult": 0.82,
+       "sprite": "warrior",
+       "attributes": {
+         "power": { "name": "Power", "description": "+1% attack damage" },
+@@ -34,7 +36,7 @@
+       "startAttributes": { "power": 5, "focus": 5, "spirit": 5, "vit": 15 },
+       "base": { "life": 80, "lifePerVit": 4, "lifeRegen": 0.6, "lifeRegenPerVit": 0.05, "mana": 25, "manaPerSpirit": 1.5, "manaRegen": 2.2, "manaRegenPerSpirit": 0.12 },
+       "perLevel": { "life": 10, "mana": 1 },
+-      "innate": { "elemDR": 15 },
++      "innate": { "elemDR": 20 },
+       "basicDef": { "name": "Weapon Swing", "min": 2, "max": 5, "perLevel": 0.14, "castTimeMult": 1.15 },
+       "weaponName": "Weapon",
+       "weaponBases": [
+diff --git a/src/content/difficulty.json b/src/content/difficulty.json
+index e617777..102cb5b 100644
+--- a/src/content/difficulty.json
++++ b/src/content/difficulty.json
+@@ -1,8 +1,8 @@
+ {
+   "difficulties": [
+     { "name": "Normal",    "levelAdd": 0,  "resPenalty": 0,   "hpMult": 1,   "dmgMult": 1,   "xpMult": 1,   "goldMult": 1 },
+-    { "name": "Nightmare", "levelAdd": 18, "resPenalty": -40, "hpMult": 2.6, "dmgMult": 1.4, "xpMult": 1.5, "goldMult": 1.5 },
+-    { "name": "Hell",      "levelAdd": 36, "resPenalty": -80, "hpMult": 2.8, "dmgMult": 1.4, "xpMult": 2,   "goldMult": 2 }
++    { "name": "Nightmare", "levelAdd": 18, "resPenalty": -40, "hpMult": 5.5, "dmgMult": 1.4, "xpMult": 1.5, "goldMult": 1.5 },
++    { "name": "Hell",      "levelAdd": 36, "resPenalty": -80, "hpMult": 2.8, "dmgMult": 1.2, "xpMult": 2,   "goldMult": 2 }
+   ],
+   "offline": { "rate": 0.5, "maxHours": 8, "minSeconds": 60 }
+ }
+diff --git a/src/content/hero.json b/src/content/hero.json
+index fccef9c..1be76de 100644
+--- a/src/content/hero.json
++++ b/src/content/hero.json
+@@ -53,7 +53,7 @@
+  },
+  "xpCurve": {
+   "base": 30,
+-  "growth": 1.42,
++  "growth": 1.39,
+   "linear": 20
+  },
+  "barrier": {
+diff --git a/src/content/index.ts b/src/content/index.ts
+index 417bb95..cec08dd 100644
+--- a/src/content/index.ts
++++ b/src/content/index.ts
+@@ -228,6 +228,7 @@ type HeroBase = typeof HERO.base;
+ export interface ClassDef {
+   name: string; pronoun: [string, string]; blurb: string; resource: string; startSkill: string; basic: string; melee: boolean;
+   reach?: number; furyPerSwing?: number; sprite: string | null;
++  /** package F: class balance, a hidden factor on all skill damage (1 = none) */ damageMult?: number;
+   attributes?: Record<Attr, { name: string; description: string }>; startAttributes?: Record<Attr, number>;
+   base?: Partial<HeroBase>; perLevel?: Partial<{ life: number; mana: number }>; innate?: Record<string, number>;
+   basicDef?: { name: string; min: number; max: number; perLevel: number; castTimeMult: number };
+@@ -393,7 +394,7 @@ export interface RiftLoot { items: [number, number]; minRarity: number; goldPile
+ export interface RiftDef {
+   unlock: { difficulty: number };
+   scaling: {
+-    refDifficulty: number; hellDifficulty: number; hellTier: number; hpGrowth: number; hpLinear: number; dmgGrowth: number; dmgLinear: number;
++    packHp: number; packDmg: number; refDifficulty: number; hellDifficulty: number; hellTier: number; hpGrowth: number; hpLinear: number; dmgGrowth: number; dmgLinear: number;
+     level: { base: number; perTier: number; knee: number; perTierAfter: number; max: number }; resPenalty: number; resPenaltyHell: number;
+   };
+   run: { progressNeed: number; points: number[]; timer: number; waveSize: [number, number]; typesPerWave: number; championChance: number; eliteChance: number; autoTierAboveBest: number; itemQuantity: number };
+diff --git a/src/content/rift.json b/src/content/rift.json
+index 29cd6e7..9a663fa 100644
+--- a/src/content/rift.json
++++ b/src/content/rift.json
+@@ -6,6 +6,9 @@
+   },
+   "scaling": {
+     "_doc": "Package F: rift monsters are campaign monsters of the tier's monster level. Level = base + perTier per tier up to tier knee, then perTierAfter per tier (at most max; fractions count for life and damage, the whole level for experience, gold and items). Tier 1 = start of Nightmare (refDifficulty); up to hellTier the Nightmare multipliers and the hero's resistance penalty slide to those of Hell (hellDifficulty, resPenaltyHell), so tier hellTier is as hard as the end of Hell. Beyond it, life and damage grow by hpGrowth/dmgGrowth per tier on top (x (1 + linear x tiers)).",
++    "_packMult": "rift packs are bigger and denser than area waves, so each rift monster has packHp/packDmg of the campaign monster",
++    "packHp": 0.8,
++    "packDmg": 0.85,
+     "refDifficulty": 1,
+     "hellDifficulty": 2,
+     "hellTier": 13,
+diff --git a/src/sim/formulas.ts b/src/sim/formulas.ts
+index b256943..4b08d06 100644
+--- a/src/sim/formulas.ts
++++ b/src/sim/formulas.ts
+@@ -193,7 +193,7 @@ export function skillCtx(s: SaveState, st: Stats, id: string): SkillCtx {
+   // warrior attacks use the same damage stat as spells (Power, "Attack Damage" in his words)
+   const skillTag = tags.has('spell') || tags.has('attack');
+   const generic = (skillTag ? st.spellDmg : 0) + (tags.has('projectile') ? mod('projDmg') : 0) + (tags.has('area') ? mod('areaDmg') : 0) + syn * SKILL_SCALING.synergyPerPoint;
+-  let more = g.more ?? 1;
++  let more = (g.more ?? 1) * (classDef(s.cls).damageMult ?? 1); // package F: class balance factor
+   let projectiles = 1 + G('projectiles'), chains = (def.jumps || 0) + Math.round(G('chains'));
+   if (id === 'fireball' && U.has('lantern')) { projectiles += 2; manaMult *= 1.5; }
+   if (id === 'chain' && U.has('bell')) { chains += 3; more *= 0.7; }
+diff --git a/src/sim/rift.ts b/src/sim/rift.ts
+index a8b0682..dc30f38 100644
+--- a/src/sim/rift.ts
++++ b/src/sim/rift.ts
+@@ -29,8 +29,8 @@ const hellMix = (t: number) => clamp((t - 1) / Math.max(1, S.hellTier - 1), 0, 1
+ const blend = (t: number, k: 'hpMult' | 'dmgMult') => 1 + (DIFFICULTIES[S.hellDifficulty][k] / DIFFICULTIES[S.refDifficulty][k] - 1) * hellMix(t);
+ const beyond = (t: number, g: number, lin: number) => { const n = Math.max(0, t - S.hellTier); return Math.pow(g, n) * (1 + lin * n); };
+ /** Monster life of a tier (campaign monster of the tier level, Nightmare→Hell blend, extra growth beyond hellTier). */
+-export const riftMonHp = (def: string, rank: number, t: number) => monsterHp(def, riftLevelExact(t), rank, S.refDifficulty) * blend(t, 'hpMult') * beyond(t, S.hpGrowth, S.hpLinear);
+-export const riftMonDmg = (def: string, rank: number, t: number) => monsterDmg(def, riftLevelExact(t), rank, S.refDifficulty) * blend(t, 'dmgMult') * beyond(t, S.dmgGrowth, S.dmgLinear);
++export const riftMonHp = (def: string, rank: number, t: number) => monsterHp(def, riftLevelExact(t), rank, S.refDifficulty) * S.packHp * blend(t, 'hpMult') * beyond(t, S.hpGrowth, S.hpLinear);
++export const riftMonDmg = (def: string, rank: number, t: number) => monsterDmg(def, riftLevelExact(t), rank, S.refDifficulty) * S.packDmg * blend(t, 'dmgMult') * beyond(t, S.dmgGrowth, S.dmgLinear);
+ /** Monster life and damage of a tier relative to tier 1 (for reports and tests). */
+ export const riftHpMult = (t: number) => riftMonHp('husk', 0, t) / riftMonHp('husk', 0, 1);
+ export const riftDmgMult = (t: number) => riftMonDmg('husk', 0, t) / riftMonDmg('husk', 0, 1);
+diff --git a/tests/formulas.test.ts b/tests/formulas.test.ts
+index 1620e24..aba95a9 100644
+--- a/tests/formulas.test.ts
++++ b/tests/formulas.test.ts
+@@ -3,7 +3,7 @@ import {
+   afterHeroRes, afterRes, affixValue, calcStats, castTime, damageRange, gemFits, gemValue, hitDamage, itemScore, monsterDmg, monsterHp,
+   monsterXp, sellValue, skillCtx, total, xpFactor, xpNeeded,
+ } from '../src/sim/formulas.ts';
+-import { MONSTER_SCALING, RANKS } from '../src/content/index.ts';
++import { HERO, MONSTER_SCALING, RANKS } from '../src/content/index.ts';
+ import { newSaveState } from '../src/sim/state.ts';
+ import type { Item } from '../src/sim/types.ts';
+ 
+@@ -11,9 +11,10 @@ const item = (mods: [string, number][], over: Partial<Item> = {}): Item =>
+   ({ id: 1, slot: 'ring', base: 'Ring', name: 'Ring', r: 1, L: 5, imp: 0, mods, ...over });
+ 
+ describe('experience and monsters', () => {
+-  it('xp curve matches the demo', () => {
+-    expect(xpNeeded(1)).toBe(50);
+-    expect(xpNeeded(2)).toBe(Math.round(30 * 1.36 + 40));
++  it('xp curve follows hero.json', () => {
++    const X = HERO.xpCurve;
++    expect(xpNeeded(1)).toBe(X.base + X.linear);
++    expect(xpNeeded(2)).toBe(Math.round(X.base * X.growth + 2 * X.linear));
+     for (let l = 1; l < 50; l++) expect(xpNeeded(l + 1)).toBeGreaterThan(xpNeeded(l));
+   });
+   it('monster scaling', () => {
+diff --git a/tests/rift.test.ts b/tests/rift.test.ts
+index 21f8736..14cf13e 100644
+--- a/tests/rift.test.ts
++++ b/tests/rift.test.ts
+@@ -38,14 +38,14 @@ describe('rift scaling', () => {
+     const S = RIFT.scaling;
+     expect(riftLevel(1)).toBe(S.level.base);
+     expect(riftHpMult(1)).toBe(1);
+-    expect(riftMonHp('cultist', 0, 1)).toBeCloseTo(monsterHp('cultist', S.level.base, 0, S.refDifficulty), -1);
+-    expect(riftMonDmg('cultist', 2, 1)).toBeCloseTo(monsterDmg('cultist', S.level.base, 2, S.refDifficulty), 5);
++    expect(riftMonHp('cultist', 0, 1)).toBeCloseTo(monsterHp('cultist', S.level.base, 0, S.refDifficulty) * S.packHp, -1);
++    expect(riftMonDmg('cultist', 2, 1)).toBeCloseTo(monsterDmg('cultist', S.level.base, 2, S.refDifficulty) * S.packDmg, 5);
+     expect(riftResPenalty(1)).toBe(S.resPenalty);
+   });
+   it('the Hell tier is as hard as the end of Hell (package F)', () => {
+     const S = RIFT.scaling, L = riftLevelExact(S.hellTier);
+-    expect(riftMonHp('husk', 0, S.hellTier)).toBeCloseTo(monsterHp('husk', L, 0, S.hellDifficulty), -1);
+-    expect(riftMonDmg('husk', 2, S.hellTier)).toBeCloseTo(monsterDmg('husk', L, 2, S.hellDifficulty), 3);
++    expect(riftMonHp('husk', 0, S.hellTier) / S.packHp).toBeCloseTo(monsterHp('husk', L, 0, S.hellDifficulty), -1);
++    expect(riftMonDmg('husk', 2, S.hellTier) / S.packDmg).toBeCloseTo(monsterDmg('husk', L, 2, S.hellDifficulty), 3);
+     expect(riftResPenalty(S.hellTier)).toBe(S.resPenaltyHell);
+     expect(riftResPenalty(S.hellTier + 20)).toBe(S.resPenaltyHell);
+     // the end of Hell (last area + boss levels) lies between tiers 10 and 15
+-- 
+2.43.0
+
+
+From 2649694caf6775c67d6e614e15ca111a7c691596 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 24 Nov 2026 21:53:11 +0000
+Subject: [PATCH 6/6] WIP balance F: paused by the owner (uncommitted state
+ saved)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01K7GT1onmNzUN1jshG2PQmk
+---
+ src/content/hero.json     |  4 ++--
+ src/content/index.ts      |  2 +-
+ src/content/meta.json     |  2 ++
+ src/content/monsters.json |  8 ++++----
+ src/content/rift.json     | 12 ++++++------
+ src/sim/meta.ts           |  2 ++
+ tests/formulas.test.ts    |  7 ++++---
+ 7 files changed, 21 insertions(+), 16 deletions(-)
+
+diff --git a/src/content/hero.json b/src/content/hero.json
+index 1be76de..c0557d4 100644
+--- a/src/content/hero.json
++++ b/src/content/hero.json
+@@ -90,8 +90,8 @@
+   "pickupRange": 0.6
+  },
+  "xpPenalty": {
+-  "freeLevels": 2,
+-  "perLevel": 0.1,
++  "freeLevels": 3,
++  "perLevel": 0.08,
+   "min": 0.1
+  }
+ }
+\ No newline at end of file
+diff --git a/src/content/index.ts b/src/content/index.ts
+index cec08dd..5b9eaa4 100644
+--- a/src/content/index.ts
++++ b/src/content/index.ts
+@@ -359,7 +359,7 @@ export interface MetaDef {
+     reward: { goldPerLevel: number; mats: Partial<Record<MatId, [number, number]>>; shardChance: number; shards: [number, number]; gemChance: number; uniqueChance: number; uniqueTable: string[] };
+   };
+   tyrants: {
+-    kills: number; hpMult: number; dmgMult: number; levelAdd: number; adds: number;
++    kills: number; retreatShare: number; hpMult: number; dmgMult: number; levelAdd: number; adds: number;
+     loot: { count: [number, number]; minRarity: number; affixChance: number; uniqueChance: number; goldPiles: [number, number]; gemChance: number };
+     list: Record<string, TyrantDef>;
+   };
+diff --git a/src/content/meta.json b/src/content/meta.json
+index 0f876b4..ba6057f 100644
+--- a/src/content/meta.json
++++ b/src/content/meta.json
+@@ -30,6 +30,8 @@
+   "tyrants": {
+     "_doc": "After `kills` monster kills in an area (counted per area and difficulty) its tyrant comes with the next wave. Tyrants use the boss rank, times hpMult and dmgMult, at area level + levelAdd. Each has one mechanic: warning circles that explode after `delay` (damage = mult x tyrant damage). The hero steps out of them on her own.",
+     "kills": 150,
++    "_retreatShare": "package F: when the tyrant kills the hero its counter drops to this share of `kills` (it comes back later instead of blocking the area)",
++    "retreatShare": 0.5,
+     "hpMult": 0.5,
+     "dmgMult": 0.75,
+     "levelAdd": 2,
+diff --git a/src/content/monsters.json b/src/content/monsters.json
+index 2f2d5d7..4509b77 100644
+--- a/src/content/monsters.json
++++ b/src/content/monsters.json
+@@ -19,13 +19,13 @@
+     "vesper":  { "name": "Mother Vesper", "element": "fire",  "hp": 1,   "dmg": 1,    "attackTime": 1.6, "moveSpeed": 1,   "sprite": "vesper",  "height": 150, "ranged": 6,
+       "boss": {
+         "title": "The Pale Abbess",
+-        "res": { "fire": 0.4, "cold": 0.2, "light": 0.2 },
++        "res": { "fire": 0.3, "cold": 0.2, "light": 0.2 },
+         "intro": "**Mother Vesper** rises from the altar. Her flames turn to frost when she is wounded.",
+         "phases": [
+-          { "belowHp": 0.5, "element": "cold", "res": { "fire": 0.2, "cold": 0.4, "light": 0.2 },
++          { "belowHp": 0.5, "element": "cold", "res": { "fire": 0.2, "cold": 0.3, "light": 0.2 },
+             "message": "Mother Vesper's flame gutters out. Frost pours from her robes." }
+         ],
+-        "special": { "name": "Pale Toll", "first": 6, "every": 8, "mult": 2, "radius": 7 }
++        "special": { "name": "Pale Toll", "first": 8, "every": 9, "mult": 2, "radius": 7 }
+       }
+     },
+     "matriarch": { "name": "The Hollow Matriarch", "element": "fire", "hp": 1, "dmg": 1, "attackTime": 1.5, "moveSpeed": 1.05, "sprite": "matriarch", "height": 175, "ranged": 6,
+@@ -47,7 +47,7 @@
+     { "name": "",         "hp": 1,  "dmg": 1,   "xp": 1,  "gold": 1,  "size": 1,    "color": "#d8d0c2" },
+     { "name": "Champion", "hp": 3,  "dmg": 1.3, "xp": 3,  "gold": 2,  "size": 1.15, "color": "#8aa2ff" },
+     { "name": "Elite",    "hp": 5,  "dmg": 1.5, "xp": 6,  "gold": 4,  "size": 1.25, "color": "#e8cc5c" },
+-    { "name": "Boss",     "hp": 24, "dmg": 1.6,   "xp": 30, "gold": 15, "size": 1,    "color": "#e0913f" }
++    { "name": "Boss",     "hp": 24, "dmg": 1.3,   "xp": 30, "gold": 15, "size": 1,    "color": "#e0913f" }
+   ],
+   "eliteMods": {
+     "Fast":      { "attackTime": 0.75, "moveSpeed": 1.4 },
+diff --git a/src/content/rift.json b/src/content/rift.json
+index 9a663fa..8cc2890 100644
+--- a/src/content/rift.json
++++ b/src/content/rift.json
+@@ -12,11 +12,11 @@
+     "refDifficulty": 1,
+     "hellDifficulty": 2,
+     "hellTier": 13,
+-    "hpGrowth": 1.02,
+-    "hpLinear": 0,
+-    "dmgGrowth": 1.01,
+-    "dmgLinear": 0,
+-    "level": { "base": 18, "perTier": 2.5, "knee": 13, "perTierAfter": 0.5, "max": 99 },
++    "hpGrowth": 1,
++    "hpLinear": 0.005,
++    "dmgGrowth": 1,
++    "dmgLinear": 0.003,
++    "level": { "base": 18, "perTier": 2.5, "knee": 13, "perTierAfter": 0.6, "max": 99 },
+     "resPenalty": -40,
+     "resPenaltyHell": -80
+   },
+@@ -110,7 +110,7 @@
+     "frags": 3,
+     "boss": "matriarch",
+     "hpMult": 3.5,
+-    "dmgMult": 1.15,
++    "dmgMult": 1.4,
+     "scale": 1.15,
+     "adds": 2,
+     "mechanicRate": 1.3,
+diff --git a/src/sim/meta.ts b/src/sim/meta.ts
+index 086fd59..30f71af 100644
+--- a/src/sim/meta.ts
++++ b/src/sim/meta.ts
+@@ -92,6 +92,8 @@ export class Meta {
+ 
+   /** New area or death: tyrant and trapped champion leave with the monsters, death also ends the event. */
+   reset(death = false) {
++    // package F: a tyrant that killed the hero withdraws for a while instead of waiting at the next wave (no death loop)
++    if (death && this.tyrantUp != null && !this.sim.rift.run) this.m.tyrant[tyrantKey(this.s.difficulty, this.s.zone)] = Math.floor(TY.kills * TY.retreatShare);
+     this.tyrantUp = null;
+     if (this.ev && (death || this.ev.id === 'champion')) this.endEvent(death ? 'Your death breaks the spell.' : '');
+     else if (this.ev?.id === 'tear') { this.ev.x = undefined; this.ev.y = undefined; }
+diff --git a/tests/formulas.test.ts b/tests/formulas.test.ts
+index aba95a9..1cc529a 100644
+--- a/tests/formulas.test.ts
++++ b/tests/formulas.test.ts
+@@ -146,10 +146,11 @@ describe('gems', () => {
+ });
+ 
+ describe('experience penalty', () => {
+-  it('kicks in above two levels over the monster', () => {
++  it('kicks in above a few levels over the monster', () => {
++    const P = HERO.xpPenalty;
+     expect(xpFactor(5, 5)).toBe(1);
+-    expect(xpFactor(7, 5)).toBe(1);
+-    expect(xpFactor(10, 5)).toBeCloseTo(0.7);
++    expect(xpFactor(5 + P.freeLevels, 5)).toBe(1);
++    expect(xpFactor(8 + P.freeLevels, 5)).toBeCloseTo(1 - 3 * P.perLevel);
+     expect(xpFactor(50, 1)).toBe(0.1);
+   });
+ });
+-- 
+2.43.0
+
