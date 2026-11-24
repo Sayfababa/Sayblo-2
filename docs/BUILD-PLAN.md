@@ -38,6 +38,7 @@ Owner decisions since: no big header pictures in menus (altar/forge pictures rem
 
 Running / next:
 - Merged: UI agent (phone layout, gem pouch v9, `npm run ui-check`), skill agent (24 sorceress skills, modifiers at skill levels 3/6/10/15, one page per tree, `docs/skill-system.md`, v10), **Warrior** (v11 `cls`, class choice on a new game and in Town › New hero, 24 skills Cinder/Rime/Thunder with types melee/fissure/leap/cry/aura in `src/sim/melee.ts`, `src/content/classes.json`, warrior weapons, +tree affixes by class, placeholder look in code).
+- Loot economy agent (v12): `docs/loot-design.md`, `src/sim/drops.ts` (`sim.loot`: drop tables per source, class-aware uniques, currency drops), Gloam Pearl, Crowning Ember, Ember of Ascension, normal items hidden by default, `npm run loot` (`scripts/loot-report.ts`, bot in `scripts/bot.ts`).
 - Next: **E – Town & idle** and **F – balance/polish** (warrior dies more often than the sorceress; cold warrior a bit strong; uniques with sorceress-only effects also drop for the warrior). The UI agent is the contact for owner UI complaints.
 
 Known balance issues for F: Hell is not reachable (monster curve 1.17/1.15 per level too steep); level cap 60 + ember points unreachable (XP curve 1.36× per level); storm builds clearly slower in rifts.
