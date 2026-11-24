@@ -261,7 +261,7 @@ describe('stash and save', () => {
     expect(Object.values(s.loot.minR)).toEqual([2, 2, 2, 2, 2]);
     expect(s.loot.autoSalvage).toBe(false);
     expect(s.loot.keepGems).toBe(true);
-    expect(s.mats).toEqual({ dust: 0, essence: 0, shard: 0 });
+    expect(s.mats).toEqual({ dust: 0, essence: 0, shard: 0, pearl: 0 });
     expect(s.stash).toHaveLength(ECONOMY.stash.tabs);
     expect('filter' in s).toBe(false);
   });
@@ -273,7 +273,7 @@ describe('stash and save', () => {
     expect(back.stash[1][0].id).toBe(99);
     expect(back.nextId).toBeGreaterThan(99);
     const bad = migrate({ ...JSON.parse(JSON.stringify(s)), mats: { dust: -4, essence: 'x' }, stash: 'no', loot: { minR: { ring: 9 } } });
-    expect(bad.mats).toEqual({ dust: 0, essence: 0, shard: 0 });
+    expect(bad.mats).toEqual({ dust: 0, essence: 0, shard: 0, pearl: 0 });
     expect(bad.stash.every(t => Array.isArray(t) && !t.length)).toBe(true);
     expect(bad.loot.minR.ring).toBe(3);
   });

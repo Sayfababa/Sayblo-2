@@ -5,6 +5,7 @@
  * Pure rules here; the Sim action is Meta.imprint (meta.ts).
  */
 import { MAT_IDS, META, SLOT_NAMES, UNIQUES, type Mats } from '../content/index.ts';
+import { uniqueFits } from './items.ts';
 import type { Item, SaveState } from './types.ts';
 
 /** All codex entries in a stable order (by slot, then as listed in items.json). */
@@ -12,6 +13,9 @@ export const CODEX_ORDER = (() => {
   const order = ['weapon', 'helm', 'armor', 'amulet', 'ring'];
   return Object.keys(UNIQUES).sort((a, b) => order.indexOf(UNIQUES[a].slot) - order.indexOf(UNIQUES[b].slot));
 })();
+
+/** Codex entries a hero of this class can find (class-only uniques of other classes are left out). */
+export const codexFor = (cls: string) => CODEX_ORDER.filter(u => uniqueFits(u, cls));
 
 /** Salvaging (or auto-salvaging) a unique: unlock its effect. Returns true if it was new. */
 export function unlockCodex(s: SaveState, it: Item): boolean {

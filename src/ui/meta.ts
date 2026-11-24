@@ -8,7 +8,7 @@ import {
   AREAS, BASE_ICON, EMBER_TRACKS, FEATS, META, RARITIES, SLOT_NAMES, TYRANTS, UNIQUES, type EmberTrack,
 } from '../content/index.ts';
 import { bountyDone, bountyText, swapCost } from '../sim/bounty.ts';
-import { CODEX_ORDER, imprintBlock, imprintCost } from '../sim/codex.ts';
+import { codexFor, imprintBlock, imprintCost } from '../sim/codex.ts';
 import { canAfford } from '../sim/crafting.ts';
 import { findItem } from '../sim/economy.ts';
 import { xpNeeded } from '../sim/formulas.ts';
@@ -135,8 +135,8 @@ export class MetaUI {
   private msgLine() { return this.msg.text ? `<p class="hint ${this.msg.cls}" role="status">${this.msg.text}</p>` : ''; }
 
   private codex(): string {
-    const s = this.s, have = new Set(s.meta.codex), total = CODEX_ORDER.length;
-    const entries = CODEX_ORDER.map(u => {
+    const s = this.s, have = new Set(s.meta.codex), order = codexFor(s.cls), total = order.length;
+    const entries = order.map(u => {
       const U = UNIQUES[u], got = have.has(u), sel = this.selU === u;
       return `<button class="centry ${got ? 'got' : 'unknown'} ${sel ? 'sel' : ''}" data-act="cpick:${u}" ${got ? '' : 'aria-disabled="true"'} aria-label="${got ? esc(U.name) : 'Unknown ' + SLOT_NAMES[U.slot]}">
         <span class="cpic">${uniquePic(u)}</span><span class="cname"><b>${got ? esc(U.name) : '? ? ?'}</b><small>${SLOT_NAMES[U.slot]}</small></span>

@@ -605,7 +605,7 @@ export class Sim {
       n = rng.int(rule.count[0], rule.count[1]); minR = rule.minRarity; gemChance = rule.gemChance;
     }
     if (m.rg) { n = 0; gemChance = 0; } // rift guardian and pinnacle boss: only their own burst (rift.ts)
-    n = R.qty(n);
+    n = R.qty(n, true);
     const src = (['monster', 'champion', 'elite', 'boss'] as const)[m.rank] ?? 'monster';
     for (let i = 0; i < n; i++) {
       const it = this.loot.roll(src, m.L, minR); // loot package: rarity table per rank (drops.ts)
@@ -613,7 +613,7 @@ export class Sim {
       this.loot.put(src, it, m.x, m.y); // loot rules: items not kept are sold or salvaged on the spot
     }
     if (rng.chance(gemChance)) this.loot.put(src, genGem(rng, this.itemId(), m.L), m.x, m.y);
-    if (!m.rg) this.loot.currency(src, m.L, m.x, m.y); // loot package: crafting materials drop by themselves
+    if (!m.rg) this.loot.currency(src, m.L, m.x, m.y, R.qtyMult(true)); // loot package: crafting materials drop by themselves
     if (burning && this.st.uniques.has('cinders')) {
       this.emit({ t: 'ring', x: m.x, y: m.y, r0: 0.3, r1: 2, dur: 0.45, el: 'fire', fill: true });
       this.emit({ t: 'burst', x: m.x, y: m.y, z: 0.6, el: 'fire', size: 110 });

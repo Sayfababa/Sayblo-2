@@ -2,6 +2,7 @@
 import { AFFIXES, GEMS, RARITIES, SKILLS, SLOT_NAMES, UNIQUES, isPassive } from '../content/index.ts';
 import { formatMod, gemFits, gemText, sellValue } from '../sim/formulas.ts';
 import { isPerfect, isUpgrade, itemPower } from '../sim/upgrade.ts';
+import { topTier } from '../sim/items.ts';
 import { isGem, isKey, type BagItem, type Item, type Mod, type SaveState } from '../sim/types.ts';
 import { keyTooltip } from './rift.ts';
 import { esc, itemPic } from './html.ts';
@@ -68,7 +69,7 @@ export function itemTooltip(it: BagItem, equipped: Item | null, actions: string,
     <div class="tipact">${actions}</div></div>`;
   return `<div class="tip" style="--rc:${rar.color}">
     <div class="tiphead">${itemPic(it, 'tippic')}<div><b class="tipname" style="color:${rar.color}">${esc(it.name)}</b>
-      <div class="tipbase">${rar.name} ${SLOT_NAMES[it.slot]}${it.r ? ' · ' + esc(it.base) : ''} · item level ${it.L}</div></div></div>
+      <div class="tipbase">${rar.name} ${SLOT_NAMES[it.slot]}${it.r ? ' · ' + esc(it.base) : ''} · item level ${it.L} <span title="Item level ${it.L} rolls affix tiers up to T${topTier(it.L).tier}">(T${topTier(it.L).tier} max)</span></div></div></div>
     <ul class="mods">${it.mods.map((m, i) => modLine(m, i < it.imp, modMark(it, i))).join('')}</ul>
     ${it.u ? `<p class="unique">${esc(UNIQUES[it.u].effect)}</p>` : ''}
     ${it.ipr && UNIQUES[it.ipr] ? `<p class="unique imprint" title="Imprinted from the codex">◆ ${esc(UNIQUES[it.ipr].effect)}</p>` : ''}

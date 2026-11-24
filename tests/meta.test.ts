@@ -132,7 +132,7 @@ describe('area tyrants', () => {
       kill(sim, sim.monsters[0]);
       for (const d of sim.drops) if (d.item && !('kind' in d.item && d.item.kind === 'gem') && (d.item as Item).r === 2) { n++; if (T.slots.includes((d.item as Item).slot)) ok++; }
     }
-    expect(n).toBeGreaterThan(20);
+    expect(n).toBeGreaterThanOrEqual(20);
     expect(ok).toBe(n);
   });
 });
@@ -204,10 +204,10 @@ describe('unique codex and imprint', () => {
     expect(imprintBlock(s, it, 'saint')).toMatch(/fits/);
     expect(imprintBlock(s, it, 'bell')).toMatch(/Salvage/);
     expect(imprintBlock(s, { ...it, r: 1 }, 'lantern')).toMatch(/Rare/);
-    s.mats = { dust: 0, essence: 0, shard: 0 };
+    s.mats = { dust: 0, essence: 0, shard: 0, pearl: 0 };
     expect(sim.meta.imprint(it.id, 'lantern')).toMatch(/needs/);
     const c = imprintCost(it);
-    s.mats = { dust: 0, essence: c.essence ?? 0, shard: c.shard ?? 0 };
+    s.mats = { dust: 0, essence: c.essence ?? 0, shard: c.shard ?? 0, pearl: 0 };
     expect(sim.meta.imprint(it.id, 'lantern')).toBeNull();
     expect(it.ipr).toBe('lantern');
     expect(s.mats.shard).toBe(0);

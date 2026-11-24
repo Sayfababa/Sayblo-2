@@ -51,7 +51,8 @@ const groupCount = (it: Item, g: 'prefix' | 'suffix') => it.mods.filter((m, i) =
 export function craftCost(it: Item, ember: EmberId, idx: number | null = null): Mats {
   const S = ECONOMY.craftScale, mult = (1 + S.perLevel * it.L) * (1 + S.perCraft * (it.cr || 0)) * (it.r === 3 ? S.uniqueMult : 1);
   let out: Mats = {};
-  for (const [k, v] of Object.entries(EMBERS[ember].cost) as [MatId, number][]) out[k] = Math.ceil(v * mult);
+  // the rare materials (shards, pearls) never scale: one pearl is one pearl
+  for (const [k, v] of Object.entries(EMBERS[ember].cost) as [MatId, number][]) out[k] = k === 'shard' || k === 'pearl' ? v : Math.ceil(v * mult);
   if (ember === 'rise' && idx != null && it.mods[idx]?.[2]) out = addMats(out, ECONOMY.riseTo[it.mods[idx][2]! - 1] ?? {});
   return out;
 }

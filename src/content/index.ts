@@ -386,7 +386,7 @@ export interface RiftLoot { items: [number, number]; minRarity: number; goldPile
 export interface RiftDef {
   unlock: { difficulty: number };
   scaling: { refLevel: number; refDifficulty: number; hpGrowth: number; hpLinear: number; dmgGrowth: number; dmgLinear: number; level: { base: number; perTier: number; max: number }; resPenalty: number };
-  run: { progressNeed: number; points: number[]; timer: number; waveSize: [number, number]; typesPerWave: number; championChance: number; eliteChance: number; autoTierAboveBest: number };
+  run: { progressNeed: number; points: number[]; timer: number; waveSize: [number, number]; typesPerWave: number; championChance: number; eliteChance: number; autoTierAboveBest: number; itemQuantity: number };
   guardian: { pool: string[]; hpMult: number; dmgMult: number; scale: number; sub: string; epithets: string[]; slam: RiftMechanic; rain: RiftMechanic; enrageBelow: number; enrageRate: number; loot: RiftLoot };
   rewards: { lowerChance: number; eliteKeyChance: number; fragChance: number };
   keys: { countWeights: number[]; hazardShare: number; maxBoons: number; rewardPerRisk: { qty: number; rarity: number; xp: number }; freeTier: number; sellBase: number; sellPerTier: number };

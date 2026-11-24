@@ -249,10 +249,12 @@ export class Rift {
   rarity() { return this.run ? fxv(this.run.fx, 'rarity') / 100 : 0; }
   shrineMult() { return this.run ? 1 + fxv(this.run.fx, 'shrineMult') : 1; }
   wretchMult() { return this.run ? 1 + fxv(this.run.fx, 'wretchMult') : 1; }
+  /** Item quantity factor. Loot package: rift monsters come in big, fast packs, so their own drops are thinned (rift.json run.itemQuantity). */
+  qtyMult(monster = false) { return this.run ? Math.max(0, 1 + (fxv(this.run.fx, 'qty') + (monster ? RIFT.run.itemQuantity : 0)) / 100) : 1; }
   /** Item quantity: scale a drop count, rounding randomly. */
-  qty(n: number): number {
+  qty(n: number, monster = false): number {
     if (!this.run || n <= 0) return n;
-    const v = n * (1 + fxv(this.run.fx, 'qty') / 100), f = Math.floor(v);
+    const v = n * this.qtyMult(monster), f = Math.floor(v);
     return f + (this.sim.rng.chance(v - f) ? 1 : 0);
   }
   /** Rift resistance penalty and key modifiers on the hero (end of Sim.recalc). */

@@ -24,7 +24,9 @@
     "typesPerWave": 2,
     "championChance": 0.14,
     "eliteChance": 0.05,
-    "autoTierAboveBest": 1
+    "autoTierAboveBest": 1,
+    "_itemQuantity": "loot package: % item quantity (items and crafting materials) of monsters inside rifts (packs are big and fast; key boons add to it). The guardian burst is not affected.",
+    "itemQuantity": -55
   },
   "guardian": {
     "_doc": "Built from an act I monster, scaled up. Boss rank life x hpMult. Two telegraphed mechanics (warning circles the hero steps out of). Below enrageBelow life the mechanics come faster.",
@@ -38,7 +40,7 @@
     "rain": { "name": "Falling Shards", "label": "shard rain", "first": 5.5, "every": 9, "count": 3, "radius": 1.5, "delay": 1.4, "mult": 1.6, "spread": 2.4 },
     "enrageBelow": 0.3,
     "enrageRate": 1.5,
-    "loot": { "items": [2, 3], "minRarity": 1, "goldPiles": [8, 12], "goldPerPile": 2.5, "gemChance": 0.6 }
+    "loot": { "items": [1, 2], "minRarity": 1, "goldPiles": [8, 12], "goldPerPile": 2.5, "gemChance": 0.6 }
   },
   "rewards": {
     "_doc": "The guardian always drops the next key: one tier higher if the timer was beaten, else the same tier or (lowerChance) one lower. Elites have a small key chance. Fragments open the pinnacle.",

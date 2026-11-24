@@ -98,13 +98,13 @@ export class Loot {
   }
 
   /** Direct material drops of a source (economy.json currencyDrops) around (x, y). */
-  currency(source: string, L: number, x: number, y: number) {
+  currency(source: string, L: number, x: number, y: number, mult = 1) {
     const C = ECONOMY.currencyDrops, table = C[source];
     if (!table || source === 'scale') return;
     const sim = this.sim, rng = sim.rng;
     for (const k of MAT_IDS) {
       const e = table[k];
-      if (!e || !rng.chance(e[0])) continue;
+      if (!e || !rng.chance(e[0] * mult)) continue;
       const n = Math.max(1, Math.round(rng.int(e[1], e[2]) * (1 + (C.scale[k] || 0) * L)));
       sim.drops.push({ id: sim.nextUid(), x: x + rng.range(-1, 1), y: y + rng.range(-1, 1), mat: k, n });
     }

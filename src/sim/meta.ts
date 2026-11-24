@@ -9,7 +9,7 @@ import {
   type EmberTrack, type EventId,
 } from '../content/index.ts';
 import { bountyDone, bountyText, fillBoard, genBounty, swapCost } from './bounty.ts';
-import { imprintBlock, imprintCost } from './codex.ts';
+import { codexFor, imprintBlock, imprintCost } from './codex.ts';
 import { addMats, bestTier, canAfford } from './crafting.ts';
 import { findItem, matText } from './economy.ts';
 import { affixValue, xpNeeded } from './formulas.ts';
@@ -53,7 +53,7 @@ export function featValue(s: SaveState, type: string): number {
     case 'gold': return s.gold;
     case 'difficulty': return s.progress.reduce((a, p, i) => (p ? i : a), 0);
     case 'codex': return m.codex.length;
-    case 'codexAll': return m.codex.length >= Object.keys(UNIQUES).length ? 1 : 0;
+    case 'codexAll': return codexFor(s.cls).every(u => m.codex.includes(u)) ? 1 : 0; // loot package: the uniques of the hero's class
     case 'tyrantKinds': return Object.keys(m.slain).length;
     case 'ember': return m.ember.earned;
     default: return st[type] || 0;

@@ -209,3 +209,18 @@ Negative: `text, letters, pink, magenta inside icons, yellow lightning, cartoon,
 > [style sentence], game item icon sprite sheet, 3 weapons in one row, each centered in its cell with wide spacing, nothing touches the cell edges, lying diagonally from bottom left to top right, flat pure magenta #FF00FF background, no ground, no shadows. (1) `notched-cleaver`: a heavy one-handed war axe, blackened iron blade with notches, leather-wrapped haft; (2) `iron-maul`: a short two-handed maul with a square iron head and iron bands on the haft; (3) `grave-blade`: a broad straight sword, dark worn steel, plain cross guard, leather grip.
 
 Cut by `tools/slice_sheets.py` (`items-warrior` in `UI_SHEETS`, upright versions by `make_tall_weapons`).
+
+## Loot package
+
+Placeholders now: `mat-pearl.png`, `ember-crown.png` and `ember-ascend.png` are recoloured copies of `mat-shard`, `ember-rise`
+and `ember-bind` (`tools/placeholder_loot_icons.py`). The three new warrior weapon uniques (Ashfang, The Rimegrave Blade,
+Skyrender) use the warrior weapon base icons, like every unique uses its base icon.
+
+### Sheet L1 – `icons-loot.png` (3 × 1, landscape 3:1, magenta) → 96 px icons
+
+Attach `icons-economy.png` as style reference (same light, same size of the object in its cell).
+
+> [style sentence], game item icon sprite sheet, 3 objects in one row, each centered in its cell with wide spacing, nothing touches the cell edges, three-quarter view from slightly above, flat pure magenta #FF00FF background, no ground, no shadows. (1) `mat-pearl`: a single large pearl, pale grey-green with a faint cold inner glow, lying in a small cracked black shell; (2) `ember-crown`: a glowing coal with a small crown-shaped crack on top, pale violet-pink glow; (3) `ember-ascend`: a glowing coal ringed by a thin band of tarnished silver, cold sea-green glow rising from it.
+
+Cells hold no pink or violet tones that come close to magenta (the crown ember stays a soft lilac). Glow stays inside the objects.
+Cut: add `"icons-loot": (3, 1, ["mat-pearl", "ember-crown", "ember-ascend"])` to the UI sheet table in `tools/slice_sheets.py`.

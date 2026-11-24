@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AFFIXES, STAT_NAMES, AREAS, AUTO_ORDER, CONDITIONS, GEMS, ITEMS, MONSTERS, PROPS, RARITIES, SKILLS, SLOTS, TREES, UNIQUES } from '../src/content/index.ts';
+import { AFFIXES, CLASSES, STAT_NAMES, AREAS, AUTO_ORDER, CONDITIONS, GEMS, ITEMS, MONSTERS, PROPS, RARITIES, SKILLS, SLOTS, TREES, UNIQUES } from '../src/content/index.ts';
 import { existsSync } from 'node:fs';
 
 const sprite = (n: string) => existsSync(new URL(`../public/sprites/${n}`, import.meta.url));
@@ -34,7 +34,10 @@ describe('content data is consistent', () => {
     }
     for (const u of Object.values(UNIQUES)) {
       expect(SLOTS.includes(u.slot)).toBe(true);
-      expect(ITEMS.bases[u.slot].some(b => b.name === u.base), u.name).toBe(true);
+      // class weapon uniques use the class' weapon bases (classes.json); class-neutral weapons name a base per class
+      const bases = [...ITEMS.bases[u.slot], ...(u.slot === 'weapon' ? Object.values(CLASSES).flatMap(c => c.weaponBases ?? []) : [])];
+      expect(bases.some(b => b.name === u.base), u.name).toBe(true);
+      for (const b of Object.values(u.bases ?? {})) expect(bases.some(x => x.name === b), `${u.name}: ${b}`).toBe(true);
       for (const k of u.mods) expect(AFFIXES[k], k).toBeTruthy();
     }
     expect(RARITIES.length).toBe(4);

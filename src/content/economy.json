@@ -10,7 +10,7 @@
   "salvage": [
     { "dust": [1, 0.04] },
     { "dust": [2, 0.07] },
-    { "dust": [3, 0.05], "essence": [0.5, 0.03] },
+    { "dust": [3, 0.05], "essence": [1, 0.02] },
     { "essence": [3, 0.05], "shard": [1, 0] }
   ],
   "_currencyDrops": "materials that drop on the ground by themselves. Per source: material -> [chance, min, max]. Amount = int(min..max) x (1 + scale[material] x level), rounded. Rolled once per kill or opening.",
@@ -37,7 +37,7 @@
     "wax":    { "name": "Sealing Wax", "short": "Protect an affix", "text": "Seals the chosen affix: the next Ember of Change or Choice leaves it alone.", "target": true, "color": "#b23a3a", "cost": { "shard": 1 } },
     "ascend": { "name": "Ember of Ascension", "short": "Re-forge a unique", "text": "Re-forges a Unique at the level of your deepest area: new item level, all values rolled again.", "target": false, "color": "#9fd6c8", "cost": { "shard": 2, "pearl": 1 }, "unique": true, "uniqueOnly": true }
   },
-  "_craftScale": "cost multiplier = (1 + perLevel * itemLevel) * (1 + perCraft * timesCrafted), x uniqueMult on uniques. riseTo = extra cost of a Rising Ember by the tier it lifts the affix to (not scaled).",
+  "_craftScale": "cost multiplier for dust and essence = (1 + perLevel * itemLevel) * (1 + perCraft * timesCrafted), x uniqueMult on uniques; shards and pearls never scale. riseTo = extra cost of a Rising Ember by the tier it lifts the affix to (not scaled).",
   "craftScale": { "perLevel": 0.03, "perCraft": 0.15, "uniqueMult": 3 },
   "riseTo": { "2": { "shard": 1 }, "1": { "pearl": 1 } },
   "bindAffixes": [3, 4],

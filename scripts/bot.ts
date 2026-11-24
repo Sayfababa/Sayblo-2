@@ -124,10 +124,10 @@ export class Bot {
         if (cost.pearl && s.mats.pearl < cost.pearl + 1) break; // T1 only with a spare pearl
         if (!this.use(it, 'rise', i)) break;
       }
-      // dead affixes: mana-kind or below a third of their best roll
+      // dead affixes: below a quarter of their best possible roll
       for (const i of craftableMods(it)) {
         const m = it.mods[i];
-        if ((AFFIXES[m[0]].kind === 'mana' || modPower(m) < 0.25) && this.reserve(it, 'choice')) this.use(it, 'choice', i);
+        if (modPower(m) < 0.25 && this.reserve(it, 'choice')) this.use(it, 'choice', i);
       }
       for (const i of craftableMods(it)) if (lowRoll(it.mods[i]) && this.reserve(it, 'whet')) this.use(it, 'whet', i);
     }
