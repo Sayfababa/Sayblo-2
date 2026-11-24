@@ -18,7 +18,7 @@ import { Rift, keyName } from './rift.ts';
 import { Mythic } from './mythic.ts';
 import { Spells } from './spells.ts';
 import { Melee } from './melee.ts';
-import { genGem, genItem } from './items.ts';
+import { genGem } from './items.ts';
 import { addGem, takeGem } from './pouch.ts';
 import { Loot } from './drops.ts';
 import { isUpgrade } from './upgrade.ts';
@@ -223,6 +223,7 @@ export class Sim {
   private pickup(d: Drop) {
     if (d.gold) { this.s.gold += d.gold; this.run.gold += d.gold; this.float(d.x, d.y, '+' + d.gold + ' gold', '#c9a557'); }
     else if (d.item) this.takeItem(d.item);
+    else if (d.mat) this.loot.pickMat(d); // loot package: crafting materials on the ground
     this.drops.splice(this.drops.indexOf(d), 1);
   }
 
@@ -603,14 +604,16 @@ export class Sim {
       const rule = m.rank === 1 ? D.champion : m.rank === 2 ? D.elite : D.boss;
       n = rng.int(rule.count[0], rule.count[1]); minR = rule.minRarity; gemChance = rule.gemChance;
     }
+    if (m.rg) { n = 0; gemChance = 0; } // rift guardian and pinnacle boss: only their own burst (rift.ts)
     n = R.qty(n);
     const src = (['monster', 'champion', 'elite', 'boss'] as const)[m.rank] ?? 'monster';
     for (let i = 0; i < n; i++) {
-      const it = genItem(rng, this.itemId(), m.L, minR, m.rank === 3, F.rarityBoost() + this.meta.rarityBoost() + R.rarity());
+      const it = this.loot.roll(src, m.L, minR); // loot package: rarity table per rank (drops.ts)
       this.meta.onItem(it); // meta: found items for bounties and feats
-      this.loot.put(src, it, m.x, m.y); // loot rules (drops.ts): items not kept are sold or salvaged on the spot
+      this.loot.put(src, it, m.x, m.y); // loot rules: items not kept are sold or salvaged on the spot
     }
     if (rng.chance(gemChance)) this.loot.put(src, genGem(rng, this.itemId(), m.L), m.x, m.y);
+    if (!m.rg) this.loot.currency(src, m.L, m.x, m.y); // loot package: crafting materials drop by themselves
     if (burning && this.st.uniques.has('cinders')) {
       this.emit({ t: 'ring', x: m.x, y: m.y, r0: 0.3, r1: 2, dur: 0.45, el: 'fire', fill: true });
       this.emit({ t: 'burst', x: m.x, y: m.y, z: 0.6, el: 'fire', size: 110 });

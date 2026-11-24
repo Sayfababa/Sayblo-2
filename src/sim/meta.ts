@@ -13,7 +13,7 @@ import { imprintBlock, imprintCost } from './codex.ts';
 import { addMats, bestTier, canAfford } from './crafting.ts';
 import { findItem, matText } from './economy.ts';
 import { affixValue, xpNeeded } from './formulas.ts';
-import { affixFits, genGem, genItem, genItemOf, genUnique, rollAffix } from './items.ts';
+import { affixFits, genGem, genItemOf, genUnique, rollAffix, uniqueFits } from './items.ts';
 import type { LootSource } from './drops.ts';
 import type { Bounty } from './meta-types.ts';
 import { emptyAlloc } from './meta-types.ts';
@@ -286,7 +286,7 @@ export class Meta {
       const T = EV.tear, ev = this.ev!, rng = sim.rng;
       ev.r = Math.min(T.maxRadius, ev.r! + T.growPerKill);
       sim.drops.push({ id: sim.nextUid(), x: m.x + rng.range(-0.6, 0.6), y: m.y + rng.range(-0.6, 0.6), gold: Math.round(m.L * rng.range(1, 3) * T.goldMult * sim.diff.goldMult) });
-      if (rng.chance(T.itemChance)) this.drop(m, genItem(rng, sim.itemId(), m.L, 0, false, T.rarityBoost + this.rarityBoost()), 'tear');
+      if (rng.chance(T.itemChance)) this.drop(m, sim.loot.roll('tear', m.L, 0, T.rarityBoost), 'tear');
     }
     return true;
   }
@@ -320,10 +320,12 @@ export class Meta {
     }
     for (let i = 0, n = rng.int(Lt.count[0], Lt.count[1]); i < n; i++) this.drop(m, tyrantItem(sim, T.slots, T.affixes, m.L), 'tyrant');
     if (rng.chance(Lt.uniqueChance)) {
-      const pool = T.uniques.filter(u => UNIQUES[u]);
-      if (pool.length) this.drop(m, genUnique(rng, sim.itemId(), m.L, rng.pick(pool)), 'tyrant');
+      // target farming: the tyrant's own uniques for the hero's class, else any unique of the class
+      const u = sim.loot.unique(m.L, undefined, T.uniques.filter(x => UNIQUES[x] && uniqueFits(x, s.cls))) ?? sim.loot.unique(m.L);
+      if (u) this.drop(m, u, 'tyrant');
     }
     if (rng.chance(Lt.gemChance)) this.drop(m, genGem(rng, sim.itemId(), m.L), 'tyrant');
+    sim.loot.currency('tyrant', m.L, m.x, m.y);
     return false;
   }
 
@@ -355,7 +357,11 @@ export class Meta {
       got.push(sim.itemName(it));
     };
     if (R.gem) give(genGem(rng, sim.itemId(), b.L));
-    if (R.unique && UNIQUES[R.unique]) { const u = genUnique(rng, sim.itemId(), b.L, R.unique); this.onItem(u); give(u); }
+    if (R.unique && UNIQUES[R.unique]) {
+      // a unique pinned for another class (old boards) is swapped for one of the hero's class
+      const u = uniqueFits(R.unique, s.cls) ? genUnique(rng, sim.itemId(), b.L, R.unique) : sim.loot.unique(b.L, undefined, META.bounties.reward.uniqueTable);
+      if (u) { this.onItem(u); give(u); }
+    }
     this.m.bounties.splice(i, 1, genBounty(rng, s, this.m.nextBounty++, new Set(this.m.bounties.filter(x => x !== b).map(x => x.kind))));
     this.bump('bounties'); this.run.bounties++;
     sim.log(`Bounty claimed: ${got.join(', ')}.`, 'good');

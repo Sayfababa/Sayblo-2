@@ -71,7 +71,7 @@ export function forge(sim: Sim, id: number, ember: EmberId, idx: number | null, 
   const s = sim.s, f = findItem(s, id);
   if (!f) return 'Item not found.';
   if (!canAfford(s.mats, cost)) return `Not enough materials: ${EMBERS[ember].name} needs ${matText(cost)}.`;
-  const res = applyEmber(sim.rng, f.it, ember, idx);
+  const res = applyEmber(sim.rng, f.it, ember, idx, ascendLevel(sim));
   if (!res.ok) return res.err;
   payMats(s, cost);
   Object.assign(f.it, res.item);
@@ -79,6 +79,9 @@ export function forge(sim: Sim, id: number, ember: EmberId, idx: number | null, 
   changed(sim, f.where);
   return null;
 }
+
+/** Ember of Ascension: the deepest area reached on this difficulty, or the rift the hero is in. */
+export const ascendLevel = (sim: Sim) => Math.max(gambleLevel(sim), sim.areaLevel());
 
 /* ---------- altar ---------- */
 export function corruptItem(sim: Sim, id: number): { err: string | null; text?: string; outcome?: string } {

@@ -4,8 +4,9 @@
  * Positions are interpolated between simulation ticks, so motion stays smooth at any frame rate.
  */
 import { Application, ColorMatrixFilter, Container, Graphics, Matrix, RenderTexture, Sprite, Text, TextStyle, Texture, TilingSprite } from 'pixi.js';
-import { AREAS, BASE_ICON, ELEMENT_COLORS, GEMS, MONSTERS, PROPS, RANKS, RARITIES, SKILLS, classDef, type Element } from '../content/index.ts';
+import { AREAS, BASE_ICON, ELEMENT_COLORS, GEMS, MATERIALS, MONSTERS, PROPS, RANKS, RARITIES, SKILLS, classDef, type Element } from '../content/index.ts';
 import { isEquip, isGem, isKey } from '../sim/types.ts';
+import { matTier } from '../sim/drops.ts';
 import { GEM_COLOR, gemColor } from '../ui/gemcolor.ts';
 import { TICK, type Sim } from '../sim/sim.ts';
 import type { Monster, SimEvent } from '../sim/types.ts';
@@ -601,11 +602,12 @@ export class Scene {
       this.light(px, y, 34 * k, c, 0.55 + Math.sin(this.time * 4 + d.id) * 0.15);
       return;
     }
-    const sz = (d.gold ? 22 : 30) * k;
-    const file = d.gold ? 'item-gold.png' : isKey(it) ? 'item-key.png' : `item-${BASE_ICON[it!.base]}.png`;
+    const sz = (d.gold ? 22 : d.mat ? 24 : 30) * k;
+    const file = d.gold ? 'item-gold.png' : d.mat ? `mat-${d.mat}.png` : isKey(it) ? 'item-key.png' : `item-${BASE_ICON[it!.base]}.png`;
     this.shadow(px, py, sz * 0.35, sz * 0.14, 0.45);
-    const r = isEquip(it) ? it.r : isKey(it) ? 2 : 0;
+    const r = isEquip(it) ? it.r : isKey(it) ? 2 : d.mat ? matTier(d.mat) : 0;
     if (it) this.light(px, py - sz * 0.4, (18 + r * 8) * k, RARITIES[r].color, r ? 0.45 : 0.15);
+    if (d.mat) this.light(px, py - sz * 0.4, (16 + r * 8) * k, MATERIALS[d.mat].color, 0.25 + r * 0.1); // loot package: crafting material
     const s = this.world.sprite(tex(file));
     s.anchor.set(0.5, 0); s.position.set(px, py - sz * 0.85); s.width = s.height = sz;
   }
@@ -668,9 +670,9 @@ export class Scene {
     for (const d of (sim.s.settings.lootLabels ? sim.drops : [])) {
       const [px, py] = this.iso(d.x, d.y);
       const it = d.item;
-      const txt = d.gold ? d.gold + ' Gold' : isGem(it) ? GEMS[it.gem].name : isKey(it) ? `Rift Key T${it.tier}` : it!.name;
+      const txt = d.gold ? d.gold + ' Gold' : d.mat ? `${d.n} ${MATERIALS[d.mat].name}` : isGem(it) ? GEMS[it.gem].name : isKey(it) ? `Rift Key T${it.tier}` : it!.name;
       const box = L.box();
-      const t = L.text(txt, FONT_BODY, '700', lsz, d.gold ? '#d8d0c2' : isGem(it) ? GEM_COLOR : RARITIES[isEquip(it) ? it.r : 2].color);
+      const t = L.text(txt, FONT_BODY, '700', lsz, d.gold ? '#d8d0c2' : d.mat ? MATERIALS[d.mat].color : isGem(it) ? GEM_COLOR : RARITIES[isEquip(it) ? it.r : 2].color);
       const tw = t.width + 8;
       box.rect(px - tw / 2, py - 8 * k - 14 * kt, tw, 14 * kt + 2).fill({ color: '#000000', alpha: 0.72 });
       t.position.set(px, py - 8 * k - 7 * kt + 1);

@@ -107,7 +107,11 @@ export type AffixKind = 'offense' | 'defense' | 'mana';
 export interface AffixDef { group: 'prefix' | 'suffix'; kind: AffixKind; name: string; text: string; percent: boolean; base: number; perLevel: number; weight: number; decimals?: number; slots?: Slot[]; minLevel?: number; rare?: number; /** only rolls for heroes of this class */ cls?: string }
 export type Slot = 'weapon' | 'helm' | 'armor' | 'amulet' | 'ring';
 export interface RarityDef { name: string; color: string; weight: number; bossWeight: number; affixes?: [number, number]; prefixes?: number; suffixes?: number }
-export interface UniqueDef { slot: Slot; base: string; name: string; mods: string[]; effect: string; /** mythic: only drops from the rift pinnacle boss */ pinnacle?: boolean }
+export interface UniqueDef {
+  slot: Slot; base: string; name: string; mods: string[]; effect: string; /** mythic: only drops from the rift pinnacle boss */ pinnacle?: boolean;
+  /** loot package: lowest item level it drops at, pick weight (default 1), class-only effect, base per class, data-driven skill effect */
+  lvl?: number; weight?: number; cls?: string; bases?: Record<string, string>; skillFx?: { tags: string[]; fx: Record<string, number> };
+}
 export interface DropRule { count: [number, number]; minRarity: number; gemChance: number }
 
 export type Attr = 'power' | 'focus' | 'spirit' | 'vit';
@@ -177,7 +181,10 @@ const it = itemsJson as unknown as {
   sell: { base: number; perLevel: number; perRarity: number; gemBase: number; gemPerLevel: number };
   drops: { goldChance: number; goldPerLevel: [number, number]; itemChance: number; gemChance: number; champion: DropRule; elite: DropRule; boss: DropRule };
   filterNames: string[];
+  /** loot package: rarity weights per source, unique share of magic find, off-class unique chance */
+  dropTables: Record<DropTableId, [number, number, number, number]>; uniqueBoostShare: number; offClassUnique: number;
 };
+export type DropTableId = 'monster' | 'champion' | 'elite' | 'boss' | 'wretch' | 'chest' | 'tear' | 'guardian' | 'pinnacle' | 'gamble';
 export const ITEMS = it;
 export const SLOTS = it.slots;
 export const SLOT_NAMES = it.slotNames;
@@ -283,21 +290,25 @@ export const DIFFICULTIES = df.difficulties;
 export const OFFLINE = df.offline;
 
 /* ---------- economy: salvage, crafting embers, corruption, gambling, stash (economy.json) ---------- */
-export type MatId = 'dust' | 'essence' | 'shard';
-export type EmberId = 'change' | 'choice' | 'whet' | 'rise' | 'bind' | 'wax';
+export type MatId = 'dust' | 'essence' | 'shard' | 'pearl';
+export type EmberId = 'change' | 'choice' | 'whet' | 'rise' | 'bind' | 'crown' | 'wax' | 'ascend';
 export type Mats = Partial<Record<MatId, number>>;
-export interface EmberDef { name: string; short: string; text: string; target: boolean; color: string; cost: Mats }
+export interface EmberDef { name: string; short: string; text: string; target: boolean; color: string; cost: Mats; /** also works on uniques / only on uniques */ unique?: boolean; uniqueOnly?: boolean }
+/** Direct material drops of one source: material -> [chance, min, max]. */
+export type CurrencyDrop = Partial<Record<MatId, [number, number, number]>>;
 export type CorruptOutcome = 'extra' | 'double' | 'seal' | 'replace';
 const ec = economyJson as unknown as {
-  materials: Record<MatId, { name: string; color: string; text: string }>;
+  materials: Record<MatId, { name: string; color: string; tier: string; text: string }>;
   salvage: Partial<Record<MatId, [number, number]>>[];
+  currencyDrops: { scale: Record<MatId, number> } & Record<string, CurrencyDrop>;
   embers: Record<EmberId, EmberDef>;
-  craftScale: { perLevel: number; perCraft: number };
+  craftScale: { perLevel: number; perCraft: number; uniqueMult: number };
+  riseTo: Record<string, Mats>;
   bindAffixes: [number, number];
   corruption: { cost: Mats; goldPerLevel: number; weights: Record<CorruptOutcome, number>; extraRoll: [number, number]; doubleMult: number };
-  gamble: { base: number; perLevel: number; perLevelSq: number; slotMult: Record<Slot, number>; rarityWeights: number[]; uniqueChance: number };
+  gamble: { base: number; perLevel: number; perLevelSq: number; slotMult: Record<Slot, number> };
   stash: { tabs: number; names: string[] };
-  lootDefaults: { keepUniques: boolean; keepGems: boolean; keepUpgrades: boolean; autoSalvage: boolean };
+  lootDefaults: { minRarity: number; keepUniques: boolean; keepGems: boolean; keepUpgrades: boolean; autoSalvage: boolean };
 };
 export const ECONOMY = ec;
 export const MATERIALS = ec.materials;

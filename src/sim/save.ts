@@ -4,7 +4,9 @@
  * Code format: "GL<version>." + base64url(deflate-raw(JSON)) + "." + checksum.
  * If the browser has no CompressionStream, the payload is stored uncompressed with prefix "GLU<version>.".
  */
-import { AREAS, ATLAS_NODES, ATTRS, DEFAULT_CLASS, DIFFICULTIES, ECONOMY, GEMS, GEM_MAX_LEVEL, KEY_MODS, MAT_IDS, RARITIES, SKILLS, SLOTS, UNIQUES, isClass, isPassive, skillOfClass } from '../content/index.ts';
+import { AFFIXES, AREAS, ATLAS_NODES, ATTRS, DEFAULT_CLASS, DIFFICULTIES, ECONOMY, GEMS, GEM_MAX_LEVEL, ITEMS, KEY_MODS, MAT_IDS, RARITIES, SKILLS, SLOTS, UNIQUES, isClass, isPassive, skillOfClass } from '../content/index.ts';
+import { affixValue } from './formulas.ts';
+import { topTier } from './items.ts';
 import { placeMissing } from './bag.ts';
 import { sanitizeSkillMods } from './skillmods.ts';
 import { DEFAULT_VOLUME, SAVE_VERSION, defaultLoot, newRiftSave, newSaveState } from './state.ts';
@@ -60,7 +62,31 @@ const MIGRATIONS: Record<number, (s: Raw) => Raw> = {
   9: s => ({ ...s, v: 10, skillMods: {} }),
   // v11: hero classes (Warrior package). Every older hero is a sorceress.
   10: s => ({ ...s, v: 11, cls: 'sorceress' }),
+  // v12: loot package. Gloam Pearls, normal items hidden by default, uniques on the new scale (best tier of their item level)
+  11: s => {
+    const loot = s.loot as { minR?: Record<string, number> } | undefined;
+    if (loot?.minR && Object.values(loot.minR).every(v => !v)) for (const k of Object.keys(loot.minR)) loot.minR[k] = ECONOMY.lootDefaults.minRarity;
+    const fix = (it: unknown) => { if (it && typeof it === 'object' && (it as Item).r === 3 && (it as Item).u) rescaleUnique(it as Item, isClass(s.cls) ? s.cls : DEFAULT_CLASS); };
+    for (const it of Object.values((s.equip as Record<string, unknown>) || {})) fix(it);
+    for (const it of (s.bag as unknown[]) || []) fix(it);
+    for (const tab of (s.stash as unknown[][]) || []) for (const it of tab || []) fix(it);
+    return { ...s, v: 12, mats: { ...(s.mats as object), pearl: 0 } };
+  },
 };
+
+/** v12: a unique from before the loot package rolled every stat at item level x1.15-1.35. Map its roll onto the new range and tier. */
+function rescaleUnique(it: Item, cls: string) {
+  const U = UNIQUES[it.u!];
+  if (!U || !Array.isArray(it.mods)) return;
+  const [a, b] = ITEMS.uniqueRoll, tier = topTier(it.L || 1);
+  it.mods = it.mods.map((m, i) => {
+    const A = AFFIXES[m[0]];
+    if (i < (it.imp || 0) || i === it.cm || !A) return m;
+    const old = Math.min(1, Math.max(0, (m[1] / Math.max(0.01, A.base + A.perLevel * (it.L || 1)) - 1.15) / 0.2));
+    return [m[0], affixValue(m[0], tier.level, a + (b - a) * old), tier.tier];
+  });
+  if (U.bases?.[cls]) it.base = U.bases[cls];
+}
 
 export class SaveError extends Error {}
 
@@ -134,10 +160,10 @@ function sanitize(s: Raw): SaveState {
   out.gems = (Array.isArray(s.gems) ? s.gems : []).filter(validGem).map(g => { const { bx: _x, by: _y, ...rest } = g; return rest; });
   const loot = (s.loot || {}) as Raw, minR = (loot.minR || {}) as Raw;
   out.loot = defaultLoot();
-  for (const k of SLOTS) out.loot.minR[k] = Math.floor(num(minR[k], 0, 0, RARITIES.length - 1));
+  for (const k of SLOTS) out.loot.minR[k] = Math.floor(num(minR[k], out.loot.minR[k], 0, RARITIES.length - 1));
   for (const k of ['keepUniques', 'keepGems', 'keepUpgrades', 'autoSalvage'] as const) out.loot[k] = bool(loot[k], out.loot[k]);
   const mats = (s.mats || {}) as Raw;
-  out.mats = { dust: 0, essence: 0, shard: 0 };
+  out.mats = { dust: 0, essence: 0, shard: 0, pearl: 0 };
   for (const k of MAT_IDS) out.mats[k] = Math.floor(num(mats[k], 0, 0));
   const stash = Array.isArray(s.stash) ? s.stash : [];
   out.stash = Array.from({ length: ECONOMY.stash.tabs }, (_, i) => {

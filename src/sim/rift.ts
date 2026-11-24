@@ -8,7 +8,7 @@ import {
   AREAS, ATLAS_NODES, ELEMENTS, HERO, KEY_MODS, MONSTERS, MYTHIC_UNIQUES, RIFT, type Element, type RiftFx, type RiftLoot, type RiftMechanic,
 } from '../content/index.ts';
 import { clamp, monsterDmg, monsterHp, type Stats } from './formulas.ts';
-import { genGem, genItem, genUnique } from './items.ts';
+import { genGem, genUnique } from './items.ts';
 import type { LootSource } from './drops.ts';
 import type { Rng } from './rng.ts';
 import type { Sim } from './sim.ts';
@@ -418,9 +418,10 @@ export class Rift {
       sim.drops.push({ id: sim.nextUid(), x: x + Math.cos(a) * d, y: y + Math.sin(a) * d, gold: Math.max(1, Math.round(lvl * L.goldPerPile * rng.range(1, 3) * gm)) });
     }
     const n = this.qty(rng.int(L.items[0], L.items[1]) + extra);
-    const src: LootSource = boss ? 'pinnacle' : 'guardian';
-    for (let i = 0; i < n; i++) this.dropItem(genItem(rng, sim.itemId(), lvl, L.minRarity, boss, sim.feel.rarityBoost() + this.rarity() + (L.rarityBoost ?? 0)), x, y, src);
+    const src = boss ? 'pinnacle' as const : 'guardian' as const;
+    for (let i = 0; i < n; i++) this.dropItem(sim.loot.roll(src, lvl, L.minRarity, L.rarityBoost ?? 0), x, y, src); // loot package: own rarity tables
     if (rng.chance(L.gemChance)) this.dropItem(genGem(rng, sim.itemId(), lvl), x, y, src);
+    sim.loot.currency(src, lvl, x, y);
   }
 
   /* ---------- the end of a run ---------- */

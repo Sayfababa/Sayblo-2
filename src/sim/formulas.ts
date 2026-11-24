@@ -1,7 +1,7 @@
 /** Pure game formulas. No state, no randomness: easy to test and to use in balancing scripts. */
 import {
   AFFIXES, DIFFICULTIES, RIFT, ELEMENTS, GEMS, HERO, ITEMS, MONSTERS, MONSTER_SCALING, RANKS, SKILLS, SKILL_SCALING, SPARK, STATES,
-  TREES, classDef, heroFor, isPassive, type Attr, type Element, type SkillDef,
+  TREES, UNIQUES, classDef, heroFor, isPassive, type Attr, type Element, type SkillDef,
 } from '../content/index.ts';
 import { metaMods, metaPost } from './metastats.ts';
 import { activeMods } from './skillmods.ts';
@@ -178,6 +178,11 @@ export function skillCtx(s: SaveState, st: Stats, id: string): SkillCtx {
     if (k === 'more') g.more = (g.more ?? 1) * (1 + v / 100);
     else if (k === 'manaMore') manaMult *= 1 + v / 100;
     else g[k] = (g[k] || 0) + v;
+  }
+  // loot package: data-driven unique effects (items.json skillFx) on skills with all of the tags
+  for (const u of st.uniques) {
+    const F = UNIQUES[u]?.skillFx;
+    if (F && F.tags.every(t => tags.has(t))) for (const [k, v] of Object.entries(F.fx)) g[k] = k === 'more' ? (g.more ?? 1) * (1 + v / 100) : (g[k] || 0) + v;
   }
   const G = (k: string) => g[k] || 0, M = st.mods, mod = (k: string) => M[k] || 0;
   const U = st.uniques;

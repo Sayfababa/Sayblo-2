@@ -4,12 +4,16 @@
  * (keep on the ground, salvage or sell on the spot) and counts everything for the balancing report
  * (scripts/loot-report.ts). Counters are not saved.
  */
-import { ITEMS, MAT_IDS, UNIQUES, classDef, type Mats } from '../content/index.ts';
+import { ECONOMY, ITEMS, MATERIALS, MAT_IDS, UNIQUES, classDef, type DropTableId, type MatId, type Mats, type Slot } from '../content/index.ts';
 import { addMats, salvageYield } from './crafting.ts';
 import { disposeItem } from './economy.ts';
+import { genItem, genUnique, pickUnique } from './items.ts';
 import { lootFate, type Fate } from './loot.ts';
 import type { Sim } from './sim.ts';
-import { isEquip, isGem, type BagItem } from './types.ts';
+import { isEquip, isGem, type BagItem, type Drop, type Item } from './types.ts';
+
+/** Rarity tier of a material (0 common … 3 very rare), used for its beam and sound. */
+export const matTier = (k: MatId) => MAT_IDS.indexOf(k);
 
 export type LootSource =
   | 'monster' | 'champion' | 'elite' | 'boss' | 'wretch' | 'chest' | 'tear' | 'event'
@@ -77,6 +81,42 @@ export class Loot {
     const U = it.u ? UNIQUES[it.u] as { cls?: string } : null;
     if (U?.cls) return U.cls !== cls;
     return it.slot === 'weapon' && !(classDef(cls).weaponBases ?? ITEMS.bases.weapon).some(b => b.name === it.base);
+  }
+
+  /** Magic find of the hero right now: shrines, ember points and feats, rift key. */
+  boost() { const sim = this.sim; return sim.feel.rarityBoost() + sim.meta.rarityBoost() + sim.rift.rarity(); }
+
+  /** A new random item from a source's drop table (not dropped yet). */
+  roll(table: DropTableId, L: number, minR = 0, extraBoost = 0): Item {
+    const sim = this.sim;
+    return genItem(sim.rng, sim.itemId(), L, minR, table, this.boost() + extraBoost);
+  }
+  /** A unique for the hero's class (optionally of one slot or from a list), or null if none fits. */
+  unique(L: number, slot?: Slot, from?: string[]): Item | null {
+    const sim = this.sim, u = pickUnique(sim.rng, L, slot, sim.s.cls, from);
+    return u ? genUnique(sim.rng, sim.itemId(), L, u) : null;
+  }
+
+  /** Direct material drops of a source (economy.json currencyDrops) around (x, y). */
+  currency(source: string, L: number, x: number, y: number) {
+    const C = ECONOMY.currencyDrops, table = C[source];
+    if (!table || source === 'scale') return;
+    const sim = this.sim, rng = sim.rng;
+    for (const k of MAT_IDS) {
+      const e = table[k];
+      if (!e || !rng.chance(e[0])) continue;
+      const n = Math.max(1, Math.round(rng.int(e[1], e[2]) * (1 + (C.scale[k] || 0) * L)));
+      sim.drops.push({ id: sim.nextUid(), x: x + rng.range(-1, 1), y: y + rng.range(-1, 1), mat: k, n });
+    }
+  }
+  /** The hero walks over a material pile. */
+  pickMat(d: Drop) {
+    const sim = this.sim, k = d.mat!, n = d.n || 1;
+    sim.s.mats[k] = (sim.s.mats[k] || 0) + n;
+    this.stats.dropMats[k] = (this.stats.dropMats[k] || 0) + n;
+    sim.float(d.x, d.y, `+${n} ${MATERIALS[k].name}`, MATERIALS[k].color, matTier(k) >= 3);
+    if (matTier(k) >= 2) sim.log(`Found **${n} ${MATERIALS[k].name}** (${MATERIALS[k].tier.toLowerCase()} crafting material).`, matTier(k) >= 3 ? 'r3' : 'r2');
+    sim.dirty.add('town');
   }
 
   /** Total materials gained (salvage and drops). */

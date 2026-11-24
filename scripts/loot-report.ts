@@ -24,7 +24,7 @@ const hours = Number(args[0] ?? 6), seeds = (args[1] ?? '1,2,3').split(',').map(
 
 interface Hour {
   stage: string; lvl: number; deaths: number; kills: number; gen: number[]; shown: number[]; salv: number;
-  uniq: Record<string, number>; ups: number; crafts: number; mats: Mats; gold: number; tier: number; offClass: number;
+  uniq: Record<string, number>; src: Record<string, number[]>; ups: number; crafts: number; mats: Mats; gold: number; tier: number; offClass: number;
 }
 
 const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
@@ -58,7 +58,7 @@ function play(build: string, seed: number): Hour[] {
     const gen = Object.values(L.gen).reduce((a, b) => add(a, b!), [0, 0, 0, 0]);
     out.push({
       stage: stageOf(sim), lvl: sim.s.lvl, deaths: sim.s.deaths - d0, kills: sim.s.kills - k0, gen, shown: L.fate.keep.slice(), salv: sum(L.fate.salvage),
-      uniq: { ...L.uniques } as Record<string, number>, ups: bot.upgrades + bot.craftUps - u0, crafts: Object.values(bot.crafts).reduce((a, b) => a + b, 0) - c0,
+      uniq: { ...L.uniques } as Record<string, number>, src: structuredClone(L.gen) as Record<string, number[]>, ups: bot.upgrades + bot.craftUps - u0, crafts: Object.values(bot.crafts).reduce((a, b) => a + b, 0) - c0,
       mats: sim.loot.matsGained(), gold: sim.s.gold - g0, tier: sim.s.rift.maxTier, offClass: off,
     });
   }
@@ -93,9 +93,13 @@ for (const build of builds) {
     console.log(line(String(h + 1), {
       stage: xs.map(x => x.stage).sort((a, b) => xs.filter(y => y.stage === b).length - xs.filter(y => y.stage === a).length)[0] + (riftStart != null ? ` (best ${Math.round(avg(x => x.tier))})` : ''),
       lvl: avg(x => x.lvl), deaths: avg(x => x.deaths), kills: avg(x => x.kills), gen: [0, 1, 2, 3].map(i => avg(x => x.gen[i])), shown: [0, 1, 2, 3].map(i => avg(x => x.shown[i])),
-      salv: avg(x => x.salv), uniq, ups: avg(x => x.ups), crafts: avg(x => x.crafts), mats, gold: avg(x => x.gold), tier: avg(x => x.tier), offClass: xs.reduce((a, x) => a + x.offClass, 0),
+      salv: avg(x => x.salv), uniq, src: {}, ups: avg(x => x.ups), crafts: avg(x => x.crafts), mats, gold: avg(x => x.gold), tier: avg(x => x.tier), offClass: xs.reduce((a, x) => a + x.offClass, 0),
     }));
   }
+  // equipment per source and hour (N/M/R/U), averaged over all hours and seeds
+  const srcs: Record<string, number[]> = {};
+  for (const r of runs) for (const x of r) for (const [k, v] of Object.entries(x.src)) srcs[k] = add(srcs[k] ?? [0, 0, 0, 0], v.map(y => y / (runs.length * hours)));
+  console.log('  per hour by origin (N/M/R/U): ' + Object.entries(srcs).map(([k, v]) => `${k} ${v.map(y => Math.round(y * 10) / 10).join('/')}`).join(' · '));
   const tot = (f: (x: Hour) => number) => runs.reduce((a, r) => a + r.reduce((b, x) => b + f(x), 0), 0) / runs.length;
   console.log(`  per run: ${Math.round(tot(x => sum(x.gen)))} items, ${Math.round(tot(x => sum(x.shown)))} shown, ${tot(x => x.gen[3]).toFixed(1)} uniques, ${tot(x => x.ups).toFixed(1)} upgrades, ${Math.round(tot(x => x.crafts))} crafts, ${tot(x => x.deaths).toFixed(1)} deaths, final level ${(runs.reduce((a, r) => a + r[r.length - 1].lvl, 0) / runs.length).toFixed(1)}`);
 }

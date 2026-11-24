@@ -18,12 +18,12 @@
     "_reward": "level L = level of the bounty's area on its difficulty. gold = goldPerLevel * L * difficulty goldMult * template reward. mats: [base, perLevel] * template reward. Gems and uniques sometimes.",
     "reward": {
       "goldPerLevel": 14,
-      "mats": { "dust": [14, 0.8], "essence": [3, 0.2] },
-      "shardChance": 0.35,
+      "mats": { "dust": [4, 0.2], "essence": [0, 0.04] },
+      "shardChance": 0.15,
       "shards": [1, 2],
       "gemChance": 0.35,
-      "uniqueChance": 0.08,
-      "uniqueTable": ["lantern", "cinders", "saint", "bell", "emberheart", "gravewhisper", "stormcaller", "hollowreed", "tidecrook", "lamplighter", "mourncowl", "tallow", "ninthbell", "choireye", "oathbreaker"]
+      "uniqueChance": 0.02,
+      "uniqueTable": ["lantern", "cinders", "saint", "bell", "emberheart", "gravewhisper", "stormcaller", "hollowreed", "tidecrook", "lamplighter", "mourncowl", "tallow", "ninthbell", "choireye", "oathbreaker", "ashfang", "rimegrave", "skyrender"]
     }
   },
 
@@ -35,7 +35,7 @@
     "levelAdd": 2,
     "adds": 2,
     "_loot": "count items of at least minRarity, slot from `slots`; each item gets one favoured affix (from `affixes`, best tier the level allows) with affixChance. uniqueChance for one of `uniques` on top. Gold piles like a boss.",
-    "loot": { "count": [2, 3], "minRarity": 2, "affixChance": 0.8, "uniqueChance": 0.12, "goldPiles": [5, 8], "gemChance": 0.6 },
+    "loot": { "count": [1, 1], "minRarity": 2, "affixChance": 0.8, "uniqueChance": 0.05, "goldPiles": [5, 8], "gemChance": 0.6 },
     "list": {
       "gallows-field": {
         "name": "The Hanged Reeve", "title": "Tyrant of Gallows Field", "monster": "tyrant-gallows-field", "scale": 1.45, "tint": "",
@@ -53,19 +53,19 @@
         "name": "Ashmaw", "title": "Tyrant of Cinder Hollow", "monster": "tyrant-cinder-hollow", "scale": 1.55, "tint": "",
         "intro": "Embers swirl into a shape. **Ashmaw**, the kiln-hound, howls!",
         "mechanic": { "kind": "ring", "name": "Kiln Ring", "element": "fire", "every": 6.5, "delay": 1.5, "radius": 1.2, "count": 6, "mult": 1.5, "spread": 2.6 },
-        "slots": ["weapon", "amulet"], "affixes": ["fireDmg", "firePen", "burnChance"], "uniques": ["lantern", "emberheart"]
+        "slots": ["weapon", "amulet"], "affixes": ["fireDmg", "firePen", "burnChance"], "uniques": ["lantern", "emberheart", "ashfang"]
       },
       "stormwatch-ruins": {
         "name": "Corvane the Stormherald", "title": "Tyrant of Stormwatch Ruins", "monster": "tyrant-stormwatch-ruins", "scale": 1.8, "tint": "",
         "intro": "Thunder rolls over the broken tower. **Corvane the Stormherald** descends!",
         "mechanic": { "kind": "scatter", "name": "Thunder Call", "element": "light", "every": 5.5, "delay": 1.2, "radius": 1.2, "count": 4, "mult": 1.5, "spread": 2.5 },
-        "slots": ["weapon", "ring"], "affixes": ["lightPen", "castSpeed", "crit"], "uniques": ["stormcaller", "tidecrook"]
+        "slots": ["weapon", "ring"], "affixes": ["lightPen", "castSpeed", "crit"], "uniques": ["stormcaller", "tidecrook", "skyrender"]
       },
       "rimefrost-crypt": {
         "name": "The Rimebound Abbot", "title": "Tyrant of Rimefrost Crypt", "monster": "tyrant-rimefrost-crypt", "scale": 1.5, "tint": "",
         "intro": "Frost creeps over the tombs. **The Rimebound Abbot** rises from his sarcophagus!",
         "mechanic": { "kind": "nova", "name": "Grave Frost", "element": "cold", "every": 7, "delay": 1.6, "radius": 3.2, "count": 1, "mult": 2.4 },
-        "slots": ["ring", "amulet"], "affixes": ["coldPen", "coldDmg", "freezeChance"], "uniques": ["hollowreed", "choireye"]
+        "slots": ["ring", "amulet"], "affixes": ["coldPen", "coldDmg", "freezeChance"], "uniques": ["hollowreed", "choireye", "rimegrave"]
       },
       "pale-chapel": {
         "name": "Sister Candlewane", "title": "Tyrant of the Pale Chapel", "monster": "tyrant-pale-chapel", "scale": 1.4, "tint": "",
@@ -87,7 +87,7 @@
     "tear": {
       "name": "Rift Tear", "text": "The ground splits. Monsters slain inside the tear drop more.", "color": "#b48cff",
       "duration": 80, "radius": 2.2, "growPerKill": 0.3, "maxRadius": 6, "shrinkPerSecond": 0.04,
-      "goldMult": 2, "itemChance": 0.3, "rarityBoost": 1.0
+      "goldMult": 2, "itemChance": 0.2, "rarityBoost": 0.5
     },
     "champion": {
       "name": "Trapped Champion", "text": "An elite is sealed in ice and embers. Break the casing; it carries an item with a bonus affix.", "color": "#8fd8ff",

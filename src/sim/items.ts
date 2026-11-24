@@ -1,14 +1,32 @@
-import { AFFIXES, AFFIX_ROLL, AFFIX_TIERS, COMMON_UNIQUES, GEMS, SLOT_KINDS, GEM_MAX_LEVEL, ITEMS, RARITIES, SLOTS, UNIQUES, getActiveClass, weaponBases, type Slot } from '../content/index.ts';
+import { AFFIXES, AFFIX_ROLL, AFFIX_TIERS, COMMON_UNIQUES, GEMS, SLOT_KINDS, GEM_MAX_LEVEL, ITEMS, SLOTS, UNIQUES, RARITIES, getActiveClass, weaponBases, type DropTableId, type Slot } from '../content/index.ts';
 import { affixValue } from './formulas.ts';
 import type { Rng } from './rng.ts';
 import type { GemItem, Item, Mod } from './types.ts';
 
-/** Roll a rarity index from weights. Boss drops use bossWeight. `boost` makes magic and better more likely (0.75 = +75 %). */
-export function rollRarity(rng: Rng, boss: boolean, boost = 0): number {
-  const w = RARITIES.map((r, i) => (boss ? r.bossWeight : r.weight) * (i ? 1 + boost : 1));
+/**
+ * Roll a rarity index (0 Normal … 3 Unique) from a drop table (items.json dropTables). `boost` is magic find:
+ * Magic and Rare weights x (1 + boost), Unique x (1 + boost x uniqueBoostShare). `true` = area boss table, `false` = monsters.
+ */
+export function rollRarity(rng: Rng, table: boolean | DropTableId, boost = 0): number {
+  const base = ITEMS.dropTables[typeof table === 'string' ? table : table ? 'boss' : 'monster'];
+  const w = base.map((x, i) => x * (i === 0 ? 1 : i === 3 ? 1 + boost * ITEMS.uniqueBoostShare : 1 + boost));
   let t = rng.next() * w.reduce((a, b) => a + b, 0), r = 0;
   for (; r < w.length - 1; r++) { if (t < w[r]) break; t -= w[r]; }
   return r;
+}
+
+/** Can a hero of this class find this unique? Class-only uniques (cls) need that class. */
+export const uniqueFits = (u: string, cls: string = getActiveClass()) => !UNIQUES[u]?.cls || UNIQUES[u].cls === cls;
+/** Uniques that can drop at item level L (optionally of one slot) for a class. Mythics (pinnacle) never. */
+export function uniquePool(L: number, slot?: Slot, cls: string = getActiveClass()): string[] {
+  return COMMON_UNIQUES.filter(u => (UNIQUES[u].lvl ?? 1) <= L && (!slot || UNIQUES[u].slot === slot) && uniqueFits(u, cls));
+}
+/** Pick a unique by weight, or null if none fits. A small `offClassUnique` chance allows other classes' uniques. */
+export function pickUnique(rng: Rng, L: number, slot?: Slot, cls: string = getActiveClass(), from?: string[]): string | null {
+  let pool = (from ?? uniquePool(L, slot, cls)).filter(u => (!slot || UNIQUES[u].slot === slot) && uniqueFits(u, cls));
+  if (ITEMS.offClassUnique > 0 && rng.chance(ITEMS.offClassUnique)) pool = (from ?? COMMON_UNIQUES).filter(u => (UNIQUES[u].lvl ?? 1) <= L && (!slot || UNIQUES[u].slot === slot));
+  if (!pool.length) return null;
+  return weighted(rng, pool, u => UNIQUES[u].weight ?? 1);
 }
 
 function weighted<T>(rng: Rng, list: T[], w: (x: T) => number): T {
@@ -19,6 +37,8 @@ function weighted<T>(rng: Rng, list: T[], w: (x: T) => number): T {
 
 /** Tiers an item level can roll (T5 = weakest). */
 export const tiersFor = (L: number) => AFFIX_TIERS.filter(t => t.level <= L);
+/** Best tier an item level allows (the lowest number) and its level. */
+export const topTier = (L: number) => tiersFor(L).reduce((a, b) => (b.tier < a.tier ? b : a), AFFIX_TIERS[0]);
 
 /** Can this affix roll on this slot? */
 export const affixFits = (k: string, slot: Slot) => {
@@ -37,10 +57,14 @@ export function rollAffix(rng: Rng, slot: Slot, L: number, group: 'prefix' | 'su
   return [k, affixValue(k, tier.level, rng.range(AFFIX_ROLL[0], AFFIX_ROLL[1])), tier.tier];
 }
 
-export function genItem(rng: Rng, id: number, L: number, minR: number, boss: boolean, boost = 0): Item {
-  const r = Math.max(rollRarity(rng, boss, boost), minR);
-  if (r === 3) return genUnique(rng, id, L, rng.pick(COMMON_UNIQUES));
-  return genItemOf(rng, id, L, r, rng.pick(SLOTS));
+/** Random item from a drop table (see rollRarity). A unique roll with no fitting unique becomes a Rare. */
+export function genItem(rng: Rng, id: number, L: number, minR: number, table: boolean | DropTableId, boost = 0): Item {
+  const r = Math.max(rollRarity(rng, table, boost), minR);
+  if (r === 3) {
+    const u = pickUnique(rng, L);
+    if (u) return genUnique(rng, id, L, u);
+  }
+  return genItemOf(rng, id, L, Math.min(r, 2), rng.pick(SLOTS));
 }
 
 /** Name of a magic item from its first prefix and suffix. */
@@ -82,13 +106,17 @@ export function genItemOf(rng: Rng, id: number, L: number, r: number, slot: Slot
 
 export const rareName = (rng: Rng) => `${rng.pick(ITEMS.rareNames.first)} ${rng.pick(ITEMS.rareNames.second)}`;
 
+/** Base of a unique for a class (class-neutral weapons have one per class). */
+export const uniqueBase = (u: string, cls: string = getActiveClass()) => UNIQUES[u].bases?.[cls] ?? UNIQUES[u].base;
+/** Value of a unique's stat: the best tier item level L allows, times a roll in uniqueRoll. */
+export const uniqueValue = (rng: Rng, k: string, L: number) => affixValue(k, topTier(L).level, rng.range(ITEMS.uniqueRoll[0], ITEMS.uniqueRoll[1]));
 export function genUnique(rng: Rng, id: number, L: number, u: string): Item {
-  const U = UNIQUES[u], mods: Mod[] = [];
+  const U = UNIQUES[u], mods: Mod[] = [], tier = topTier(L).tier;
   const impl = ITEMS.implicits[U.slot];
   let imp = 0;
   if (impl) { mods.push([impl.affix, Math.round((impl.base + impl.perLevel * L) * ITEMS.implicitRoll[1])]); imp = 1; }
-  for (const k of U.mods) mods.push([k, affixValue(k, L, rng.range(ITEMS.uniqueRoll[0], ITEMS.uniqueRoll[1]))]);
-  return { id, slot: U.slot, base: U.base, name: U.name, r: 3, L, imp, mods, u };
+  for (const k of U.mods) mods.push([k, uniqueValue(rng, k, L), tier]);
+  return { id, slot: U.slot, base: uniqueBase(u), name: U.name, r: 3, L, imp, mods, u };
 }
 
 /** Random support gem; higher item level allows higher gem levels, low levels stay more common. */

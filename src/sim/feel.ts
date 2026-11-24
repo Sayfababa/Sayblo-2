@@ -6,8 +6,8 @@
  */
 import { ELITE_MODS, FEEL, HERO, MONSTERS, SHRINES, type Element } from '../content/index.ts';
 import type { Stats } from './formulas.ts';
-import { genGem, genItem } from './items.ts';
-import type { LootSource } from './drops.ts';
+import { genGem } from './items.ts';
+import { matTier } from './drops.ts';
 import { modsStep, onModDamaged, onModDeath, rollChampionMod } from './elitemods.ts';
 import { hasPerfect, isUpgrade } from './upgrade.ts';
 import type { Sim } from './sim.ts';
@@ -157,9 +157,9 @@ export class Feel {
       this.lastDrop = d.id;
       if (!sim.collectEvents) continue;
       const it = d.item as BagItem | undefined;
-      const kind = d.gold ? 'gold' : isGem(it) ? 'gem' : isKey(it) ? 'key' : 'item';
+      const kind = d.gold ? 'gold' : d.mat ? 'mat' : isGem(it) ? 'gem' : isKey(it) ? 'key' : 'item';
       const up = isEquip(it) && isUpgrade(it, sim.s.equip[it.slot]);
-      sim.emit({ t: 'loot', id: d.id, x: d.x, y: d.y, kind, r: isEquip(it) ? it.r : isKey(it) ? 2 : 0, up, perfect: hasPerfect(it) });
+      sim.emit({ t: 'loot', id: d.id, x: d.x, y: d.y, kind, r: isEquip(it) ? it.r : isKey(it) ? 2 : d.mat ? matTier(d.mat) : 0, up, perfect: hasPerfect(it) });
       if (up) sim.float(d.x, d.y, '▲ Upgrade', '#6fe36a');
     }
   }
@@ -215,12 +215,13 @@ export class Feel {
       sim.drops.push({ id: sim.nextUid(), x: x + Math.cos(a) * r, y: y + Math.sin(a) * r, gold: g });
     }
   }
-  private lootItems(src: LootSource, x: number, y: number, n: number, minR: number, gemChance: number) {
+  private lootItems(src: 'wretch' | 'chest', x: number, y: number, n: number, minR: number, gemChance: number) {
     const sim = this.sim, rng = sim.rng, L = sim.areaLevel();
     for (let i = 0; i < n; i++) {
-      sim.loot.put(src, genItem(rng, sim.itemId(), L, minR, false, this.rarityBoost()), x, y);
+      sim.loot.put(src, sim.loot.roll(src, L, minR), x, y); // loot package: own rarity table (items.json dropTables)
     }
     if (rng.chance(gemChance)) sim.loot.put(src, genGem(rng, sim.itemId(), L), x, y);
+    sim.loot.currency(src, L, x, y);
   }
 
   /* ---------- monsters ---------- */

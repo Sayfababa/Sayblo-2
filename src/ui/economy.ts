@@ -23,6 +23,8 @@ type Dropdown = (key: string, label: string, cur: string, options: [string, stri
 
 /* ---------- small shared pieces ---------- */
 /** Material icon (painted, from icons-economy.png). */
+/** Unique share of the gambling table, in percent. */
+const gambleUniquePct = () => { const w = ITEMS.dropTables.gamble; return Math.round((w[3] / (w[1] + w[2] + w[3])) * 1000) / 10; };
 export const matIcon = (k: string) => `<img class="mat" src="${spriteUrl(`mat-${k}.png`)}" alt="" title="${esc(MATERIALS[k as keyof typeof MATERIALS].name)}">`;
 /** "12 ◆ 3 ◆" list of a material amount; `have` marks what is missing in red. */
 export function matList(m: Mats, have?: Mats): string {
@@ -126,7 +128,7 @@ export class EconomyUI {
           : `<button class="${cls}" data-act="fmod:${i}" aria-pressed="${i === this.selMod}"><span>${esc(formatMod(m as [string, number]))}</span>${mark}${tag}</button>`;
       }).join('');
       const embers = EMBER_IDS.map(e => {
-        const E = EMBERS[e], cost = craftCost(it, e), why = emberBlock(it, e, this.selMod), afford = canAfford(s.mats, cost);
+        const E = EMBERS[e], cost = craftCost(it, e, E.target ? this.selMod : null), why = emberBlock(it, e, this.selMod), afford = canAfford(s.mats, cost);
         return `<button class="ember" data-act="ember:${e}" ${why || !afford ? 'disabled' : ''} style="--ec:${E.color}">
           ${emberIcon(e)}<span class="ename">${esc(E.name)}</span><span class="eshort">${esc(why && !block ? why : E.short)}</span><span class="ecost">${matList(cost, s.mats)}</span></button>`;
       }).join('');
@@ -173,7 +175,7 @@ export class EconomyUI {
         : `${f.where === 'bag' ? `<button class="btn primary" data-act="eequip:${it.id}">Equip</button>${salvageBtn(it)}` : '<span class="hint">Equipped.</span>'}`;
       last = `<h3>Your purchase</h3>${itemTooltip(it, s.equip[it.slot] === it ? null : s.equip[it.slot], acts, { compare: !it.unid && f.where === 'bag' })}`;
     }
-    return `<p class="hint">The vendor sells sealed parcels: pick a slot, pay, and get an unidentified Magic or Rare item of level ${L} (your deepest area). Now and then a Unique hides inside (${Math.round(ECONOMY.gamble.uniqueChance * 100)}%). Prices rise with that level.</p>
+    return `<p class="hint">The vendor sells sealed parcels: pick a slot, pay, and get an unidentified Magic or Rare item of level ${L} (your deepest area). Now and then a Unique for your class hides inside (${gambleUniquePct()}%). Prices rise with that level.</p>
       <div class="gslots">${slots}</div>${this.msgLine()}${last}`;
   }
 
@@ -221,7 +223,7 @@ export class EconomyUI {
       case 'ember': {
         const it = this.selected();
         if (!it) return done();
-        const e = x as EmberId, err = forge(sim, it.id, e, EMBERS[e].target ? this.selMod : null, craftCost(it, e));
+        const e = x as EmberId, err = forge(sim, it.id, e, EMBERS[e].target ? this.selMod : null, craftCost(it, e, EMBERS[e].target ? this.selMod : null));
         if (err) this.say(err, 'bad');
         else {
           const last = sim.events.filter(ev => ev.t === 'log').pop();

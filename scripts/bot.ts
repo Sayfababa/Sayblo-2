@@ -2,15 +2,16 @@
  * The balancing bot shared by scripts/simulate.ts and scripts/loot-report.ts: spends points by a build plan,
  * equips upgrades, sockets gems, claims bounties, imprints codex effects and crafts at the forge.
  */
-import { DIFFICULTIES, SKILLS, SOCKET_LEVELS, UNIQUES, type Attr, type EmberId, type Slot } from '../src/content/index.ts';
+import { AFFIXES, AFFIX_ROLL, AFFIX_TIERS, DIFFICULTIES, ITEMS, SKILLS, SOCKET_LEVELS, UNIQUES, type Attr, type EmberId, type Slot } from '../src/content/index.ts';
 import { gemFits } from '../src/sim/formulas.ts';
 import { Sim } from '../src/sim/sim.ts';
 import { canAfford, craftCost, craftableMods, emberBlock } from '../src/sim/crafting.ts';
-import { forge, salvage } from '../src/sim/economy.ts';
+import { ascendLevel, forge, salvage } from '../src/sim/economy.ts';
+import { topTier } from '../src/sim/items.ts';
 import { bountyDone } from '../src/sim/bounty.ts';
 import { imprintBlock, imprintCost } from '../src/sim/codex.ts';
 import { isEquip, type Item } from '../src/sim/types.ts';
-import { isUpgrade, itemPower } from '../src/sim/upgrade.ts';
+import { isUpgrade, itemPower, modPower } from '../src/sim/upgrade.ts';
 import { PLANS, nextSkill, pickMods, planSlots } from './endgame.ts';
 
 const attrOrder: Attr[] = ['vit', 'power', 'spirit', 'focus', 'vit'];
@@ -89,7 +90,7 @@ export class Bot {
   }
 
   private use(it: Item, e: EmberId, idx: number | null): boolean {
-    const sim = this.sim, cost = craftCost(it, e);
+    const sim = this.sim, cost = craftCost(it, e, idx);
     if (emberBlock(it, e, idx) || !canAfford(sim.s.mats, cost)) return false;
     const before = itemPower(it);
     if (forge(sim, it.id, e, idx, cost)) return false;
@@ -99,13 +100,56 @@ export class Bot {
     return true;
   }
 
-  /** Simple crafting: bind magic gear into rares, then raise affix tiers on equipped items while materials last. */
+  /**
+   * Crafting, roughly how a player would: weapon and jewellery first. Bind magic gear into rares, crown rares with a
+   * free affix slot, raise tiers (T1 only with a spare pearl), reroll dead affixes (mana-kind or weak) with Ember of
+   * Choice, whet bad rolls; uniques ascend when a deeper level opens a better tier, else get their worst roll whetted.
+   * Keeps a small reserve so the next found item can be bound and crowned.
+   */
   private craft() {
-    const s = this.sim.s;
-    for (const it of Object.values(s.equip)) {
+    const sim = this.sim, s = sim.s;
+    for (const slot of ['weapon', 'amulet', 'ring', 'armor', 'helm'] as Slot[]) {
+      const cur = () => s.equip[slot];
+      let it = cur();
       if (!it) continue;
-      this.use(it, 'bind', null);
-      for (const i of craftableMods(it)) this.use(s.equip[it.slot]!, 'rise', i);
+      if (it.r === 3) { this.craftUnique(it); continue; }
+      if (it.r === 1) this.use(it, 'bind', null);
+      it = cur()!;
+      if (it.r !== 2) continue;
+      for (let n = 0; n < 2; n++) this.use(it, 'crown', null);
+      // tiers: the strongest affix kinds first
+      const order = craftableMods(it).sort((a, b) => kindW(it!.mods[b][0]) - kindW(it!.mods[a][0]));
+      for (const i of order) for (let n = 0; n < 4; n++) {
+        const cost = craftCost(it, 'rise', i);
+        if (cost.pearl && s.mats.pearl < cost.pearl + 1) break; // T1 only with a spare pearl
+        if (!this.use(it, 'rise', i)) break;
+      }
+      // dead affixes: mana-kind or below a third of their best roll
+      for (const i of craftableMods(it)) {
+        const m = it.mods[i];
+        if ((AFFIXES[m[0]].kind === 'mana' || modPower(m) < 0.25) && this.reserve(it, 'choice')) this.use(it, 'choice', i);
+      }
+      for (const i of craftableMods(it)) if (lowRoll(it.mods[i]) && this.reserve(it, 'whet')) this.use(it, 'whet', i);
     }
   }
+  private craftUnique(it: Item) {
+    const sim = this.sim, lvl = ascendLevel(sim);
+    if (topTier(lvl).tier < topTier(it.L).tier) { this.use(it, 'ascend', null); return; }
+    const worst = craftableMods(it).filter(i => lowRoll(it.mods[i], true)).sort((a, b) => modPower(it.mods[a]) - modPower(it.mods[b]))[0];
+    if (worst != null && this.reserve(it, 'whet')) this.use(it, 'whet', worst);
+  }
+  /** Enough materials left after this craft to bind and crown a fresh find? */
+  private reserve(it: Item, e: EmberId): boolean {
+    const m = this.sim.s.mats, c = craftCost(it, e);
+    return (m.essence - (c.essence || 0)) >= 25 && (m.dust - (c.dust || 0)) >= 60 && (m.shard - (c.shard || 0)) >= (c.shard ? 2 : 0);
+  }
+}
+
+const kindW = (k: string) => ({ offense: 3, defense: 2, mana: 0 })[AFFIXES[k].kind] ?? 1;
+/** Roll in the lower third of its range (uniques: their own range). */
+function lowRoll(m: [string, number, number?], unique = false): boolean {
+  const A = AFFIXES[m[0]], t = AFFIX_TIERS.find(x => x.tier === (m[2] ?? 1));
+  if (!A || !t) return false;
+  const [lo, hi] = unique ? ITEMS.uniqueRoll : AFFIX_ROLL, r = m[1] / (A.base + A.perLevel * t.level);
+  return r < lo + (hi - lo) / 3;
 }

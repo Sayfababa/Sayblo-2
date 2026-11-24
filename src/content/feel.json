@@ -4,7 +4,7 @@
     "_doc": "Item power = sum over all mods of (value / best possible value of that affix at refLevel) x kind weight, plus uniqueBonus for a unique effect. An item is an upgrade when its power beats the equipped one by more than minGain (relative) and at least minAbs.",
     "kindWeight": { "offense": 1, "defense": 0.8, "mana": 0.4 },
     "refLevel": 38,
-    "uniqueBonus": 1.5,
+    "uniqueBonus": 1.0,
     "minGain": 0.05,
     "minAbs": 0.05
   },
@@ -40,9 +40,9 @@
     "turnEvery": [0.6, 1.4],
     "goldPiles": [8, 12],
     "goldPerPile": 1.6,
-    "items": [2, 3],
+    "items": [1, 1],
     "minRarity": 1,
-    "gemChance": 0.5,
+    "gemChance": 0.3,
     "vaultChance": 0.15
   },
   "vault": {
@@ -52,10 +52,10 @@
     "extraMonsters": 3,
     "chests": [1, 2],
     "chestGoldPiles": [3, 5],
-    "chestItems": [1, 2],
+    "chestItems": [1, 1],
     "chestMinRarity": 1,
     "goldMult": 2,
     "goldChanceAdd": 0.3,
-    "itemChanceAdd": 0.1
+    "itemChanceAdd": 0.05
   }
 }

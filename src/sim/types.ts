@@ -131,7 +131,7 @@ export interface Projectile {
 export interface Strike { id: number; x: number; y: number; t: number; dur: number; skill: string; kind: 'meteor' | 'strike'; echo: boolean;
   /** damage factor and "no follow-ups" for extra strikes and repeats from skill modifiers */ mult?: number; sub?: boolean }
 export interface Echo { t: number; skill: string; cond: string }
-export interface Drop { id: number; x: number; y: number; gold?: number; item?: BagItem }
+export interface Drop { id: number; x: number; y: number; gold?: number; item?: BagItem; /** loot package: a pile of crafting material */ mat?: MatId; n?: number }
 
 export type Phase = 'walk' | 'fight' | 'town';
 
@@ -154,7 +154,7 @@ export type SimEvent =
   | { t: 'monAttack'; id: number }
   | { t: 'clear' }
   /** a new drop lies on the ground (sound, beam pulse); up = upgrade for the hero */
-  | { t: 'loot'; id: number; x: number; y: number; kind: 'gold' | 'item' | 'gem' | 'key'; r: number; up: boolean; perfect: boolean }
+  | { t: 'loot'; id: number; x: number; y: number; kind: 'gold' | 'item' | 'gem' | 'key' | 'mat'; r: number; up: boolean; perfect: boolean }
   | { t: 'kill'; id: number; x: number; y: number; rank: number; overkill: number; treasure: boolean }
   | { t: 'levelup' }
   | { t: 'shrine'; x: number; y: number; shrine: string }

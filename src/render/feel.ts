@@ -6,7 +6,8 @@
  * into the fixed-step simulation, so the simulation itself (ticks, TICK, RNG) is unchanged.
  */
 import type { Graphics, Sprite, Text, Texture } from 'pixi.js';
-import { ELEMENT_COLORS, ELITE_MODS, RARITIES, SHRINES } from '../content/index.ts';
+import { ELEMENT_COLORS, ELITE_MODS, MATERIALS, RARITIES, SHRINES } from '../content/index.ts';
+import { matTier } from '../sim/drops.ts';
 import type { Sim } from '../sim/sim.ts';
 import type { FeelObject } from '../sim/feel.ts';
 import { isGem, isKey, type Drop, type SimEvent } from '../sim/types.ts';
@@ -172,13 +173,14 @@ export class FeelFx {
 
   private beam(K: Kit, d: Drop) {
     const it = d.item;
-    if (!it) return;
-    const gem = isGem(it), r = gem ? 0 : isKey(it) ? 2 : it.r; // rift keys glow like rares
+    if (!it && !d.mat) return;
+    // loot package: relic shards and gloam pearls get a beam in their own colour
+    const gem = isGem(it), r = d.mat ? (matTier(d.mat) >= 2 ? 2 : 0) : gem ? 0 : isKey(it) ? 2 : it!.r; // rift keys glow like rares
     if (!gem && r < 1) return;
     if (!this.born.has(d.id)) this.born.set(d.id, this.clock);
     const age = this.clock - this.born.get(d.id)!, rise = clamp(age / 0.35, 0, 1), ease = 1 - (1 - rise) * (1 - rise);
     const [hh, ww] = BEAM[gem ? 'gem' : r], k = K.k, t = K.time;
-    const col = gem ? gemColor(it.gem) : RARITIES[r].color;
+    const col = d.mat ? MATERIALS[d.mat].color : gem ? gemColor(it.gem) : RARITIES[r].color;
     const [px, py] = K.iso(d.x, d.y), H = hh * k * ease, flick = 0.85 + Math.sin(t * 5 + d.id) * 0.15;
     const outer = K.fx.sprite(glowTexture(), true);
     outer.anchor.set(0.5, 1); outer.position.set(px, py + 4 * k); outer.width = ww * 2.2 * k; outer.height = H * 1.15; outer.tint = col; outer.alpha = 0.32 * flick;

@@ -4,12 +4,12 @@
  * The Sim-side actions live in economy.ts.
  */
 import {
-  AFFIXES, AFFIX_ROLL, AFFIX_TIERS, ECONOMY, EMBERS, MAT_IDS, RARITIES, UNIQUES,
+  AFFIXES, AFFIX_ROLL, AFFIX_TIERS, ECONOMY, EMBERS, MAT_IDS, RARITIES,
   type CorruptOutcome, type EmberId, type MatId, type Mats, type Slot,
   getActiveClass,
 } from '../content/index.ts';
 import { affixValue } from './formulas.ts';
-import { affixFits, genItemOf, genUnique, magicName, rareName, rollAffix, tiersFor } from './items.ts';
+import { affixFits, genItemOf, genUnique, magicName, pickUnique, rareName, rollAffix, rollRarity, tiersFor, topTier, uniqueValue } from './items.ts';
 import type { Rng } from './rng.ts';
 import type { Item, Mod } from './types.ts';
 
@@ -44,28 +44,38 @@ const keysOf = (it: Item, skip = -1) => new Set(it.mods.filter((_, i) => i >= it
 const rename = (it: Item) => { if (it.r === 1) it.name = magicName(it.base, it.mods, it.imp); };
 const groupCount = (it: Item, g: 'prefix' | 'suffix') => it.mods.filter((m, i) => i >= it.imp && i !== it.cm && AFFIXES[m[0]]?.group === g).length;
 
-/** Material cost of an ember on this item. Grows with item level and with every craft. */
-export function craftCost(it: Item, ember: EmberId): Mats {
-  const S = ECONOMY.craftScale, mult = (1 + S.perLevel * it.L) * (1 + S.perCraft * (it.cr || 0)), out: Mats = {};
+/**
+ * Material cost of an ember on this item. Grows with item level and with every craft; uniques cost uniqueMult times more.
+ * A Rising Ember that lifts the chosen affix (idx) to T2 or T1 also takes `riseTo` (a Relic Shard, a Gloam Pearl).
+ */
+export function craftCost(it: Item, ember: EmberId, idx: number | null = null): Mats {
+  const S = ECONOMY.craftScale, mult = (1 + S.perLevel * it.L) * (1 + S.perCraft * (it.cr || 0)) * (it.r === 3 ? S.uniqueMult : 1);
+  let out: Mats = {};
   for (const [k, v] of Object.entries(EMBERS[ember].cost) as [MatId, number][]) out[k] = Math.ceil(v * mult);
+  if (ember === 'rise' && idx != null && it.mods[idx]?.[2]) out = addMats(out, ECONOMY.riseTo[it.mods[idx][2]! - 1] ?? {});
   return out;
 }
 
-/** Why this item cannot be crafted at all, or null. */
+/** Why this item cannot be crafted at all, or null. Uniques only take some embers (see emberBlock). */
 export function craftBlock(it: Item): string | null {
   if (it.unid) return 'Identify it first.';
   if (it.seal) return 'Sealed by corruption. It can no longer be crafted.';
-  if (it.r === 3) return 'Uniques cannot be changed at the forge. Try the altar.';
   if (it.r === 0) return 'Normal items have no affixes. Salvage it for dust.';
   return null;
 }
+const freeGroups = (it: Item): ('prefix' | 'suffix')[] =>
+  (['prefix', 'suffix'] as const).filter(g => groupCount(it, g) < (g === 'prefix' ? RARITIES[2].prefixes! : RARITIES[2].suffixes!));
 
 /** Why this ember cannot be used on this item (and chosen mod), or null. */
 export function emberBlock(it: Item, ember: EmberId, idx: number | null): string | null {
   const b = craftBlock(it);
   if (b) return b;
-  const mods = craftableMods(it);
+  const mods = craftableMods(it), E = EMBERS[ember];
+  if (it.r === 3 && !E.unique) return 'Uniques only take a Whetstone or an Ember of Ascension.';
+  if (E.uniqueOnly && it.r !== 3) return 'Only for Unique items.';
+  if (ember === 'ascend') return it.cor ? 'A corrupted unique cannot ascend.' : null;
   if (ember === 'bind') return it.r === 1 ? null : 'Only Magic items can be bound into Rares.';
+  if (ember === 'crown') return it.r !== 2 ? 'Only Rare items can be crowned.' : freeGroups(it).length ? null : 'No free affix slot left (3 prefixes and 3 suffixes).';
   if (ember === 'change') return mods.some(i => i !== it.wax) ? null : 'No affix left to reroll.';
   if (idx == null) return 'Tap an affix first.';
   if (idx < it.imp) return 'The base stat of an item cannot be changed.';
@@ -89,8 +99,8 @@ function reroll(rng: Rng, it: Item, i: number) {
   if (m) it.mods[i] = m;
 }
 
-/** Use an ember. `idx` is the chosen mod for embers that need one. */
-export function applyEmber(rng: Rng, item: Item, ember: EmberId, idx: number | null = null): CraftResult {
+/** Use an ember. `idx` is the chosen mod for embers that need one; `level` = deepest area level (Ember of Ascension). */
+export function applyEmber(rng: Rng, item: Item, ember: EmberId, idx: number | null = null, level = 0): CraftResult {
   const err = emberBlock(item, ember, idx);
   if (err) return { ok: false, err };
   const it = copy(item);
@@ -113,7 +123,8 @@ export function applyEmber(rng: Rng, item: Item, ember: EmberId, idx: number | n
     }
     case 'whet': {
       const m = it.mods[idx!], t = m[2] ?? 1, old = m[1];
-      m[1] = affixValue(m[0], tierLevel(t), rng.range(AFFIX_ROLL[0], AFFIX_ROLL[1]));
+      if (it.r === 3) { m[1] = uniqueValue(rng, m[0], it.L); m[2] = topTier(it.L).tier; } // uniques: inside the unique range
+      else m[1] = affixValue(m[0], tierLevel(t), rng.range(AFFIX_ROLL[0], AFFIX_ROLL[1]));
       text = `${AFFIXES[m[0]].text}: ${old} → ${m[1]}.`;
       break;
     }
@@ -141,6 +152,23 @@ export function applyEmber(rng: Rng, item: Item, ember: EmberId, idx: number | n
       }
       it.r = 2; it.name = rareName(rng);
       text = `Bound into a Rare: **${it.name}**.`;
+      break;
+    }
+    case 'crown': {
+      const m = rollAffix(rng, it.slot, it.L, rng.pick(freeGroups(it)), keysOf(it));
+      if (!m) return { ok: false, err: 'No affix fits this item any more.' };
+      // keep prefixes before suffixes (a corrupted extra affix stays where it is)
+      const at = AFFIXES[m[0]].group === 'prefix' ? it.imp + groupCount(it, 'prefix') : it.mods.length;
+      it.mods.splice(at, 0, m);
+      if (it.cm != null && it.cm >= at) it.cm++;
+      if (it.wax != null && it.wax >= at) it.wax++;
+      text = `A new affix is crowned: **${AFFIXES[m[0]].text}**.`;
+      break;
+    }
+    case 'ascend': {
+      const L = Math.max(it.L, Math.floor(level)), fresh = genUnique(rng, it.id, L, it.u!);
+      it.L = L; it.mods = fresh.mods; it.imp = fresh.imp; it.wax = undefined;
+      text = `**${it.name}** rises to item level ${L}, its values forged anew.`;
       break;
     }
     case 'wax':
@@ -215,17 +243,10 @@ export function gamblePrice(L: number, slot: Slot): number {
   const G = ECONOMY.gamble;
   return Math.round((G.base + G.perLevel * L + G.perLevelSq * L * L) * G.slotMult[slot]);
 }
-/** Unidentified item of the chosen slot. Small chance for a unique of that slot. */
+/** Unidentified item of the chosen slot (rarity from dropTables.gamble). Small chance for a unique of that slot and class. */
 export function gambleItem(rng: Rng, id: number, L: number, slot: Slot): Item {
-  const G = ECONOMY.gamble, uniques = Object.keys(UNIQUES).filter(u => UNIQUES[u].slot === slot && !UNIQUES[u].pinnacle);
-  let it: Item;
-  if (uniques.length && rng.chance(G.uniqueChance)) it = genUnique(rng, id, L, rng.pick(uniques));
-  else {
-    const w = G.rarityWeights;
-    let t = rng.next() * w.reduce((a, b) => a + b, 0), r = 0;
-    for (; r < w.length - 1; r++) { if (t < w[r]) break; t -= w[r]; }
-    it = genItemOf(rng, id, L, r, slot);
-  }
+  const r = Math.max(1, rollRarity(rng, 'gamble')), u = r === 3 ? pickUnique(rng, L, slot) : null;
+  const it = u ? genUnique(rng, id, L, u) : genItemOf(rng, id, L, Math.min(r, 2), slot);
   it.unid = true;
   return it;
 }
